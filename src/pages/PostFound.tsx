@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { PhotoUpload } from "@/components/PhotoUpload";
 
 const PostFound = () => {
   const { toast } = useToast();
@@ -29,7 +30,8 @@ const PostFound = () => {
     contactEmail: "",
     additionalInfo: ""
   });
-
+  
+  const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch categories from database
@@ -78,6 +80,7 @@ const PostFound = () => {
           contact_phone: formData.contactPhone,
           contact_email: formData.contactEmail,
           additional_info: formData.additionalInfo || null,
+          photos: photos.length > 0 ? photos : null,
           user_id: user.id
         });
 
@@ -215,14 +218,13 @@ const PostFound = () => {
                 />
               </div>
 
-              {/* Photo Upload Placeholder */}
+              {/* Photo Upload */}
               <div className="space-y-2">
-                <Label>Photo (Recommended)</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600">Click to upload a photo of the found item</p>
-                  <p className="text-sm text-gray-400">PNG, JPG up to 5MB</p>
-                </div>
+                <Label>Photos (Recommended)</Label>
+                <PhotoUpload 
+                  onPhotosChange={setPhotos}
+                  maxPhotos={3}
+                />
               </div>
 
               {/* Contact Information */}

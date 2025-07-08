@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { ItemDetailsDialog } from "@/components/ItemDetailsDialog";
 
 interface Item {
   id: string;
@@ -35,6 +36,8 @@ const Browse = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("active");
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -99,8 +102,8 @@ const Browse = () => {
             variant="outline" 
             size="sm"
             onClick={() => {
-              // Create a modal or dialog to show full item details
-              alert(`Item Details:\n\nTitle: ${item.title}\nDescription: ${item.description}\nLocation: ${item.location}\nContact: ${item.contact_name}\nPhone: ${item.contact_phone}\nEmail: ${item.contact_email}${item.reward ? `\nReward: ${item.reward}` : ''}`);
+              setSelectedItem(item);
+              setIsDialogOpen(true);
             }}
           >
             <Eye className="w-4 h-4 mr-1" />
@@ -243,6 +246,15 @@ const Browse = () => {
           </>
         )}
       </div>
+      
+      <ItemDetailsDialog 
+        item={selectedItem}
+        isOpen={isDialogOpen}
+        onClose={() => {
+          setIsDialogOpen(false);
+          setSelectedItem(null);
+        }}
+      />
     </div>
   );
 };
