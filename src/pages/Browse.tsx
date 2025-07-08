@@ -24,6 +24,10 @@ interface Item {
   created_at: string;
 }
 
+interface Category {
+  name: string;
+}
+
 const Browse = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -34,13 +38,13 @@ const Browse = () => {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('categories')
         .select('name')
         .order('name');
       
       if (error) throw error;
-      return data;
+      return data as Category[];
     }
   });
 
@@ -48,7 +52,7 @@ const Browse = () => {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['items', searchTerm, selectedCategory, selectedType, selectedStatus],
     queryFn: async () => {
-      let query = supabase
+      let query = (supabase as any)
         .from('items')
         .select('*')
         .eq('status', selectedStatus)

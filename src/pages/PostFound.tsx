@@ -36,7 +36,7 @@ const PostFound = () => {
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('categories')
         .select('name')
         .order('name');
@@ -65,7 +65,7 @@ const PostFound = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('items')
         .insert({
           title: formData.title,

@@ -15,7 +15,7 @@ const Index = () => {
   const { data: recentItems = [] } = useQuery({
     queryKey: ['recent-items'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('items')
         .select('*')
         .eq('status', 'active')
@@ -32,9 +32,9 @@ const Index = () => {
     queryKey: ['stats'],
     queryFn: async () => {
       const [lostItems, foundItems, returnedItems] = await Promise.all([
-        supabase.from('items').select('id', { count: 'exact' }).eq('item_type', 'lost').eq('status', 'active'),
-        supabase.from('items').select('id', { count: 'exact' }).eq('item_type', 'found').eq('status', 'active'),
-        supabase.from('items').select('id', { count: 'exact' }).eq('status', 'returned')
+        (supabase as any).from('items').select('id', { count: 'exact' }).eq('item_type', 'lost').eq('status', 'active'),
+        (supabase as any).from('items').select('id', { count: 'exact' }).eq('item_type', 'found').eq('status', 'active'),
+        (supabase as any).from('items').select('id', { count: 'exact' }).eq('status', 'returned')
       ]);
       
       return {
