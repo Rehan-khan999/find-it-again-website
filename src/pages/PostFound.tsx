@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, MapPin, Calendar, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 
 const PostFound = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -24,30 +30,75 @@ const PostFound = () => {
     additionalInfo: ""
   });
 
-  const categories = [
-    "Electronics",
-    "Personal Items",
-    "Pets",
-    "Jewelry",
-    "Documents",
-    "Keys",
-    "Bags",
-    "Clothing",
-    "Other"
-  ];
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch categories from database
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name')
+        .order('name');
+      
+      if (error) throw error;
+      return data;
+    }
+  });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the data to your backend
-    toast({
-      title: "Found item posted successfully!",
-      description: "Your listing is now live and the owner can contact you.",
-    });
-    console.log("Found item data:", formData);
+    
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to post a found item.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('items')
+        .insert({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          item_type: 'found',
+          date_lost_found: formData.date,
+          location: formData.location,
+          contact_name: formData.contactName,
+          contact_phone: formData.contactPhone,
+          contact_email: formData.contactEmail,
+          additional_info: formData.additionalInfo || null,
+          user_id: user.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Found item posted successfully!",
+        description: "Your listing is now live and the owner can contact you.",
+      });
+      
+      navigate('/browse');
+    } catch (error) {
+      console.error('Error posting found item:', error);
+      toast({
+        title: "Error posting item",
+        description: "There was an error posting your item. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -114,8 +165,8 @@ const PostFound = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
+                        <SelectItem key={category.name} value={category.name}>
+                          {category.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -217,8 +268,12 @@ const PostFound = () => {
               </div>
 
               <div className="flex space-x-4 pt-6">
-                <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
-                  Post Found Item
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Posting..." : "Post Found Item"}
                 </Button>
                 <Button type="button" variant="outline" className="px-8">
                   Preview
