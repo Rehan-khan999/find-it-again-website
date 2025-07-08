@@ -19,6 +19,8 @@ interface Item {
   date_lost_found: string;
   location: string;
   contact_name: string;
+  contact_phone: string;
+  contact_email: string;
   reward?: string;
   status: string;
   created_at: string;
@@ -93,7 +95,14 @@ const Browse = () => {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              // Create a modal or dialog to show full item details
+              alert(`Item Details:\n\nTitle: ${item.title}\nDescription: ${item.description}\nLocation: ${item.location}\nContact: ${item.contact_name}\nPhone: ${item.contact_phone}\nEmail: ${item.contact_email}${item.reward ? `\nReward: ${item.reward}` : ''}`);
+            }}
+          >
             <Eye className="w-4 h-4 mr-1" />
             View
           </Button>
