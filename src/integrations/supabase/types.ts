@@ -14,6 +14,179 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      items: {
+        Row: {
+          additional_info: string | null
+          category: string
+          contact_email: string
+          contact_name: string
+          contact_phone: string
+          created_at: string
+          date_lost_found: string
+          description: string
+          id: string
+          item_type: string
+          latitude: number | null
+          location: string
+          longitude: number | null
+          photos: Json | null
+          reward: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          verification_questions: Json | null
+        }
+        Insert: {
+          additional_info?: string | null
+          category: string
+          contact_email: string
+          contact_name: string
+          contact_phone: string
+          created_at?: string
+          date_lost_found: string
+          description: string
+          id?: string
+          item_type: string
+          latitude?: number | null
+          location: string
+          longitude?: number | null
+          photos?: Json | null
+          reward?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          verification_questions?: Json | null
+        }
+        Update: {
+          additional_info?: string | null
+          category?: string
+          contact_email?: string
+          contact_name?: string
+          contact_phone?: string
+          created_at?: string
+          date_lost_found?: string
+          description?: string
+          id?: string
+          item_type?: string
+          latitude?: number | null
+          location?: string
+          longitude?: number | null
+          photos?: Json | null
+          reward?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          verification_questions?: Json | null
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          created_at: string
+          found_item_id: string | null
+          id: string
+          lost_item_id: string | null
+          similarity_score: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          found_item_id?: string | null
+          id?: string
+          lost_item_id?: string | null
+          similarity_score?: number | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          found_item_id?: string | null
+          id?: string
+          lost_item_id?: string | null
+          similarity_score?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_found_item_id_fkey"
+            columns: ["found_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_lost_item_id_fkey"
+            columns: ["lost_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean | null
+          related_item_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean | null
+          related_item_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean | null
+          related_item_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
