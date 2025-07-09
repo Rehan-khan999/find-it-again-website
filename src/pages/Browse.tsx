@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Search, Filter, MapPin, Calendar, User, Tag, Eye } from "lucide-react";
+import { Search, Filter, MapPin, Calendar, User, Tag, Eye, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ItemDetailsDialog } from "@/components/ItemDetailsDialog";
+import { GoogleMap } from "@/components/GoogleMap";
 
 interface Item {
   id: string;
@@ -25,6 +26,8 @@ interface Item {
   reward?: string;
   status: string;
   created_at: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface Category {
@@ -38,6 +41,7 @@ const Browse = () => {
   const [selectedStatus, setSelectedStatus] = useState("active");
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -217,12 +221,32 @@ const Browse = () => {
               <p className="text-gray-600">
                 Found {items.length} item{items.length !== 1 ? 's' : ''}
               </p>
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-600">
-                  {selectedType !== 'all' && `${selectedType} items`}
-                  {selectedCategory !== 'all' && ` in ${selectedCategory}`}
-                </span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-600">
+                    {selectedType !== 'all' && `${selectedType} items`}
+                    {selectedCategory !== 'all' && ` in ${selectedCategory}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <Tag className="w-4 h-4 mr-1" />
+                    Grid
+                  </Button>
+                  <Button
+                    variant={viewMode === 'map' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('map')}
+                  >
+                    <Map className="w-4 h-4 mr-1" />
+                    Map
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -234,6 +258,27 @@ const Browse = () => {
                   <p className="text-gray-600">
                     Try adjusting your search criteria or check back later for new postings.
                   </p>
+                </CardContent>
+              </Card>
+            ) : viewMode === 'map' ? (
+              <Card>
+                <CardContent className="p-0">
+                  <GoogleMap
+                    center={{ lat: 40.7128, lng: -74.0060 }}
+                    zoom={12}
+                    markers={items
+                      .filter(item => item.latitude && item.longitude)
+                      .map(item => ({
+                        position: { lat: item.latitude!, lng: item.longitude! },
+                        title: item.title,
+                        type: item.item_type,
+                        onClick: () => {
+                          setSelectedItem(item);
+                          setIsDialogOpen(true);
+                        }
+                      }))}
+                    height="600px"
+                  />
                 </CardContent>
               </Card>
             ) : (

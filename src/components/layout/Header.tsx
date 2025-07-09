@@ -2,6 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/auth/UserMenu';
+import { NotificationSystem } from '@/components/NotificationSystem';
 import { useAuth } from '@/hooks/useAuth';
 import { Search, Plus } from 'lucide-react';
 
@@ -50,6 +51,7 @@ export const Header = () => {
                   <Plus className="h-4 w-4 mr-2" />
                   Post Item
                 </Button>
+                <NotificationSystem />
                 <UserMenu />
               </>
             ) : (

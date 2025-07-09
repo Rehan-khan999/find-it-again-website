@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
+import { GoogleMap } from "./GoogleMap";
 
 interface Item {
   id: string;
@@ -19,6 +20,8 @@ interface Item {
   status: string;
   created_at: string;
   photos?: string[];
+  latitude?: number;
+  longitude?: number;
 }
 
 interface ItemDetailsDialogProps {
@@ -102,6 +105,23 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
               </div>
             </div>
           </div>
+
+          {/* Location Map */}
+          {item.latitude && item.longitude && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-900">Location</h3>
+              <GoogleMap
+                center={{ lat: item.latitude, lng: item.longitude }}
+                zoom={15}
+                markers={[{
+                  position: { lat: item.latitude, lng: item.longitude },
+                  title: item.title,
+                  type: item.item_type
+                }]}
+                height="250px"
+              />
+            </div>
+          )}
 
           {/* Contact Information */}
           <div className="space-y-4">

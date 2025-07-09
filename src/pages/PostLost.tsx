@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { PhotoUpload } from "@/components/PhotoUpload";
+import { LocationSelector } from "@/components/LocationSelector";
 
 const PostLost = () => {
   const { toast } = useToast();
@@ -32,6 +33,7 @@ const PostLost = () => {
   });
   
   const [photos, setPhotos] = useState<string[]>([]);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch categories from database
@@ -50,6 +52,11 @@ const PostLost = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleLocationSelect = (location: { address: string; lat: number; lng: number }) => {
+    setFormData(prev => ({ ...prev, location: location.address }));
+    setCoordinates({ lat: location.lat, lng: location.lng });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,6 +83,8 @@ const PostLost = () => {
           item_type: 'lost',
           date_lost_found: formData.date,
           location: formData.location,
+          latitude: coordinates?.lat || null,
+          longitude: coordinates?.lng || null,
           contact_name: formData.contactName,
           contact_phone: formData.contactPhone,
           contact_email: formData.contactEmail,
@@ -192,20 +201,11 @@ const PostLost = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="location">Last Known Location *</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="location"
-                    placeholder="e.g., Central Park, Starbucks on 5th Avenue"
-                    value={formData.location}
-                    onChange={(e) => handleInputChange("location", e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+              <LocationSelector
+                onLocationSelect={handleLocationSelect}
+                initialLocation={formData.location}
+                initialCoords={coordinates}
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="reward">Reward (Optional)</Label>
