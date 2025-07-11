@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
+import { supabase } from '@/integrations/supabase/client';
 
 // Declare google maps types
 declare global {
@@ -60,8 +61,15 @@ export const GoogleMap = ({
   useEffect(() => {
     const initMap = async () => {
       try {
+        // Get the API key from Supabase secrets
+        const { data: secrets, error: secretError } = await supabase.functions.invoke('get-google-maps-key');
+        
+        if (secretError || !secrets?.key) {
+          throw new Error('Google Maps API key not configured');
+        }
+
         const loader = new Loader({
-          apiKey: 'AIzaSyC9rjO7F_4pqfJxB1GVQcHJT4kYtIJN3mY', // This should be from Supabase secrets
+          apiKey: secrets.key,
           version: 'weekly',
           libraries: ['places']
         });
