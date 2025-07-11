@@ -49,12 +49,12 @@ const PostFound = () => {
     verificationQuestions: [] as string[]
   });
 
-  const handleLocationSelect = (location: string, lat: number, lng: number) => {
+  const handleLocationSelect = (location: { address: string; lat: number; lng: number; }) => {
     setFormData(prev => ({
       ...prev,
-      location,
-      latitude: lat,
-      longitude: lng
+      location: location.address,
+      latitude: location.lat,
+      longitude: location.lng
     }));
   };
 
@@ -227,7 +227,6 @@ const PostFound = () => {
               </Label>
               <LocationSelector
                 onLocationSelect={handleLocationSelect}
-                placeholder="Enter the location where you found this item"
               />
             </div>
 
