@@ -61,20 +61,29 @@ export const GoogleMap = ({
   useEffect(() => {
     const initMap = async () => {
       try {
+        if (!mapRef.current) return;
+
         // Get the API key from Supabase secrets
         const { data: secrets, error: secretError } = await supabase.functions.invoke('get-google-maps-key');
         
-        if (secretError || !secrets?.key) {
-          throw new Error('Google Maps API key not configured');
+        if (secretError) {
+          console.error('Error fetching API key:', secretError);
+          setError('Failed to fetch Google Maps API key');
+          return;
+        }
+
+        if (!secrets?.key) {
+          setError('Google Maps API key not configured');
+          return;
         }
 
         const loader = new Loader({
           apiKey: secrets.key,
           version: 'weekly',
-          libraries: ['places']
+          libraries: ['places', 'geometry']
         });
 
-        await loader.load();
+        const google = await loader.load();
         
         if (!mapRef.current) return;
 
@@ -124,12 +133,12 @@ export const GoogleMap = ({
         setIsLoaded(true);
       } catch (err) {
         console.error('Error loading Google Maps:', err);
-        setError('Failed to load Google Maps');
+        setError(`Failed to load Google Maps: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     };
 
     initMap();
-  }, [center, zoom, onLocationSelect]);
+  }, [center.lat, center.lng, zoom, onLocationSelect]);
 
   // Update markers when they change
   useEffect(() => {
