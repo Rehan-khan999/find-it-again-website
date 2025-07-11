@@ -51,8 +51,24 @@ export const findPotentialMatches = async (itemId: string) => {
 
     if (matchError) throw matchError;
 
-    // Send notifications to users who might have matching items
+    // Create match records and send notifications
     for (const match of potentialMatches || []) {
+      // Create match record
+      const { error: matchRecordError } = await supabase
+        .from('matches')
+        .insert({
+          lost_item_id: currentItem.item_type === 'lost' ? currentItem.id : match.id,
+          found_item_id: currentItem.item_type === 'found' ? currentItem.id : match.id,
+          status: 'pending',
+          similarity_score: 0.8 // Basic scoring based on category match
+        });
+
+      if (matchRecordError) {
+        console.error('Error creating match record:', matchRecordError);
+        continue;
+      }
+
+      // Send notification
       await sendNotification({
         type: 'match',
         userId: match.user_id,

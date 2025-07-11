@@ -28,6 +28,8 @@ interface Item {
   created_at: string;
   latitude?: number;
   longitude?: number;
+  verification_questions?: string[];
+  user_id: string;
 }
 
 interface Category {

@@ -1,9 +1,12 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle } from "lucide-react";
+import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle, Flag } from "lucide-react";
 import { format } from "date-fns";
 import { GoogleMap } from "./GoogleMap";
+import { ClaimDialog } from "./ClaimDialog";
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Item {
   id: string;
@@ -22,6 +25,8 @@ interface Item {
   photos?: string[];
   latitude?: number;
   longitude?: number;
+  verification_questions?: string[];
+  user_id: string;
 }
 
 interface ItemDetailsDialogProps {
@@ -31,6 +36,9 @@ interface ItemDetailsDialogProps {
 }
 
 export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogProps) => {
+  const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
+  const { user } = useAuth();
+  
   if (!item) return null;
 
   const handleContact = (method: 'phone' | 'email') => {
@@ -40,6 +48,8 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
       window.open(`mailto:${item.contact_email}?subject=Regarding your ${item.item_type} item: ${item.title}`);
     }
   };
+
+  const canClaim = user && user.id !== item.user_id && item.status === 'active';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -152,6 +162,21 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
                   Email
                 </Button>
               </div>
+
+              {canClaim && (
+                <div className="mt-4 pt-4 border-t">
+                  <Button
+                    onClick={() => setIsClaimDialogOpen(true)}
+                    className="w-full flex items-center gap-2"
+                  >
+                    <Flag className="w-4 h-4" />
+                    Claim This Item
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Submit a claim if this is your {item.item_type} item
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -161,6 +186,12 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
           </div>
         </div>
       </DialogContent>
+      
+      <ClaimDialog
+        item={item}
+        isOpen={isClaimDialogOpen}
+        onClose={() => setIsClaimDialogOpen(false)}
+      />
     </Dialog>
   );
 };

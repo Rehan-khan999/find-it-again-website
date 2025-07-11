@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import PostLost from "./pages/PostLost";
 import PostFound from "./pages/PostFound";
 import Browse from "./pages/Browse";
+import Matches from "./pages/Matches";
+import Claims from "./pages/Claims";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
               <Route path="/post-lost" element={<PostLost />} />
               <Route path="/post-found" element={<PostFound />} />
               <Route path="/browse" element={<Browse />} />
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/claims" element={<Claims />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

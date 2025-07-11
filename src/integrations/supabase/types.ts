@@ -35,6 +35,50 @@ export type Database = {
         }
         Relationships: []
       }
+      claims: {
+        Row: {
+          claimant_id: string
+          created_at: string
+          id: string
+          item_id: string
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          verification_answers: Json | null
+        }
+        Insert: {
+          claimant_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          verification_answers?: Json | null
+        }
+        Update: {
+          claimant_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          verification_answers?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claims_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           additional_info: string | null
