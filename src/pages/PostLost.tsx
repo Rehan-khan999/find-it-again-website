@@ -1,62 +1,66 @@
 
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, MapPin, Calendar, Tag } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import { PhotoUpload } from "@/components/PhotoUpload";
-import { LocationSelector } from "@/components/LocationSelector";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LocationSelector } from '@/components/LocationSelector';
+import { PhotoUpload } from '@/components/PhotoUpload';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { CalendarIcon, MapPinIcon, ImageIcon, InfoIcon } from 'lucide-react';
+import { findPotentialMatches, notifyNearbyUsers } from '@/services/notificationService';
+
+const categories = [
+  'Electronics',
+  'Jewelry',
+  'Clothing',
+  'Keys',
+  'Documents',
+  'Bags',
+  'Sports Equipment',
+  'Books',
+  'Other'
+];
 
 const PostLost = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "",
-    location: "",
-    date: "",
-    contactName: "",
-    contactPhone: "",
-    contactEmail: "",
-    reward: ""
-  });
-  
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch categories from database
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('categories')
-        .select('name')
-        .order('name');
-      
-      if (error) throw error;
-      return data;
-    }
+    title: '',
+    description: '',
+    category: '',
+    dateLost: '',
+    location: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    contactName: '',
+    contactPhone: '',
+    contactEmail: '',
+    reward: '',
+    additionalInfo: '',
+    photos: [] as string[],
+    verificationQuestions: [] as string[]
   });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleLocationSelect = (location: string, lat: number, lng: number) => {
+    setFormData(prev => ({
+      ...prev,
+      location,
+      latitude: lat,
+      longitude: lng
+    }));
   };
 
-  const handleLocationSelect = (location: { address: string; lat: number; lng: number }) => {
-    setFormData(prev => ({ ...prev, location: location.address }));
-    setCoordinates({ lat: location.lat, lng: location.lng });
+  const handlePhotosChange = (urls: string[]) => {
+    setFormData(prev => ({ ...prev, photos: urls }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,234 +75,239 @@ const PostLost = () => {
       return;
     }
 
-    setIsSubmitting(true);
+    if (!formData.title || !formData.description || !formData.category || !formData.location) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      const { error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('items')
         .insert({
           title: formData.title,
           description: formData.description,
           category: formData.category,
           item_type: 'lost',
-          date_lost_found: formData.date,
+          date_lost_found: formData.dateLost,
           location: formData.location,
-          latitude: coordinates?.lat || null,
-          longitude: coordinates?.lng || null,
-          contact_name: formData.contactName,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          contact_name: formData.contactName || user.email?.split('@')[0] || 'Anonymous',
           contact_phone: formData.contactPhone,
-          contact_email: formData.contactEmail,
-          reward: formData.reward || null,
-          photos: photos.length > 0 ? photos : null,
+          contact_email: formData.contactEmail || user.email || '',
+          reward: formData.reward,
+          additional_info: formData.additionalInfo,
+          photos: formData.photos,
+          verification_questions: formData.verificationQuestions,
           user_id: user.id
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
+      // Send notifications for potential matches and nearby users
+      try {
+        await Promise.all([
+          findPotentialMatches(data.id),
+          notifyNearbyUsers(data.id)
+        ]);
+      } catch (notificationError) {
+        console.error('Error sending notifications:', notificationError);
+        // Don't fail the entire operation if notifications fail
+      }
+
       toast({
         title: "Lost item posted successfully!",
-        description: "Your listing is now live and people can help you find your item.",
+        description: "Your lost item has been posted and users with potential matches will be notified."
       });
-      
+
       navigate('/browse');
     } catch (error) {
       console.error('Error posting lost item:', error);
       toast({
         title: "Error posting item",
-        description: "There was an error posting your item. Please try again.",
+        description: "There was an error posting your lost item. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <Link to="/" className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Post a Lost Item</h1>
-          <p className="text-gray-600">Help others help you find your lost item</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center text-blue-600">
-              <Tag className="w-5 h-5 mr-2" />
-              Item Details
-            </CardTitle>
-            <CardDescription>
-              Provide as much detail as possible to help people identify your item
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="title">Item Title *</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g., iPhone 13 Pro, Brown Leather Wallet"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe your item in detail - color, size, distinctive features, brand, etc."
-                  value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.name} value={category.name}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date Lost *</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="date"
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => handleInputChange("date", e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <LocationSelector
-                onLocationSelect={handleLocationSelect}
-                initialLocation={formData.location}
-                initialCoords={coordinates}
-              />
-
-              <div className="space-y-2">
-                <Label htmlFor="reward">Reward (Optional)</Label>
-                <Input
-                  id="reward"
-                  placeholder="e.g., $50 reward for safe return"
-                  value={formData.reward}
-                  onChange={(e) => handleInputChange("reward", e.target.value)}
-                />
-              </div>
-
-              {/* Photo Upload */}
-              <div className="space-y-2">
-                <Label>Photos (Optional)</Label>
-                <PhotoUpload 
-                  onPhotosChange={setPhotos}
-                  maxPhotos={3}
-                />
-              </div>
-
-              {/* Contact Information */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contactName">Your Name *</Label>
-                    <Input
-                      id="contactName"
-                      placeholder="Full name"
-                      value={formData.contactName}
-                      onChange={(e) => handleInputChange("contactName", e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPhone">Phone Number *</Label>
-                      <Input
-                        id="contactPhone"
-                        placeholder="(555) 123-4567"
-                        value={formData.contactPhone}
-                        onChange={(e) => handleInputChange("contactPhone", e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactEmail">Email Address *</Label>
-                      <Input
-                        id="contactEmail"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={formData.contactEmail}
-                        onChange={(e) => handleInputChange("contactEmail", e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-4 pt-6">
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Posting..." : "Post Lost Item"}
-                </Button>
-                <Button type="button" variant="outline" className="px-8">
-                  Preview
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Tips Card */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-700">Tips for Better Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Include specific details like brand, model, color, and size</li>
-              <li>• Add photos if available - they significantly increase chances</li>
-              <li>• Be precise about the location where you lost the item</li>
-              <li>• Check back regularly for responses from the community</li>
-            </ul>
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-4">Sign In Required</h2>
+            <p className="text-gray-600 mb-4">Please sign in to post a lost item.</p>
+            <Button onClick={() => navigate('/auth')}>Sign In</Button>
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <InfoIcon className="h-6 w-6" />
+            Post Lost Item
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Item Title *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Blue iPhone 13"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Detailed description of the lost item..."
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="category">Category *</Label>
+                <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="dateLost" className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Date Lost
+                </Label>
+                <Input
+                  id="dateLost"
+                  type="date"
+                  value={formData.dateLost}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dateLost: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Location */}
+            <div>
+              <Label className="flex items-center gap-2 mb-2">
+                <MapPinIcon className="h-4 w-4" />
+                Location Where Lost *
+              </Label>
+              <LocationSelector
+                onLocationSelect={handleLocationSelect}
+                placeholder="Enter the location where you lost this item"
+              />
+            </div>
+
+            {/* Photos */}
+            <div>
+              <Label className="flex items-center gap-2 mb-2">
+                <ImageIcon className="h-4 w-4" />
+                Photos
+              </Label>
+              <PhotoUpload onPhotosChange={handlePhotosChange} />
+            </div>
+
+            {/* Contact Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Contact Information</h3>
+              
+              <div>
+                <Label htmlFor="contactName">Contact Name</Label>
+                <Input
+                  id="contactName"
+                  value={formData.contactName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contactName: e.target.value }))}
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="contactPhone">Phone Number</Label>
+                <Input
+                  id="contactPhone"
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contactPhone: e.target.value }))}
+                  placeholder="Your phone number"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="contactEmail">Email</Label>
+                <Input
+                  id="contactEmail"
+                  type="email"
+                  value={formData.contactEmail}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contactEmail: e.target.value }))}
+                  placeholder="Your email address"
+                />
+              </div>
+            </div>
+
+            {/* Additional Information */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="reward">Reward (Optional)</Label>
+                <Input
+                  id="reward"
+                  value={formData.reward}
+                  onChange={(e) => setFormData(prev => ({ ...prev, reward: e.target.value }))}
+                  placeholder="e.g., $50 reward"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="additionalInfo">Additional Information</Label>
+                <Textarea
+                  id="additionalInfo"
+                  value={formData.additionalInfo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
+                  placeholder="Any other relevant details..."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Posting...' : 'Post Lost Item'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };
