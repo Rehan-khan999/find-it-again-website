@@ -40,17 +40,30 @@ export const ClaimManagement = () => {
     queryFn: async () => {
       if (!user) return [];
 
+      // First get items owned by user, then get claims for those items
+      const { data: userItems, error: itemsError } = await supabase
+        .from('items')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (itemsError) throw itemsError;
+      
+      if (!userItems || userItems.length === 0) return [];
+      
+      const itemIds = userItems.map(item => item.id);
+
       const { data, error } = await supabase
         .from('claims')
         .select(`
           *,
-          items:item_id (
+          items!inner (
             title,
             item_type,
-            verification_questions
+            verification_questions,
+            user_id
           )
         `)
-        .eq('items.user_id', user.id)
+        .in('item_id', itemIds)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

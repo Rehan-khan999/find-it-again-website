@@ -34,7 +34,8 @@ const App = () => (
               <Route path="/post-found" element={<PostFound />} />
               <Route path="/browse" element={<Browse />} />
               <Route path="/matches" element={<Matches />} />
-              <Route path="/claims" element={<Claims />} />
+            <Route path="/claims" element={<Claims />} />
+            <Route path="/messages" element={<Messages />} />
               <Route path="/my-items" element={<MyItems />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
