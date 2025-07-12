@@ -5,6 +5,7 @@ import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle, Fla
 import { format } from "date-fns";
 import { GoogleMap } from "./GoogleMap";
 import { ClaimDialog } from "./ClaimDialog";
+import { ClaimStatus } from "./ClaimStatus";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -179,6 +180,9 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
               )}
             </div>
           </div>
+
+          {/* Claim Status */}
+          <ClaimStatus itemId={item.id} />
 
           {/* Posted Date */}
           <div className="pt-4 border-t text-xs text-gray-500">

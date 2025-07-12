@@ -13,6 +13,7 @@ import PostFound from "./pages/PostFound";
 import Browse from "./pages/Browse";
 import Matches from "./pages/Matches";
 import Claims from "./pages/Claims";
+import MyItems from "./pages/MyItems";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/browse" element={<Browse />} />
               <Route path="/matches" element={<Matches />} />
               <Route path="/claims" element={<Claims />} />
+              <Route path="/my-items" element={<MyItems />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -29,8 +29,11 @@ export const Header = () => {
             </Link>
             {user && (
               <>
-                <Link to="/matches" className="text-gray-600 hover:text-gray-900">
+                 <Link to="/matches" className="text-gray-600 hover:text-gray-900">
                   My Matches
+                </Link>
+                <Link to="/my-items" className="text-gray-600 hover:text-gray-900">
+                  My Items
                 </Link>
                 <Link to="/post-lost" className="text-gray-600 hover:text-gray-900">
                   Post Lost Item

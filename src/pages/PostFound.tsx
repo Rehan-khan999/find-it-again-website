@@ -12,7 +12,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, MapPinIcon, ImageIcon, CheckCircleIcon } from 'lucide-react';
+import { CalendarIcon, MapPinIcon, ImageIcon, CheckCircleIcon, PlusIcon, TrashIcon, HelpCircleIcon } from 'lucide-react';
 import { findPotentialMatches, notifyNearbyUsers } from '@/services/notificationService';
 
 const categories = [
@@ -48,6 +48,27 @@ const PostFound = () => {
     photos: [] as string[],
     verificationQuestions: [] as string[]
   });
+
+  const addVerificationQuestion = () => {
+    setFormData(prev => ({
+      ...prev,
+      verificationQuestions: [...prev.verificationQuestions, '']
+    }));
+  };
+
+  const updateVerificationQuestion = (index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      verificationQuestions: prev.verificationQuestions.map((q, i) => i === index ? value : q)
+    }));
+  };
+
+  const removeVerificationQuestion = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      verificationQuestions: prev.verificationQuestions.filter((_, i) => i !== index)
+    }));
+  };
 
   const handleLocationSelect = (location: { address: string; lat: number; lng: number; }) => {
     setFormData(prev => ({
@@ -273,6 +294,48 @@ const PostFound = () => {
                   placeholder="Your email address"
                 />
               </div>
+            </div>
+
+            {/* Verification Questions */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <HelpCircleIcon className="h-4 w-4" />
+                  Verification Questions (Optional)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addVerificationQuestion}
+                  className="flex items-center gap-1"
+                >
+                  <PlusIcon className="h-3 w-3" />
+                  Add Question
+                </Button>
+              </div>
+              <p className="text-sm text-gray-500">
+                Add questions to help verify the rightful owner of this item.
+              </p>
+              
+              {formData.verificationQuestions.map((question, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={question}
+                    onChange={(e) => updateVerificationQuestion(index, e.target.value)}
+                    placeholder={`Verification question ${index + 1}...`}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeVerificationQuestion(index)}
+                  >
+                    <TrashIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
             </div>
 
             {/* Additional Information */}
