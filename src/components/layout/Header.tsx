@@ -35,6 +35,12 @@ export const Header = () => {
                 <Link to="/my-items" className="text-gray-600 hover:text-gray-900">
                   My Items
                 </Link>
+                <Link to="/claims" className="text-gray-600 hover:text-gray-900">
+                  Claims
+                </Link>
+                <Link to="/messages" className="text-gray-600 hover:text-gray-900">
+                  Messages
+                </Link>
                 <Link to="/post-lost" className="text-gray-600 hover:text-gray-900">
                   Post Lost Item
                 </Link>
