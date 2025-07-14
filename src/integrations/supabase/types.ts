@@ -45,6 +45,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
+          updated_at: string
           verification_answers: Json | null
         }
         Insert: {
@@ -56,6 +57,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          updated_at?: string
           verification_answers?: Json | null
         }
         Update: {
@@ -67,6 +69,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          updated_at?: string
           verification_answers?: Json | null
         }
         Relationships: [
