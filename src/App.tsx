@@ -13,8 +13,8 @@ import PostFound from "./pages/PostFound";
 import Browse from "./pages/Browse";
 import Matches from "./pages/Matches";
 import Claims from "./pages/Claims";
-import Messages from "./pages/Messages";
 import MyItems from "./pages/MyItems";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
