@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { NotificationSystem } from '@/components/NotificationSystem';
 import { useAuth } from '@/hooks/useAuth';
-import { Search, Plus } from 'lucide-react';
+import { useAdmin } from '@/hooks/useAdmin';
+import { Search, Plus, Shield } from 'lucide-react';
 
 export const Header = () => {
   const { user } = useAuth();
+  const { isAdmin, isModerator } = useAdmin();
   const navigate = useNavigate();
 
   return (
@@ -47,6 +49,12 @@ export const Header = () => {
                 <Link to="/post-found" className="text-gray-600 hover:text-gray-900">
                   Post Found Item
                 </Link>
+                {(isAdmin || isModerator) && (
+                  <Link to="/admin" className="text-gray-600 hover:text-gray-900 flex items-center gap-1">
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </Link>
+                )}
               </>
             )}
           </nav>

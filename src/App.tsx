@@ -15,6 +15,7 @@ import Matches from "./pages/Matches";
 import Claims from "./pages/Claims";
 import MyItems from "./pages/MyItems";
 import Messages from "./pages/Messages";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/claims" element={<Claims />} />
             <Route path="/messages" element={<Messages />} />
               <Route path="/my-items" element={<MyItems />} />
+              <Route path="/admin" element={<Admin />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

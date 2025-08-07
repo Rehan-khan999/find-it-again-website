@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ReportDialog } from "./ReportDialog";
 import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle, Flag } from "lucide-react";
 import { format } from "date-fns";
 import { GoogleMap } from "./GoogleMap";
@@ -244,6 +245,15 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
                   </p>
                 </div>
               )}
+              
+              <Button
+                variant="outline"
+                onClick={() => setShowReportDialog(true)}
+                className="w-full flex items-center gap-2 mt-2"
+              >
+                <Flag className="w-4 h-4" />
+                Report Item
+              </Button>
             </div>
           </div>
 
@@ -261,6 +271,11 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
         item={item}
         isOpen={isClaimDialogOpen}
         onClose={() => setIsClaimDialogOpen(false)}
+      />
+      <ReportDialog 
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        itemId={item.id}
       />
     </Dialog>
   );
