@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Search, Filter, MapPin, Calendar, User, Tag, Eye, Map } from "lucide-react";
+import { Search, Filter, MapPin, Calendar, User, Tag, Eye, Map, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ItemDetailsDialog } from "@/components/ItemDetailsDialog";
 import { GoogleMap } from "@/components/GoogleMap";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface Item {
   id: string;
@@ -44,6 +47,9 @@ const Browse = () => {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -88,6 +94,53 @@ const Browse = () => {
     }
   });
 
+  const handleQuickContact = async (item: Item) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to send messages.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    if (user.id === item.user_id) {
+      toast({
+        title: "Cannot message yourself",
+        description: "You cannot send a message to yourself.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: user.id,
+          receiver_id: item.user_id,
+          content: `Hi! I'm interested in your ${item.item_type} item: "${item.title}". Could you please provide more details?`,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Message sent!",
+        description: "Your message has been sent. Check the Messages page to continue the conversation.",
+      });
+      
+      navigate('/messages');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const ItemCard = ({ item }: { item: Item }) => (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader>
@@ -104,17 +157,29 @@ const Browse = () => {
               )}
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => {
-              setSelectedItem(item);
-              setIsDialogOpen(true);
-            }}
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            View
-          </Button>
+          <div className="flex gap-2">
+            {user && user.id !== item.user_id && (
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => handleQuickContact(item)}
+              >
+                <MessageCircle className="w-4 h-4 mr-1" />
+                Contact
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setSelectedItem(item);
+                setIsDialogOpen(true);
+              }}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              View
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

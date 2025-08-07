@@ -8,6 +8,9 @@ import { ClaimDialog } from "./ClaimDialog";
 import { ClaimStatus } from "./ClaimStatus";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Item {
   id: string;
@@ -39,6 +42,8 @@ interface ItemDetailsDialogProps {
 export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogProps) => {
   const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
   if (!item) return null;
 
@@ -50,7 +55,57 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to send messages.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    if (user.id === item.user_id) {
+      toast({
+        title: "Cannot message yourself",
+        description: "You cannot send a message to yourself.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create a conversation by inserting a placeholder message
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: user.id,
+          receiver_id: item.user_id,
+          content: `Hi! I'm interested in your ${item.item_type} item: "${item.title}". Could you please provide more details?`,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Message sent!",
+        description: "Your message has been sent. Check the Messages page to continue the conversation.",
+      });
+      
+      navigate('/messages');
+      onClose();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const canClaim = user && user.id !== item.user_id && item.status === 'active';
+  const canMessage = user && user.id !== item.user_id;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -163,6 +218,17 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
                   Email
                 </Button>
               </div>
+
+              {canMessage && (
+                <Button
+                  onClick={handleSendMessage}
+                  className="w-full flex items-center gap-2 mt-2"
+                  variant="default"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Send Message
+                </Button>
+              )}
 
               {canClaim && (
                 <div className="mt-4 pt-4 border-t">

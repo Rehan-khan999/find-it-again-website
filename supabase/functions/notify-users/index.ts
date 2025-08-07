@@ -19,7 +19,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { error } = await supabase
+    const { data: notification, error } = await supabase
       .from('notifications')
       .insert({
         user_id: userId,
@@ -29,11 +29,13 @@ serve(async (req) => {
         related_item_id: relatedItemId || null,
         read: false
       })
+      .select()
+      .single()
 
     if (error) throw error
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, notification }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
