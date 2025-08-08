@@ -42,6 +42,7 @@ interface ItemDetailsDialogProps {
 
 export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogProps) => {
   const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
