@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReportDialog } from "./ReportDialog";
-import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle, Flag } from "lucide-react";
+import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle, Flag, QrCode } from "lucide-react";
 import { format } from "date-fns";
 import { GoogleMap } from "./GoogleMap";
 import { ClaimDialog } from "./ClaimDialog";
@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeTag } from "@/components/QRCodeTag";
 
 interface Item {
   id: string;
@@ -43,6 +44,7 @@ interface ItemDetailsDialogProps {
 export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogProps) => {
   const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -247,14 +249,24 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
                 </div>
               )}
               
-              <Button
-                variant="outline"
-                onClick={() => setShowReportDialog(true)}
-                className="w-full flex items-center gap-2 mt-2"
-              >
-                <Flag className="w-4 h-4" />
-                Report Item
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowReportDialog(true)}
+                  className="flex-1 flex items-center gap-2"
+                >
+                  <Flag className="w-4 h-4" />
+                  Report Item
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowQR(true)}
+                  className="flex-1 flex items-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Item QR Tag
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -278,6 +290,7 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
         onOpenChange={setShowReportDialog}
         itemId={item.id}
       />
+      <QRCodeTag open={showQR} onOpenChange={setShowQR} itemId={item.id} itemTitle={item.title} />
     </Dialog>
   );
 };

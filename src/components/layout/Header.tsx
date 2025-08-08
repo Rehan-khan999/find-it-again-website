@@ -6,11 +6,14 @@ import { NotificationSystem } from '@/components/NotificationSystem';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Search, Plus, Shield } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export const Header = () => {
   const { user } = useAuth();
   const { isAdmin, isModerator } = useAdmin();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <header className="bg-white shadow-sm border-b">
@@ -27,32 +30,32 @@ export const Header = () => {
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <Link to="/browse" className="text-gray-600 hover:text-gray-900">
-              Browse Items
+              {t('nav.browse')}
             </Link>
             {user && (
               <>
                  <Link to="/matches" className="text-gray-600 hover:text-gray-900">
-                  My Matches
+                  {t('nav.matches')}
                 </Link>
                 <Link to="/my-items" className="text-gray-600 hover:text-gray-900">
-                  My Items
+                  {t('nav.myItems')}
                 </Link>
                 <Link to="/claims" className="text-gray-600 hover:text-gray-900">
-                  Claims
+                  {t('nav.claims')}
                 </Link>
                 <Link to="/messages" className="text-gray-600 hover:text-gray-900">
-                  Messages
+                  {t('nav.messages')}
                 </Link>
                 <Link to="/post-lost" className="text-gray-600 hover:text-gray-900">
-                  Post Lost Item
+                  {t('nav.postLost')}
                 </Link>
                 <Link to="/post-found" className="text-gray-600 hover:text-gray-900">
-                  Post Found Item
+                  {t('nav.postFound')}
                 </Link>
                 {(isAdmin || isModerator) && (
                   <Link to="/admin" className="text-gray-600 hover:text-gray-900 flex items-center gap-1">
                     <Shield className="h-4 w-4" />
-                    Admin
+                    {t('nav.admin')}
                   </Link>
                 )}
               </>
@@ -61,6 +64,7 @@ export const Header = () => {
 
           {/* Auth Section */}
           <div className="flex items-center space-x-4">
+            <LanguageSwitcher />
             {user ? (
               <>
                 <Button
@@ -69,7 +73,7 @@ export const Header = () => {
                   className="hidden sm:inline-flex"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Post Item
+                  {t('buttons.postItem')}
                 </Button>
                 <NotificationSystem />
                 <UserMenu />
@@ -80,12 +84,12 @@ export const Header = () => {
                   variant="ghost"
                   onClick={() => navigate('/auth')}
                 >
-                  Sign In
+                  {t('buttons.signIn')}
                 </Button>
                 <Button
                   onClick={() => navigate('/auth')}
                 >
-                  Get Started
+                  {t('buttons.getStarted')}
                 </Button>
               </div>
             )}
