@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ItemDetailsDialog } from "@/components/ItemDetailsDialog";
-import { useState } from "react";
-import { Handshake, Eye, Clock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Handshake, Eye, Clock, Sparkles } from "lucide-react";
+import { computeImageSimilarity } from "@/services/imageSimilarity";
 
 interface Match {
   id: string;
@@ -34,6 +35,7 @@ interface Match {
     latitude?: number;
     longitude?: number;
     verification_questions?: string[];
+    photos?: string[];
   };
   found_item: {
     id: string;
@@ -53,6 +55,7 @@ interface Match {
     latitude?: number;
     longitude?: number;
     verification_questions?: string[];
+    photos?: string[];
   };
 }
 
@@ -60,6 +63,9 @@ const Matches = () => {
   const { user } = useAuth();
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiScores, setAiScores] = useState<Record<string, number>>({});
 
   // Fetch matches for items owned by the current user
   const { data: matches = [], isLoading } = useQuery({
@@ -110,10 +116,51 @@ const Matches = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Matches</h1>
           <p className="text-gray-600">Potential matches for your lost and found items</p>
         </div>
+
+        {matches.length > 0 && (
+          <div className="flex items-center justify-center mb-6 gap-3">
+            <Button
+              variant={aiEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={async () => {
+                if (aiEnabled) {
+                  setAiEnabled(false);
+                  return;
+                }
+                setAiLoading(true);
+                const scores: Record<string, number> = {};
+                try {
+                  for (const match of matches) {
+                    const userOwnedItem = match.lost_item?.user_id === user?.id ? match.lost_item : match.found_item;
+                    const matchedItem = match.lost_item?.user_id === user?.id ? match.found_item : match.lost_item;
+                    const a = userOwnedItem?.photos?.[0];
+                    const b = matchedItem?.photos?.[0];
+                    if (a && b) {
+                      const score = await computeImageSimilarity(a, b);
+                      scores[match.id] = score;
+                    }
+                  }
+                  setAiScores(scores);
+                  setAiEnabled(true);
+                } catch (e) {
+                  console.error('AI re-rank failed', e);
+                } finally {
+                  setAiLoading(false);
+                }
+              }}
+              disabled={aiLoading}
+              className="flex items-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              {aiLoading ? 'Analyzing images…' : (aiEnabled ? 'AI re-rank on' : 'AI re-rank (beta)')}
+            </Button>
+          </div>
+        )}
+
 
         {matches.length === 0 ? (
           <Card className="text-center py-12">
@@ -127,9 +174,10 @@ const Matches = () => {
           </Card>
         ) : (
           <div className="space-y-6">
-            {matches.map((match) => {
+            {(aiEnabled ? [...matches].sort((a, b) => (aiScores[b.id] ?? 0) - (aiScores[a.id] ?? 0)) : matches).map((match) => {
               const userOwnedItem = match.lost_item?.user_id === user?.id ? match.lost_item : match.found_item;
               const matchedItem = match.lost_item?.user_id === user?.id ? match.found_item : match.lost_item;
+              const aiScore = aiScores[match.id];
               
               return (
                 <Card key={match.id} className="hover:shadow-lg transition-shadow">
@@ -147,11 +195,15 @@ const Matches = () => {
                           <Clock className="w-3 h-3 mr-1" />
                           {match.status}
                         </Badge>
-                        {match.similarity_score && (
+                        {typeof aiScore === 'number' ? (
+                          <Badge variant="outline">
+                            AI {Math.round(aiScore * 100)}%
+                          </Badge>
+                        ) : match.similarity_score ? (
                           <Badge variant="outline">
                             {Math.round(match.similarity_score * 100)}% match
                           </Badge>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <p className="text-sm text-gray-600">
