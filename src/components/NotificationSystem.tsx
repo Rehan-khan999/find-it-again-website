@@ -25,6 +25,11 @@ export const NotificationSystem = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Push subscription state
+  const [pushSupported, setPushSupported] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [checkingPush, setCheckingPush] = useState(true);
+
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications', user?.id],
@@ -91,6 +96,69 @@ export const NotificationSystem = () => {
     };
   }, [user, queryClient, toast]);
 
+  // Push support check
+  useEffect(() => {
+    const run = async () => {
+      const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+      setPushSupported(supported);
+      if (!supported) { setCheckingPush(false); return; }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setSubscribed(!!sub);
+      } finally {
+        setCheckingPush(false);
+      }
+    };
+    run();
+  }, []);
+
+  const enablePush = async () => {
+    try {
+      if (!pushSupported) return;
+      if (Notification.permission !== 'granted') {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+      }
+      const { data, error } = await supabase.functions.invoke('get-push-config');
+      if (error) throw error;
+      const publicKey = data?.publicKey as string;
+      if (!publicKey) throw new Error('Missing VAPID public key');
+
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
+      const reg = await navigator.serviceWorker.ready;
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+
+      const subJson = subscription.toJSON() as any;
+      await supabase.from('push_subscriptions').upsert({
+        user_id: user!.id,
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys?.p256dh,
+        auth: subJson.keys?.auth,
+        device_info: { ua: navigator.userAgent },
+      }, { onConflict: 'endpoint' });
+
+      setSubscribed(true);
+      toast({ title: 'Push enabled', description: 'You will receive alerts even when the app is closed.' });
+    } catch (e: any) {
+      console.error('Enable push failed', e);
+      toast({ title: 'Push failed', description: e?.message || 'Could not enable push', variant: 'destructive' });
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const getNotificationIcon = (type: string) => {
@@ -151,6 +219,11 @@ export const NotificationSystem = () => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
+              {pushSupported && !subscribed && !checkingPush && (
+                <div className="mt-3">
+                  <Button size="sm" onClick={enablePush}>Enable push alerts</Button>
+                </div>
+              )}
             </div>
 
             {isLoading ? (

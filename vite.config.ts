@@ -14,6 +14,9 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       manifest: {
         name: 'FindIt - Lost & Found',
         short_name: 'FindIt',
@@ -35,6 +38,10 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 25 * 1024 * 1024, // 25 MiB
         globIgnores: ['**/*.wasm'],
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module',
       },
     }),
     mode === 'development' && componentTagger(),
