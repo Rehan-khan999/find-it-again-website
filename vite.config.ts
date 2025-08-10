@@ -30,7 +30,12 @@ export default defineConfig(({ mode }) => ({
             purpose: 'any maskable'
           }
         ]
-      }
+      },
+      // Fix build by allowing larger files and excluding heavy WASM from precache
+      workbox: {
+        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024, // 25 MiB
+        globIgnores: ['**/*.wasm'],
+      },
     }),
     mode === 'development' && componentTagger(),
   ].filter(Boolean),
