@@ -34,9 +34,13 @@ export default defineConfig(({ mode }) => ({
           }
         ]
       },
-      // Fix build by allowing larger files and excluding heavy WASM from precache
+      // PWA caching config: exclude heavy WASM and raise size limits for injectManifest
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB for JS chunks
+        globIgnores: ['**/*.wasm'],
+      },
       workbox: {
-        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024, // 25 MiB
+        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024, // 25 MiB (fallback if using generateSW)
         globIgnores: ['**/*.wasm'],
       },
       devOptions: {
