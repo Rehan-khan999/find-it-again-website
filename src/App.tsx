@@ -17,6 +17,8 @@ import MyItems from "./pages/MyItems";
 import Messages from "./pages/Messages";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import SuccessStories from "./pages/SuccessStories";
+import GuestPost from "./pages/GuestPost";
 
 const queryClient = new QueryClient();
 
@@ -27,7 +29,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-background">
             <Header />
             <Routes>
               <Route path="/" element={<Index />} />
@@ -36,10 +38,12 @@ const App = () => (
               <Route path="/post-found" element={<PostFound />} />
               <Route path="/browse" element={<Browse />} />
               <Route path="/matches" element={<Matches />} />
-            <Route path="/claims" element={<Claims />} />
-            <Route path="/messages" element={<Messages />} />
+              <Route path="/claims" element={<Claims />} />
+              <Route path="/messages" element={<Messages />} />
               <Route path="/my-items" element={<MyItems />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/success-stories" element={<SuccessStories />} />
+              <Route path="/guest-post/:type" element={<GuestPost />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

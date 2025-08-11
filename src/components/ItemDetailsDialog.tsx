@@ -109,7 +109,7 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
   };
 
   const canClaim = user && user.id !== item.user_id && item.status === 'active';
-  const canMessage = user && user.id !== item.user_id;
+  const canMessage = user && user.id !== item.user_id && item.user_id !== 'guest';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

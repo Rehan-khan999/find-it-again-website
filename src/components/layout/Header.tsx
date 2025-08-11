@@ -8,6 +8,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import { Search, Plus, Shield } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export const Header = () => {
   const { user } = useAuth();
@@ -31,6 +32,9 @@ export const Header = () => {
           <nav className="hidden md:flex items-center space-x-8">
             <Link to="/browse" className="text-gray-600 hover:text-gray-900">
               {t('nav.browse')}
+            </Link>
+            <Link to="/success-stories" className="text-gray-600 hover:text-gray-900">
+              Success Stories
             </Link>
             {user && (
               <>
@@ -65,6 +69,7 @@ export const Header = () => {
           {/* Auth Section */}
           <div className="flex items-center space-x-4">
             <LanguageSwitcher />
+            <ThemeToggle />
             {user ? (
               <>
                 <Button

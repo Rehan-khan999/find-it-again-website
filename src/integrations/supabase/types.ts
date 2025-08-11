@@ -82,6 +82,78 @@ export type Database = {
           },
         ]
       }
+      guest_submissions: {
+        Row: {
+          additional_info: string | null
+          category: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          date_lost_found: string | null
+          description: string
+          email: string
+          id: string
+          item_type: string
+          latitude: number | null
+          location: string
+          longitude: number | null
+          photos: string[] | null
+          published_item_id: string | null
+          reward: string | null
+          status: string
+          title: string
+          token: string
+          verification_questions: string[] | null
+        }
+        Insert: {
+          additional_info?: string | null
+          category: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          date_lost_found?: string | null
+          description: string
+          email: string
+          id?: string
+          item_type: string
+          latitude?: number | null
+          location: string
+          longitude?: number | null
+          photos?: string[] | null
+          published_item_id?: string | null
+          reward?: string | null
+          status?: string
+          title: string
+          token: string
+          verification_questions?: string[] | null
+        }
+        Update: {
+          additional_info?: string | null
+          category?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          date_lost_found?: string | null
+          description?: string
+          email?: string
+          id?: string
+          item_type?: string
+          latitude?: number | null
+          location?: string
+          longitude?: number | null
+          photos?: string[] | null
+          published_item_id?: string | null
+          reward?: string | null
+          status?: string
+          title?: string
+          token?: string
+          verification_questions?: string[] | null
+        }
+        Relationships: []
+      }
       items: {
         Row: {
           additional_info: string | null

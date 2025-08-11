@@ -167,9 +167,12 @@ const PostLost = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <h2 className="text-xl font-semibold mb-4">Sign In Required</h2>
-            <p className="text-gray-600 mb-4">Please sign in to post a lost item.</p>
-            <Button onClick={() => navigate('/auth')}>Sign In</Button>
+            <h2 className="text-xl font-semibold mb-4">Sign In or Post as Guest</h2>
+            <p className="text-gray-600 mb-4">You can sign in or submit a guest post with email verification.</p>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={() => navigate('/auth')}>Sign In</Button>
+              <Button onClick={() => navigate('/guest-post/lost')}>Post as Guest</Button>
+            </div>
           </CardContent>
         </Card>
       </div>

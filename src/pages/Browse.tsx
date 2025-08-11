@@ -65,32 +65,55 @@ const Browse = () => {
     }
   });
 
-  // Fetch items with filters
+  // Fetch items and published guest submissions
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['items', searchTerm, selectedCategory, selectedType, selectedStatus],
     queryFn: async () => {
-      let query = (supabase as any)
+      // Base items
+      let itemsQuery = (supabase as any)
         .from('items')
         .select('*')
         .eq('status', selectedStatus)
         .order('created_at', { ascending: false });
 
-      if (selectedCategory !== 'all') {
-        query = query.eq('category', selectedCategory);
-      }
+      if (selectedCategory !== 'all') itemsQuery = itemsQuery.eq('category', selectedCategory);
+      if (selectedType !== 'all') itemsQuery = itemsQuery.eq('item_type', selectedType);
+      if (searchTerm) itemsQuery = itemsQuery.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`);
 
-      if (selectedType !== 'all') {
-        query = query.eq('item_type', selectedType);
-      }
+      const [{ data: coreItems, error: itemsErr }, { data: guestItems, error: guestErr }] = await Promise.all([
+        itemsQuery,
+        (supabase as any)
+          .from('guest_submissions')
+          .select('*')
+          .eq('status', 'published')
+          .order('created_at', { ascending: false })
+      ]);
 
-      if (searchTerm) {
-        query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`);
-      }
+      if (itemsErr) throw itemsErr;
+      if (guestErr) throw guestErr;
 
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      return data as Item[];
+      const mappedGuest = (guestItems || []).map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        category: g.category,
+        item_type: g.item_type,
+        date_lost_found: g.date_lost_found,
+        location: g.location,
+        contact_name: g.contact_name || 'Guest',
+        contact_phone: g.contact_phone || '',
+        contact_email: g.contact_email || g.email,
+        reward: g.reward || undefined,
+        status: 'active',
+        created_at: g.created_at,
+        latitude: g.latitude || undefined,
+        longitude: g.longitude || undefined,
+        verification_questions: g.verification_questions || [],
+        user_id: 'guest',
+        photos: g.photos || [],
+      }));
+
+      return ([...(coreItems || []), ...mappedGuest]) as Item[];
     }
   });
 
@@ -158,7 +181,7 @@ const Browse = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            {user && user.id !== item.user_id && (
+            {user && user.id !== item.user_id && item.user_id !== 'guest' && (
               <Button 
                 variant="default" 
                 size="sm"

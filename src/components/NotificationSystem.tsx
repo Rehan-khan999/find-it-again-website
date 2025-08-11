@@ -122,7 +122,12 @@ export const NotificationSystem = () => {
       }
       const { data, error } = await supabase.functions.invoke('get-push-config');
       if (error) throw error;
-      const publicKey = data?.publicKey as string;
+      let publicKey = (data?.publicKey as string) || '';
+
+      // Fallback to embedded public VAPID key if server secret is not configured yet
+      if (!publicKey) {
+        publicKey = 'BIJY8zL7m8VxFf7O1Amrh8XKEq4EJvqK3CZl0S9ommWHZqkbfGoaYAT6vw9Vd3ytYBqAa0D0rjRCYiAUqux7lMQ';
+      }
       if (!publicKey) throw new Error('Missing VAPID public key');
 
       const urlBase64ToUint8Array = (base64String: string) => {

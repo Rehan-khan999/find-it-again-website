@@ -1,1 +1,7 @@
 project_id = "dmarkaigzovaqwpigtxe"
+
+[functions.guest-submit]
+verify_jwt = false
+
+[functions.guest-verify]
+verify_jwt = false
