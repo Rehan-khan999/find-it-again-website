@@ -3,6 +3,14 @@
   - Handles web push notifications
 */
 
+// Workbox precache injection for injectManifest
+import { precacheAndRoute } from 'workbox-precaching';
+import { clientsClaim } from 'workbox-core';
+
+self.skipWaiting();
+clientsClaim();
+precacheAndRoute(self.__WB_MANIFEST || []);
+
 self.addEventListener('push', (event) => {
   try {
     const data = event.data ? (() => {
