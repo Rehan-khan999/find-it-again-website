@@ -31,6 +31,8 @@ export const NotificationSystem = () => {
   const [subscribed, setSubscribed] = useState(false);
   const [checkingPush, setCheckingPush] = useState(true);
   const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission>(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const isEmbedded = typeof window !== 'undefined' && window.top !== window.self;
 
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({
@@ -104,6 +106,7 @@ export const NotificationSystem = () => {
       try {
         const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         setPushSupported(supported);
+        setPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default');
         
         if (!supported) {
           setCheckingPush(false);
@@ -113,6 +116,17 @@ export const NotificationSystem = () => {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
         setSubscribed(!!subscription);
+
+        // Watch permission changes if supported
+        try {
+          const status = await navigator.permissions?.query({ name: 'notifications' as PermissionName });
+          if (status) {
+            setPermission(status.state as NotificationPermission);
+            status.onchange = () => setPermission(status.state as NotificationPermission);
+          }
+        } catch {
+          // no-op
+        }
       } catch (error) {
         console.error('Error checking push support:', error);
         setPushSupported(false);
@@ -134,20 +148,39 @@ export const NotificationSystem = () => {
       return;
     }
 
+    if (isEmbedded) {
+      toast({
+        title: 'Open in a new tab',
+        description: 'Browsers block notification prompts inside embedded views. Open the app in a new tab and try again.',
+      });
+      window.open(window.location.href, '_blank');
+      return;
+    }
+
+    // If previously blocked, inform user and exit
+    if (Notification.permission === 'denied') {
+      toast({
+        title: 'Notifications are blocked',
+        description: 'Enable notifications in your browser site settings, then try again.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setIsEnablingPush(true);
 
     try {
       // Request notification permission
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
+      const permissionResult = await Notification.requestPermission();
+      setPermission(permissionResult);
+      if (permissionResult !== 'granted') {
         toast({
-          title: 'Permission denied',
-          description: 'Please allow notifications to receive push alerts.',
+          title: 'Permission required',
+          description: 'Please allow notifications in the browser prompt to enable push alerts.',
           variant: 'destructive'
         });
         return;
       }
-
       // Get VAPID public key
       let publicKey = 'BIJY8zL7m8VxFf7O1Amrh8XKEq4EJvqK3CZl0S9ommWHZqkbfGoaYAT6vw9Vd3ytYBqAa0D0rjRCYiAUqux7lMQ';
       
@@ -294,7 +327,32 @@ export const NotificationSystem = () => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              {pushSupported && !subscribed && !checkingPush && (
+              {isEmbedded && (
+                <div className="mt-3 text-sm">
+                  <p className="text-gray-600">
+                    Notifications cannot be enabled inside the preview. Open the app in a new tab.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => window.open(window.location.href, '_blank')}>
+                    Open full app
+                  </Button>
+                </div>
+              )}
+              {pushSupported && permission === 'denied' && !checkingPush && (
+                <div className="mt-3 text-sm">
+                  <p className="text-gray-600">
+                    Notifications are blocked in your browser. Enable them in Site settings, then retry.
+                  </p>
+                  <a
+                    href="https://support.google.com/chrome/answer/3220216?hl=en"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline text-blue-600 text-xs mt-1 inline-block"
+                  >
+                    How to enable notifications
+                  </a>
+                </div>
+              )}
+              {pushSupported && !isEmbedded && !subscribed && !checkingPush && permission !== 'denied' && (
                 <div className="mt-3">
                   <Button 
                     size="sm" 
