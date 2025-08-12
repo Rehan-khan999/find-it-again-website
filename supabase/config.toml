@@ -5,3 +5,7 @@ verify_jwt = false
 
 [functions.guest-verify]
 verify_jwt = false
+
+[functions.get-push-config]
+verify_jwt = false
+
