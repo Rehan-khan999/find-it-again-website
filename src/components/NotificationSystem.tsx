@@ -147,12 +147,29 @@ export const NotificationSystem = () => {
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
+      // Try to capture current location for geo-targeted alerts (best-effort)
+      let lat: number | null = null;
+      let lng: number | null = null;
+      if ('geolocation' in navigator) {
+        try {
+          const pos: GeolocationPosition = await new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000 })
+          );
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+        } catch {
+          // ignore if denied or failed
+        }
+      }
+
       const subJson = subscription.toJSON() as any;
       await supabase.from('push_subscriptions').upsert({
         user_id: user!.id,
         endpoint: subJson.endpoint,
         p256dh: subJson.keys?.p256dh,
         auth: subJson.keys?.auth,
+        lat,
+        lng,
         device_info: { ua: navigator.userAgent },
       }, { onConflict: 'endpoint' });
 
