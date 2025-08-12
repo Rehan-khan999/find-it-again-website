@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { Bell, X, Check, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,6 +30,7 @@ export const NotificationSystem = () => {
   const [pushSupported, setPushSupported] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [checkingPush, setCheckingPush] = useState(true);
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
 
   // Fetch notifications
   const { data: notifications = [], isLoading } = useQuery({
@@ -98,38 +100,67 @@ export const NotificationSystem = () => {
 
   // Push support check
   useEffect(() => {
-    const run = async () => {
-      const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-      setPushSupported(supported);
-      if (!supported) { setCheckingPush(false); return; }
+    const checkPushSupport = async () => {
       try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        setSubscribed(!!sub);
+        const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        setPushSupported(supported);
+        
+        if (!supported) {
+          setCheckingPush(false);
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        setSubscribed(!!subscription);
+      } catch (error) {
+        console.error('Error checking push support:', error);
+        setPushSupported(false);
       } finally {
         setCheckingPush(false);
       }
     };
-    run();
+
+    checkPushSupport();
   }, []);
 
   const enablePush = async () => {
+    if (!pushSupported || !user) {
+      toast({
+        title: 'Push notifications not supported',
+        description: 'Your browser does not support push notifications.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsEnablingPush(true);
+
     try {
-      if (!pushSupported) return;
-      if (Notification.permission !== 'granted') {
-        const perm = await Notification.requestPermission();
-        if (perm !== 'granted') return;
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        toast({
+          title: 'Permission denied',
+          description: 'Please allow notifications to receive push alerts.',
+          variant: 'destructive'
+        });
+        return;
       }
-      const { data, error } = await supabase.functions.invoke('get-push-config');
-      if (error) throw error;
-      let publicKey = (data?.publicKey as string) || '';
 
-      // Fallback to embedded public VAPID key if server secret is not configured yet
-      if (!publicKey) {
-        publicKey = 'BIJY8zL7m8VxFf7O1Amrh8XKEq4EJvqK3CZl0S9ommWHZqkbfGoaYAT6vw9Vd3ytYBqAa0D0rjRCYiAUqux7lMQ';
+      // Get VAPID public key
+      let publicKey = 'BIJY8zL7m8VxFf7O1Amrh8XKEq4EJvqK3CZl0S9ommWHZqkbfGoaYAT6vw9Vd3ytYBqAa0D0rjRCYiAUqux7lMQ';
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('get-push-config');
+        if (!error && data?.publicKey) {
+          publicKey = data.publicKey;
+        }
+      } catch (error) {
+        console.log('Using fallback VAPID key');
       }
-      if (!publicKey) throw new Error('Missing VAPID public key');
 
+      // Convert VAPID key
       const urlBase64ToUint8Array = (base64String: string) => {
         const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
         const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -141,43 +172,66 @@ export const NotificationSystem = () => {
         return outputArray;
       };
 
-      const reg = await navigator.serviceWorker.ready;
-      const subscription = await reg.pushManager.subscribe({
+      // Subscribe to push notifications
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
-      // Try to capture current location for geo-targeted alerts (best-effort)
+      // Get location (optional)
       let lat: number | null = null;
       let lng: number | null = null;
+      
       if ('geolocation' in navigator) {
         try {
-          const pos: GeolocationPosition = await new Promise((resolve, reject) =>
-            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000 })
-          );
-          lat = pos.coords.latitude;
-          lng = pos.coords.longitude;
-        } catch {
-          // ignore if denied or failed
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 8000,
+              maximumAge: 300000
+            });
+          });
+          lat = position.coords.latitude;
+          lng = position.coords.longitude;
+        } catch (error) {
+          console.log('Geolocation not available or denied');
         }
       }
 
-      const subJson = subscription.toJSON() as any;
-      await supabase.from('push_subscriptions').upsert({
-        user_id: user!.id,
-        endpoint: subJson.endpoint,
-        p256dh: subJson.keys?.p256dh,
-        auth: subJson.keys?.auth,
+      // Save subscription to database
+      const subscriptionJson = subscription.toJSON();
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id: user.id,
+        endpoint: subscriptionJson.endpoint!,
+        p256dh: subscriptionJson.keys?.p256dh!,
+        auth: subscriptionJson.keys?.auth!,
         lat,
         lng,
-        device_info: { ua: navigator.userAgent },
-      }, { onConflict: 'endpoint' });
+        device_info: { userAgent: navigator.userAgent },
+      }, { 
+        onConflict: 'endpoint' 
+      });
+
+      if (error) {
+        throw error;
+      }
 
       setSubscribed(true);
-      toast({ title: 'Push enabled', description: 'You will receive alerts even when the app is closed.' });
-    } catch (e: any) {
-      console.error('Enable push failed', e);
-      toast({ title: 'Push failed', description: e?.message || 'Could not enable push', variant: 'destructive' });
+      toast({
+        title: 'Push notifications enabled!',
+        description: 'You will now receive alerts even when the app is closed.',
+      });
+
+    } catch (error: any) {
+      console.error('Error enabling push notifications:', error);
+      toast({
+        title: 'Failed to enable push notifications',
+        description: error.message || 'Something went wrong. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsEnablingPush(false);
     }
   };
 
@@ -201,7 +255,6 @@ export const NotificationSystem = () => {
     
     // Navigate to related item if exists
     if (notification.related_item_id) {
-      // This would navigate to the item details
       console.log('Navigate to item:', notification.related_item_id);
     }
   };
@@ -243,7 +296,23 @@ export const NotificationSystem = () => {
               </div>
               {pushSupported && !subscribed && !checkingPush && (
                 <div className="mt-3">
-                  <Button size="sm" onClick={enablePush}>Enable push alerts</Button>
+                  <Button 
+                    size="sm" 
+                    onClick={enablePush}
+                    disabled={isEnablingPush}
+                  >
+                    {isEnablingPush ? 'Enabling...' : 'Enable push alerts'}
+                  </Button>
+                </div>
+              )}
+              {subscribed && (
+                <div className="mt-3 text-sm text-green-600">
+                  Push notifications enabled ✓
+                </div>
+              )}
+              {!pushSupported && !checkingPush && (
+                <div className="mt-3 text-sm text-gray-500">
+                  Push notifications not supported
                 </div>
               )}
             </div>
