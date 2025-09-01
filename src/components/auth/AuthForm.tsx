@@ -18,8 +18,7 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
   
   const { signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
@@ -64,12 +63,20 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setResetLoading(true);
 
     try {
-      const { error } = await resetPassword(resetEmail);
+      const { error } = await resetPassword(email);
       if (error) {
         toast({
           title: "Password reset failed",
@@ -79,10 +86,8 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
       } else {
         toast({
           title: "Check your email",
-          description: "We've sent you a password reset link."
+          description: `We've sent a password reset link to ${email}`
         });
-        setShowForgotPassword(false);
-        setResetEmail('');
       }
     } catch (error) {
       toast({
@@ -91,55 +96,9 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setResetLoading(false);
     }
   };
-
-  if (showForgotPassword) {
-    return (
-      <div className="w-full max-w-md mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Reset Password</h1>
-            <p className="text-gray-600 mt-2">
-              Enter your email to receive a password reset link
-            </p>
-          </div>
-
-          <form onSubmit={handleForgotPassword} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="resetEmail">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  id="resetEmail"
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setShowForgotPassword(false)}
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Back to Sign In
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -230,10 +189,11 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
           {mode === 'login' && (
             <p className="text-sm">
               <button
-                onClick={() => setShowForgotPassword(true)}
-                className="text-blue-600 hover:text-blue-800 font-medium"
+                onClick={handleForgotPassword}
+                disabled={resetLoading || !email.trim()}
+                className="text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
               >
-                Forgot your password?
+                {resetLoading ? 'Sending reset link...' : 'Forgot your password?'}
               </button>
             </p>
           )}
