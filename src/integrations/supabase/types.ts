@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -471,6 +471,51 @@ export type Database = {
         }
         Relationships: []
       }
+      verifications: {
+        Row: {
+          block_number: number | null
+          blockchain_hash: string | null
+          created_at: string
+          id: string
+          item_id: string
+          status: string
+          transaction_hash: string | null
+          updated_at: string
+          user_id: string
+          verification_data: Json | null
+          verification_type: string
+          verified_at: string | null
+        }
+        Insert: {
+          block_number?: number | null
+          blockchain_hash?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          status?: string
+          transaction_hash?: string | null
+          updated_at?: string
+          user_id: string
+          verification_data?: Json | null
+          verification_type?: string
+          verified_at?: string | null
+        }
+        Update: {
+          block_number?: number | null
+          blockchain_hash?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          status?: string
+          transaction_hash?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_data?: Json | null
+          verification_type?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -479,18 +524,18 @@ export type Database = {
       get_conversations: {
         Args: { p_user_id: string }
         Returns: {
-          other_user_id: string
-          user_name: string
-          user_email: string
           last_message: string
           last_message_time: string
+          other_user_id: string
           unread_count: number
+          user_email: string
+          user_name: string
         }[]
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }

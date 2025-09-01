@@ -18,8 +18,10 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
   
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,6 +63,83 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await resetPassword(resetEmail);
+      if (error) {
+        toast({
+          title: "Password reset failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Check your email",
+          description: "We've sent you a password reset link."
+        });
+        setShowForgotPassword(false);
+        setResetEmail('');
+      }
+    } catch (error) {
+      toast({
+        title: "An error occurred",
+        description: "Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (showForgotPassword) {
+    return (
+      <div className="w-full max-w-md mx-auto">
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Reset Password</h1>
+            <p className="text-gray-600 mt-2">
+              Enter your email to receive a password reset link
+            </p>
+          </div>
+
+          <form onSubmit={handleForgotPassword} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="resetEmail">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="resetEmail"
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setShowForgotPassword(false)}
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Back to Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -147,7 +226,17 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
           </Button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-2">
+          {mode === 'login' && (
+            <p className="text-sm">
+              <button
+                onClick={() => setShowForgotPassword(true)}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Forgot your password?
+              </button>
+            </p>
+          )}
           <p className="text-sm text-gray-600">
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button

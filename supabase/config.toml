@@ -9,3 +9,9 @@ verify_jwt = false
 [functions.get-push-config]
 verify_jwt = false
 
+[functions.blockchain-verify]
+verify_jwt = true
+
+[functions.notify-users]
+verify_jwt = false
+
