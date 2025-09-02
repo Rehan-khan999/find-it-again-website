@@ -69,8 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetPassword = async (email: string) => {
-    // Use the preview URL instead of localhost to avoid connection issues
-    const redirectUrl = `https://dmarkaigzovaqwpigtxe.lovableproject.com/reset-password`;
+    const redirectUrl = `${window.location.origin}/reset-password`;
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
