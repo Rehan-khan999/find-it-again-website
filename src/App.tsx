@@ -19,6 +19,7 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import SuccessStories from "./pages/SuccessStories";
 import GuestPost from "./pages/GuestPost";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/post-lost" element={<PostLost />} />
               <Route path="/post-found" element={<PostFound />} />
               <Route path="/browse" element={<Browse />} />
