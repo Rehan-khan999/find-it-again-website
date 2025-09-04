@@ -24,12 +24,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
         
         // Handle password recovery
         if (event === 'PASSWORD_RECOVERY') {
+          console.log('Password recovery event detected');
           // Use navigate instead of window.location for better routing
           setTimeout(() => {
             window.location.pathname = '/reset-password';
@@ -50,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
+    console.log('SignUp redirectUrl:', redirectUrl);
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -77,7 +80,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetPassword = async (email: string) => {
+    console.log('Reset password for:', email);
+    console.log('Current origin:', window.location.origin);
+    
     const { error } = await supabase.auth.resetPasswordForEmail(email);
+    console.log('Reset password result:', error);
     return { error };
   };
 

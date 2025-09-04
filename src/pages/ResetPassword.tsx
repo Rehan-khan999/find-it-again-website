@@ -21,12 +21,19 @@ const ResetPassword = () => {
   const { session } = useAuth();
 
   useEffect(() => {
+    console.log('ResetPassword component mounted');
+    console.log('Current URL:', window.location.href);
+    console.log('Hash:', window.location.hash);
+    console.log('Session user:', session?.user?.email);
+    
     // Check if we have access_token in URL params or session for password recovery
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const hasAccessToken = hashParams.get('access_token');
+    console.log('Access token from hash:', hasAccessToken ? 'Present' : 'Not found');
     
     // Only redirect if we don't have session AND no access token in URL
     if (!session?.user && !hasAccessToken) {
+      console.log('No session and no access token, redirecting to auth');
       toast({
         title: "Invalid reset link",
         description: "Please request a new password reset link.",
