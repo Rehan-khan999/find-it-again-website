@@ -30,8 +30,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Handle password recovery
         if (event === 'PASSWORD_RECOVERY') {
-          // Redirect to reset password page when recovery event is triggered
-          window.location.href = '/reset-password';
+          // Use navigate instead of window.location for better routing
+          setTimeout(() => {
+            window.location.pathname = '/reset-password';
+          }, 100);
         }
       }
     );

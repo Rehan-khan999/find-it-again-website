@@ -21,10 +21,14 @@ const ResetPassword = () => {
   const { session } = useAuth();
 
   useEffect(() => {
-    // Check if user is authenticated for password reset
-    if (!session?.user) {
+    // Check if we have access_token in URL params or session for password recovery
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const hasAccessToken = hashParams.get('access_token');
+    
+    // Only redirect if we don't have session AND no access token in URL
+    if (!session?.user && !hasAccessToken) {
       toast({
-        title: "Session expired",
+        title: "Invalid reset link",
         description: "Please request a new password reset link.",
         variant: "destructive"
       });
