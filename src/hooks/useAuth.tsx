@@ -69,7 +69,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://dmarkaigzovaqwpigtxe.lovableproject.com/reset-password'
+    });
     return { error };
   };
 

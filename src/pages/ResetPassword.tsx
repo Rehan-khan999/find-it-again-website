@@ -20,30 +20,36 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Handle auth tokens from URL parameters
+    // Handle auth tokens from URL parameters for password reset
     const accessToken = searchParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token');
     const type = searchParams.get('type');
     
-    if (type === 'recovery' && accessToken && refreshToken) {
+    console.log('Reset password URL params:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
+    
+    if (accessToken && refreshToken) {
       // Set the session with the tokens from the URL
       supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken
       }).then(({ error }) => {
         if (error) {
+          console.error('Session error:', error);
           toast({
             title: "Invalid reset link",
             description: "This password reset link is invalid or has expired.",
             variant: "destructive"
           });
           navigate('/auth');
+        } else {
+          console.log('Session set successfully for password reset');
         }
       });
-    } else if (type === 'recovery') {
+    } else {
+      // No valid tokens found
       toast({
-        title: "Invalid reset link",
-        description: "This password reset link is invalid or has expired.",
+        title: "Invalid reset link", 
+        description: "This password reset link is missing required parameters.",
         variant: "destructive"
       });
       navigate('/auth');
