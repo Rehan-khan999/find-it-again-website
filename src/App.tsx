@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import Index from "./pages/Index";
@@ -25,36 +25,34 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          
-            <div className="min-h-screen bg-background">
-              <Header />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/post-lost" element={<PostLost />} />
-                <Route path="/post-found" element={<PostFound />} />
-                <Route path="/browse" element={<Browse />} />
-                <Route path="/matches" element={<Matches />} />
-                <Route path="/claims" element={<Claims />} />
-                <Route path="/messages" element={<Messages />} />
-                <Route path="/my-items" element={<MyItems />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/success-stories" element={<SuccessStories />} />
-                <Route path="/guest-post/:type" element={<GuestPost />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-          
-        </TooltipProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        
+          <div className="min-h-screen bg-background">
+            <Header />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/post-lost" element={<PostLost />} />
+              <Route path="/post-found" element={<PostFound />} />
+              <Route path="/browse" element={<Browse />} />
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/claims" element={<Claims />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/my-items" element={<MyItems />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/success-stories" element={<SuccessStories />} />
+              <Route path="/guest-post/:type" element={<GuestPost />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
