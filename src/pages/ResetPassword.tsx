@@ -26,14 +26,16 @@ const ResetPassword = () => {
     console.log('Hash:', window.location.hash);
     console.log('Session user:', session?.user?.email);
     
-    // Check if we have access_token in URL params or session for password recovery
+    // Check if we have access_token in URL params for password recovery
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const hasAccessToken = hashParams.get('access_token');
+    const sessionType = hashParams.get('type');
     console.log('Access token from hash:', hasAccessToken ? 'Present' : 'Not found');
+    console.log('Session type:', sessionType);
     
-    // Only redirect if we don't have session AND no access token in URL
-    if (!session?.user && !hasAccessToken) {
-      console.log('No session and no access token, redirecting to auth');
+    // Only redirect if we don't have access token for password recovery
+    if (!hasAccessToken || sessionType !== 'recovery') {
+      console.log('No valid password recovery token, redirecting to auth');
       toast({
         title: "Invalid reset link",
         description: "Please request a new password reset link.",
@@ -41,7 +43,7 @@ const ResetPassword = () => {
       });
       navigate('/auth');
     }
-  }, [session, navigate, toast]);
+  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

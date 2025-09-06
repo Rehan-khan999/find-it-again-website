@@ -25,17 +25,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state change:', event, session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
         
-        // Handle password recovery
+        // Handle password recovery - don't set session for normal login
         if (event === 'PASSWORD_RECOVERY') {
           console.log('Password recovery event detected');
-          // Use navigate instead of window.location for better routing
+          setSession(session); // Keep session for password update
+          setUser(session?.user ?? null);
+          setLoading(false);
           setTimeout(() => {
             window.location.pathname = '/reset-password';
           }, 100);
+        } else {
+          // Normal auth events
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
         }
       }
     );
