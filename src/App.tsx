@@ -23,40 +23,36 @@ import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  console.log('App component rendering');
-  
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          
-          <div className="min-h-screen bg-background">
-            <Header />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/post-lost" element={<PostLost />} />
-              <Route path="/post-found" element={<PostFound />} />
-              <Route path="/browse" element={<Browse />} />
-              <Route path="/matches" element={<Matches />} />
-              <Route path="/claims" element={<Claims />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/my-items" element={<MyItems />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/success-stories" element={<SuccessStories />} />
-              <Route path="/guest-post/:type" element={<GuestPost />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </div>
-          
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        
+        <div className="min-h-screen bg-background">
+          <Header />
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/post-lost" element={<PostLost />} />
+            <Route path="/post-found" element={<PostFound />} />
+            <Route path="/browse" element={<Browse />} />
+            <Route path="/matches" element={<Matches />} />
+            <Route path="/claims" element={<Claims />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/my-items" element={<MyItems />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/success-stories" element={<SuccessStories />} />
+            <Route path="/guest-post/:type" element={<GuestPost />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
+        
+      </TooltipProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
 
 export default App;
