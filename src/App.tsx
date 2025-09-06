@@ -23,13 +23,16 @@ import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        
+const App = () => {
+  console.log('App component rendering');
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          
           <div className="min-h-screen bg-background">
             <Header />
             <Routes>
@@ -46,14 +49,14 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/success-stories" element={<SuccessStories />} />
               <Route path="/guest-post/:type" element={<GuestPost />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
-        
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+          
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

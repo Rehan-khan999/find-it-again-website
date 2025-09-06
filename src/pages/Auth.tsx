@@ -5,12 +5,16 @@ import { AuthForm } from '@/components/auth/AuthForm';
 import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
+  console.log('Auth component rendering');
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
+  console.log('Auth state - user:', user?.email, 'loading:', loading);
+
   useEffect(() => {
     if (user && !loading) {
+      console.log('User authenticated, navigating to home');
       navigate('/');
     }
   }, [user, loading, navigate]);
