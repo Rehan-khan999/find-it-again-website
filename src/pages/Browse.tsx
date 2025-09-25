@@ -14,6 +14,7 @@ import { GoogleMap } from "@/components/GoogleMap";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from 'react-i18next';
 
 interface Item {
   id: string;
@@ -50,6 +51,7 @@ const Browse = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -171,37 +173,37 @@ const Browse = () => {
           <div className="flex-1">
             <CardTitle className="text-lg mb-2">{item.title}</CardTitle>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant={item.item_type === 'lost' ? 'destructive' : 'default'}>
-                {item.item_type === 'lost' ? 'LOST' : 'FOUND'}
-              </Badge>
-              <Badge variant="outline">{item.category}</Badge>
-              {item.reward && (
-                <Badge variant="secondary">Reward: {item.reward}</Badge>
-              )}
+                  <Badge variant={item.item_type === 'lost' ? 'destructive' : 'default'}>
+                    {item.item_type === 'lost' ? 'LOST' : 'FOUND'}
+                  </Badge>
+                  <Badge variant="outline">{item.category}</Badge>
+                  {item.reward && (
+                    <Badge variant="secondary">{t('labels.reward')}{item.reward}</Badge>
+                  )}
             </div>
           </div>
           <div className="flex gap-2">
             {user && user.id !== item.user_id && item.user_id !== 'guest' && (
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => handleQuickContact(item)}
-              >
-                <MessageCircle className="w-4 h-4 mr-1" />
-                Contact
-              </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => handleQuickContact(item)}
+                >
+                  <MessageCircle className="w-4 h-4 mr-1" />
+                  {t('buttons.contact')}
+                </Button>
             )}
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                setSelectedItem(item);
-                setIsDialogOpen(true);
-              }}
-            >
-              <Eye className="w-4 h-4 mr-1" />
-              View
-            </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setSelectedItem(item);
+                  setIsDialogOpen(true);
+                }}
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                {t('buttons.view')}
+              </Button>
           </div>
         </div>
       </CardHeader>
@@ -210,7 +212,7 @@ const Browse = () => {
           {item.description}
         </CardDescription>
         
-        <div className="space-y-2 text-sm text-gray-600">
+        <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4" />
             <span>{item.location}</span>
@@ -218,19 +220,19 @@ const Browse = () => {
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             <span>
-              {item.item_type === 'lost' ? 'Lost on: ' : 'Found on: '}
+              {item.item_type === 'lost' ? t('labels.lostOn') : t('labels.foundOn')}
               {format(new Date(item.date_lost_found), 'MMM dd, yyyy')}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <User className="w-4 h-4" />
-            <span>Contact: {item.contact_name}</span>
+            <span>{t('labels.contact')}{item.contact_name}</span>
           </div>
         </div>
         
         <div className="mt-4 pt-4 border-t">
-          <p className="text-xs text-gray-500">
-            Posted {format(new Date(item.created_at), 'MMM dd, yyyy')}
+          <p className="text-xs text-muted-foreground">
+            {t('labels.posted')}{format(new Date(item.created_at), 'MMM dd, yyyy')}
           </p>
         </div>
       </CardContent>
@@ -238,12 +240,12 @@ const Browse = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Lost & Found Items</h1>
-          <p className="text-gray-600">Help reunite people with their belongings</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">{t('labels.browseLostFound')}</h1>
+          <p className="text-muted-foreground">{t('labels.helpReunite')}</p>
         </div>
 
         {/* Search and Filters */}
@@ -251,9 +253,9 @@ const Browse = () => {
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
-                  placeholder="Search items, locations..."
+                  placeholder={t('labels.searchItems')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -262,21 +264,21 @@ const Browse = () => {
               
               <Select value={selectedType} onValueChange={setSelectedType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Item type" />
+                  <SelectValue placeholder={t('labels.itemType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="lost">Lost Items</SelectItem>
-                  <SelectItem value="found">Found Items</SelectItem>
+                  <SelectItem value="all">{t('labels.allTypes')}</SelectItem>
+                  <SelectItem value="lost">{t('labels.lostItems')}</SelectItem>
+                  <SelectItem value="found">{t('labels.foundItems')}</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Category" />
+                  <SelectValue placeholder={t('labels.category')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t('labels.allCategories')}</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.name} value={category.name}>
                       {category.name}
@@ -287,13 +289,13 @@ const Browse = () => {
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder={t('labels.status')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="matched">Matched</SelectItem>
-                  <SelectItem value="returned">Returned</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
+                  <SelectItem value="active">{t('labels.active')}</SelectItem>
+                  <SelectItem value="matched">{t('labels.matched')}</SelectItem>
+                  <SelectItem value="returned">{t('labels.returned')}</SelectItem>
+                  <SelectItem value="closed">{t('labels.closed')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -303,18 +305,18 @@ const Browse = () => {
         {/* Results */}
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between mb-6">
-              <p className="text-gray-600">
-                Found {items.length} item{items.length !== 1 ? 's' : ''}
+              <p className="text-muted-foreground">
+                {t('labels.found')} {items.length} item{items.length !== 1 ? 's' : ''}
               </p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">
+                  <Filter className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
                     {selectedType !== 'all' && `${selectedType} items`}
                     {selectedCategory !== 'all' && ` in ${selectedCategory}`}
                   </span>
@@ -326,7 +328,7 @@ const Browse = () => {
                     onClick={() => setViewMode('grid')}
                   >
                     <Tag className="w-4 h-4 mr-1" />
-                    Grid
+                    {t('buttons.grid')}
                   </Button>
                   <Button
                     variant={viewMode === 'map' ? 'default' : 'outline'}
@@ -334,7 +336,7 @@ const Browse = () => {
                     onClick={() => setViewMode('map')}
                   >
                     <Map className="w-4 h-4 mr-1" />
-                    Map
+                    {t('buttons.map')}
                   </Button>
                 </div>
               </div>
@@ -343,10 +345,10 @@ const Browse = () => {
             {items.length === 0 ? (
               <Card className="text-center py-12">
                 <CardContent>
-                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No items found</h3>
-                  <p className="text-gray-600">
-                    Try adjusting your search criteria or check back later for new postings.
+                  <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">{t('labels.noItemsFound')}</h3>
+                  <p className="text-muted-foreground">
+                    {t('labels.tryAdjusting')}
                   </p>
                 </CardContent>
               </Card>
