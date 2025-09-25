@@ -17,47 +17,47 @@ export const Header = () => {
   const { t } = useTranslation();
 
   return (
-    <header className="bg-white shadow-sm border-b">
+    <header className="glass-effect shadow-soft border-b border-border/50 sticky top-0 z-50 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-blue-600 text-white p-2 rounded-lg">
+          <Link to="/" className="flex items-center space-x-3 group">
+            <div className="bg-gradient-to-br from-primary to-accent text-primary-foreground p-2 rounded-xl shadow-soft group-hover:shadow-glow transition-all duration-300 group-hover:scale-110">
               <Search className="h-6 w-6" />
             </div>
-            <span className="text-xl font-bold text-gray-900">FindIt</span>
+            <span className="text-2xl font-display font-bold text-gradient">FindIt</span>
           </Link>
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/browse" className="text-gray-600 hover:text-gray-900">
+            <Link to="/browse" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
               {t('nav.browse')}
             </Link>
-            <Link to="/success-stories" className="text-gray-600 hover:text-gray-900">
+            <Link to="/success-stories" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
               Success Stories
             </Link>
             {user && (
               <>
-                 <Link to="/matches" className="text-gray-600 hover:text-gray-900">
+                 <Link to="/matches" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
                   {t('nav.matches')}
                 </Link>
-                <Link to="/my-items" className="text-gray-600 hover:text-gray-900">
+                <Link to="/my-items" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
                   {t('nav.myItems')}
                 </Link>
-                <Link to="/claims" className="text-gray-600 hover:text-gray-900">
+                <Link to="/claims" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
                   {t('nav.claims')}
                 </Link>
-                <Link to="/messages" className="text-gray-600 hover:text-gray-900">
+                <Link to="/messages" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
                   {t('nav.messages')}
                 </Link>
-                <Link to="/post-lost" className="text-gray-600 hover:text-gray-900">
+                <Link to="/post-lost" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
                   {t('nav.postLost')}
                 </Link>
-                <Link to="/post-found" className="text-gray-600 hover:text-gray-900">
+                <Link to="/post-found" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium">
                   {t('nav.postFound')}
                 </Link>
                 {(isAdmin || isModerator) && (
-                  <Link to="/admin" className="text-gray-600 hover:text-gray-900 flex items-center gap-1">
+                  <Link to="/admin" className="text-muted-foreground hover:text-primary transition-colors duration-200 font-medium flex items-center gap-1">
                     <Shield className="h-4 w-4" />
                     {t('nav.admin')}
                   </Link>
@@ -75,7 +75,7 @@ export const Header = () => {
                 <Button
                   onClick={() => navigate('/post-lost')}
                   size="sm"
-                  className="hidden sm:inline-flex"
+                  className="hidden sm:inline-flex shadow-soft hover:shadow-elegant transition-all duration-300 font-medium"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {t('buttons.postItem')}
@@ -84,15 +84,17 @@ export const Header = () => {
                 <UserMenu />
               </>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <Button
                   variant="ghost"
                   onClick={() => navigate('/auth')}
+                  className="font-medium hover:bg-muted/50 transition-colors duration-200"
                 >
                   {t('buttons.signIn')}
                 </Button>
                 <Button
                   onClick={() => navigate('/auth')}
+                  className="shadow-soft hover:shadow-elegant transition-all duration-300 font-medium"
                 >
                   {t('buttons.getStarted')}
                 </Button>
