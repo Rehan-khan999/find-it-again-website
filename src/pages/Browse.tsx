@@ -167,18 +167,18 @@ const Browse = () => {
   };
 
   const ItemCard = ({ item }: { item: Item }) => (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="glass-card border border-primary/20 hover-lift group">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="text-lg mb-2">{item.title}</CardTitle>
+            <CardTitle className="text-lg mb-2 font-cyber group-hover:text-neon transition-colors">{item.title}</CardTitle>
             <div className="flex items-center gap-2 mb-2">
-                  <Badge variant={item.item_type === 'lost' ? 'destructive' : 'default'}>
+                  <Badge variant={item.item_type === 'lost' ? 'destructive' : 'default'} className="font-cyber shadow-soft">
                     {item.item_type === 'lost' ? 'LOST' : 'FOUND'}
                   </Badge>
-                  <Badge variant="outline">{item.category}</Badge>
+                  <Badge variant="outline" className="border-primary/30 font-cyber">{item.category}</Badge>
                   {item.reward && (
-                    <Badge variant="secondary">{t('labels.reward')}{item.reward}</Badge>
+                    <Badge variant="secondary" className="font-cyber">{t('labels.reward')}{item.reward}</Badge>
                   )}
             </div>
           </div>
@@ -188,6 +188,7 @@ const Browse = () => {
                   variant="default" 
                   size="sm"
                   onClick={() => handleQuickContact(item)}
+                  className="btn-cyber hover-glow font-cyber font-semibold"
                 >
                   <MessageCircle className="w-4 h-4 mr-1" />
                   {t('buttons.contact')}
@@ -200,6 +201,7 @@ const Browse = () => {
                   setSelectedItem(item);
                   setIsDialogOpen(true);
                 }}
+                className="glass-effect border-primary/30 hover-glow font-cyber font-semibold"
               >
                 <Eye className="w-4 h-4 mr-1" />
                 {t('buttons.view')}
@@ -208,30 +210,30 @@ const Browse = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <CardDescription className="mb-4 line-clamp-3">
+        <CardDescription className="mb-4 line-clamp-3 group-hover:text-foreground transition-colors">
           {item.description}
         </CardDescription>
         
-        <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="space-y-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
+            <MapPin className="w-4 h-4 text-primary" />
             <span>{item.location}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-4 h-4 text-primary" />
             <span>
               {item.item_type === 'lost' ? t('labels.lostOn') : t('labels.foundOn')}
               {format(new Date(item.date_lost_found), 'MMM dd, yyyy')}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <User className="w-4 h-4" />
+            <User className="w-4 h-4 text-primary" />
             <span>{t('labels.contact')}{item.contact_name}</span>
           </div>
         </div>
         
-        <div className="mt-4 pt-4 border-t">
-          <p className="text-xs text-muted-foreground">
+        <div className="mt-4 pt-4 border-t border-primary/20">
+          <p className="text-xs text-muted-foreground font-cyber">
             {t('labels.posted')}{format(new Date(item.created_at), 'MMM dd, yyyy')}
           </p>
         </div>
@@ -240,33 +242,35 @@ const Browse = () => {
   );
 
   return (
-    <div className="min-h-screen bg-muted/50">
+    <div className="min-h-screen glass-effect">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">{t('labels.browseLostFound')}</h1>
-          <p className="text-muted-foreground">{t('labels.helpReunite')}</p>
+        <div className="text-center mb-8 animate-fade-in">
+          <h1 className="text-4xl md:text-5xl font-cyber font-bold mb-4">
+            <span className="text-gradient">Browse</span> <span className="text-neon">Lost & Found</span>
+          </h1>
+          <p className="text-xl text-muted-foreground">{t('labels.helpReunite')}</p>
         </div>
 
         {/* Search and Filters */}
-        <Card className="mb-8">
+        <Card className="mb-8 glass-card border border-primary/20 shadow-cyber">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary w-4 h-4" />
                 <Input
                   placeholder={t('labels.searchItems')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 glass-effect border-primary/30 font-cyber"
                 />
               </div>
               
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger>
+                <SelectTrigger className="glass-effect border-primary/30 font-cyber">
                   <SelectValue placeholder={t('labels.itemType')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="glass-effect border-primary/30">
                   <SelectItem value="all">{t('labels.allTypes')}</SelectItem>
                   <SelectItem value="lost">{t('labels.lostItems')}</SelectItem>
                   <SelectItem value="found">{t('labels.foundItems')}</SelectItem>
@@ -274,10 +278,10 @@ const Browse = () => {
               </Select>
 
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
+                <SelectTrigger className="glass-effect border-primary/30 font-cyber">
                   <SelectValue placeholder={t('labels.category')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="glass-effect border-primary/30">
                   <SelectItem value="all">{t('labels.allCategories')}</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.name} value={category.name}>
@@ -288,10 +292,10 @@ const Browse = () => {
               </Select>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="glass-effect border-primary/30 font-cyber">
                   <SelectValue placeholder={t('labels.status')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="glass-effect border-primary/30">
                   <SelectItem value="active">{t('labels.active')}</SelectItem>
                   <SelectItem value="matched">{t('labels.matched')}</SelectItem>
                   <SelectItem value="returned">{t('labels.returned')}</SelectItem>
@@ -305,18 +309,21 @@ const Browse = () => {
         {/* Results */}
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-primary/20"></div>
+            </div>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-muted-foreground">
-                {t('labels.found')} {items.length} item{items.length !== 1 ? 's' : ''}
+            <div className="flex items-center justify-between mb-6 animate-fade-in">
+              <p className="text-muted-foreground font-cyber">
+                {t('labels.found')} <span className="text-neon font-bold">{items.length}</span> item{items.length !== 1 ? 's' : ''}
               </p>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
+                  <Filter className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-muted-foreground font-cyber">
                     {selectedType !== 'all' && `${selectedType} items`}
                     {selectedCategory !== 'all' && ` in ${selectedCategory}`}
                   </span>
@@ -326,6 +333,7 @@ const Browse = () => {
                     variant={viewMode === 'grid' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setViewMode('grid')}
+                    className="font-cyber hover-glow"
                   >
                     <Tag className="w-4 h-4 mr-1" />
                     {t('buttons.grid')}
@@ -334,6 +342,7 @@ const Browse = () => {
                     variant={viewMode === 'map' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setViewMode('map')}
+                    className="font-cyber hover-glow"
                   >
                     <Map className="w-4 h-4 mr-1" />
                     {t('buttons.map')}
@@ -343,17 +352,17 @@ const Browse = () => {
             </div>
 
             {items.length === 0 ? (
-              <Card className="text-center py-12">
+              <Card className="text-center py-12 glass-card border border-primary/20">
                 <CardContent>
-                  <Tag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">{t('labels.noItemsFound')}</h3>
-                  <p className="text-muted-foreground">
+                  <Tag className="w-12 h-12 text-primary mx-auto mb-4 animate-float" />
+                  <h3 className="text-lg font-cyber font-semibold text-foreground mb-2">{t('labels.noItemsFound')}</h3>
+                  <p className="text-muted-foreground font-cyber">
                     {t('labels.tryAdjusting')}
                   </p>
                 </CardContent>
               </Card>
             ) : viewMode === 'map' ? (
-              <Card>
+              <Card className="glass-card border border-primary/20">
                 <CardContent className="p-0">
                   <GoogleMap
                     center={{ lat: 40.7128, lng: -74.0060 }}
@@ -374,9 +383,11 @@ const Browse = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {items.map((item) => (
-                  <ItemCard key={item.id} item={item} />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+                {items.map((item, index) => (
+                  <div key={item.id} style={{ animationDelay: `${index * 100}ms` }}>
+                    <ItemCard item={item} />
+                  </div>
                 ))}
               </div>
             )}
