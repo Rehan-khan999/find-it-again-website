@@ -17,47 +17,37 @@ export const Header = () => {
   const { t } = useTranslation();
 
   return (
-    <header className="glass-effect shadow-cyber border-b border-primary/20 sticky top-0 z-50 backdrop-blur-3xl">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md shadow-soft">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="bg-gradient-to-br from-primary to-accent text-primary-foreground p-2 rounded-xl shadow-cyber group-hover:shadow-neon transition-all duration-300 group-hover:scale-110 animate-pulse-glow">
-              <Search className="h-6 w-6" />
+          <Link to="/" className="flex items-center space-x-2 group">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform">
+              <Search className="h-5 w-5 text-white" />
             </div>
-            <span className="text-2xl font-cyber font-black text-gradient">FindIt</span>
+            <span className="text-2xl font-display font-bold tracking-tight">
+              Find<span className="text-gradient">It</span>
+            </span>
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/browse" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
+          <nav className="hidden md:flex items-center space-x-6">
+            <Link to="/browse" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
               {t('nav.browse')}
-            </Link>
-            <Link to="/success-stories" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
-              Success Stories
             </Link>
             {user && (
               <>
-                 <Link to="/matches" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
-                  {t('nav.matches')}
-                </Link>
-                <Link to="/my-items" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
+                <Link to="/my-items" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                   {t('nav.myItems')}
                 </Link>
-                <Link to="/claims" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
-                  {t('nav.claims')}
+                <Link to="/matches" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
+                  {t('nav.matches')}
                 </Link>
-                <Link to="/messages" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
+                <Link to="/messages" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                   {t('nav.messages')}
                 </Link>
-                <Link to="/post-lost" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
-                  {t('nav.postLost')}
-                </Link>
-                <Link to="/post-found" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon">
-                  {t('nav.postFound')}
-                </Link>
                 {(isAdmin || isModerator) && (
-                  <Link to="/admin" className="text-muted-foreground hover:text-neon transition-colors duration-200 font-cyber font-semibold hover-neon flex items-center gap-1">
+                  <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors font-medium flex items-center gap-1">
                     <Shield className="h-4 w-4" />
                     {t('nav.admin')}
                   </Link>
@@ -67,7 +57,7 @@ export const Header = () => {
           </nav>
 
           {/* Auth Section */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <LanguageSwitcher />
             <ThemeToggle />
             {user ? (
@@ -75,7 +65,7 @@ export const Header = () => {
                 <Button
                   onClick={() => navigate('/post-lost')}
                   size="sm"
-                  className="hidden sm:inline-flex btn-cyber font-cyber font-semibold hover-lift"
+                  className="hidden sm:inline-flex btn-modern font-medium hover-lift"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {t('buttons.postItem')}
@@ -84,21 +74,12 @@ export const Header = () => {
                 <UserMenu />
               </>
             ) : (
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/auth')}
-                  className="font-cyber font-semibold hover:bg-primary/10 hover:text-neon transition-all duration-200"
-                >
-                  {t('buttons.signIn')}
-                </Button>
-                <Button
-                  onClick={() => navigate('/auth')}
-                  className="btn-cyber font-cyber font-semibold hover-lift"
-                >
-                  {t('buttons.getStarted')}
-                </Button>
-              </div>
+              <Button
+                onClick={() => navigate('/auth')}
+                className="btn-modern font-medium hover-lift"
+              >
+                {t('buttons.getStarted')}
+              </Button>
             )}
           </div>
         </div>

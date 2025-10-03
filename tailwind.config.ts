@@ -20,8 +20,7 @@ export default {
 		extend: {
 			fontFamily: {
 				sans: ['Inter', 'system-ui', 'sans-serif'],
-				display: ['Orbitron', 'Inter', 'system-ui', 'sans-serif'],
-				cyber: ['Orbitron', 'monospace'],
+				display: ['Poppins', 'Inter', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
