@@ -22,7 +22,7 @@ export const Header = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 group">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-soft group-hover:scale-105 transition-transform logo-glow">
               <Search className="h-5 w-5 text-white" />
             </div>
             <span className="text-2xl font-display font-bold tracking-tight">
@@ -42,6 +42,9 @@ export const Header = () => {
                 </Link>
                 <Link to="/matches" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                   {t('nav.matches')}
+                </Link>
+                <Link to="/claims" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
+                  {t('nav.claims')}
                 </Link>
                 <Link to="/messages" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                   {t('nav.messages')}

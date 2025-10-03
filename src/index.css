@@ -8,37 +8,37 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Modern Clean Palette */
-    --background: 220 20% 97%;
-    --foreground: 220 15% 15%;
+    /* Vibrant Modern Palette */
+    --background: 245 25% 98%;
+    --foreground: 240 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
+    --card-foreground: 240 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+    --popover-foreground: 240 10% 10%;
 
-    --primary: 260 70% 55%;
+    --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 95%;
-    --secondary-foreground: 220 15% 15%;
+    --secondary: 245 20% 96%;
+    --secondary-foreground: 240 10% 10%;
 
-    --muted: 220 15% 95%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 245 20% 96%;
+    --muted-foreground: 240 8% 46%;
 
-    --accent: 280 60% 60%;
+    --accent: 330 85% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 160 65% 45%;
-    --info: 200 75% 50%;
-    --warning: 40 85% 55%;
-    --destructive: 0 65% 55%;
+    --success: 142 76% 36%;
+    --info: 199 89% 48%;
+    --warning: 38 92% 50%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
-    --ring: 260 70% 55%;
+    --border: 245 15% 90%;
+    --input: 245 15% 90%;
+    --ring: 262 83% 58%;
 
     --radius: 0.75rem;
 
@@ -49,49 +49,49 @@ All colors MUST be HSL.
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 260 70% 55%;
+    --sidebar-ring: 262 83% 58%;
   }
 
   .dark {
-    --background: 220 20% 12%;
-    --foreground: 210 15% 95%;
+    --background: 240 15% 8%;
+    --foreground: 240 5% 96%;
 
-    --card: 220 18% 16%;
-    --card-foreground: 210 15% 95%;
+    --card: 240 12% 12%;
+    --card-foreground: 240 5% 96%;
 
-    --popover: 220 18% 16%;
-    --popover-foreground: 210 15% 95%;
+    --popover: 240 12% 12%;
+    --popover-foreground: 240 5% 96%;
 
-    --primary: 260 70% 60%;
+    --primary: 262 83% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 18% 20%;
-    --secondary-foreground: 210 15% 95%;
+    --secondary: 240 10% 18%;
+    --secondary-foreground: 240 5% 96%;
 
-    --muted: 220 15% 22%;
-    --muted-foreground: 215 12% 60%;
+    --muted: 240 10% 18%;
+    --muted-foreground: 240 5% 64%;
 
-    --accent: 280 60% 65%;
+    --accent: 330 85% 65%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 160 65% 50%;
-    --info: 200 75% 55%;
-    --warning: 40 85% 60%;
-    --destructive: 0 65% 60%;
+    --success: 142 76% 40%;
+    --info: 199 89% 52%;
+    --warning: 38 92% 55%;
+    --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 18% 24%;
-    --input: 220 18% 24%;
-    --ring: 260 70% 60%;
+    --border: 240 10% 20%;
+    --input: 240 10% 20%;
+    --ring: 262 83% 65%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 260 70% 60%;
+    --sidebar-primary: 262 83% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 260 70% 60%;
+    --sidebar-ring: 262 83% 65%;
   }
 }
 
@@ -140,6 +140,21 @@ All colors MUST be HSL.
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Logo Glow Effect */
+.logo-glow {
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.6), 0 0 60px hsl(var(--primary) / 0.3);
+  }
 }
 
 /* Hover Effects */

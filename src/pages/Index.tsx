@@ -2,12 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Shield, Sparkles, Lock, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useTranslation } from 'react-i18next';
 
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen">
@@ -24,7 +22,7 @@ export default function Index() {
             </h1>
             
             <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-              {t('hero.subtitle')}
+              Connect with your community to reunite lost items using AI-powered matching and secure verification
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-scale-in">
@@ -36,7 +34,7 @@ export default function Index() {
                     className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
                   >
                     <Search className="mr-2 h-5 w-5" />
-                    {t('buttons.reportLost')}
+                    Report Lost Item
                   </Button>
                   <Button
                     size="lg"
@@ -45,7 +43,7 @@ export default function Index() {
                     className="text-lg px-10 py-6 font-medium hover-lift"
                   >
                     <MapPin className="mr-2 h-5 w-5" />
-                    {t('buttons.reportFound')}
+                    Report Found Item
                   </Button>
                 </>
               ) : (
@@ -55,7 +53,7 @@ export default function Index() {
                     onClick={() => navigate('/auth')}
                     className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
                   >
-                    {t('buttons.getStarted')}
+                    Get Started
                   </Button>
                   <Button
                     size="lg"
@@ -64,7 +62,7 @@ export default function Index() {
                     className="text-lg px-10 py-6 font-medium hover-lift"
                   >
                     <Search className="mr-2 h-5 w-5" />
-                    {t('buttons.browse')}
+                    Browse Items
                   </Button>
                 </>
               )}
@@ -133,7 +131,7 @@ export default function Index() {
               Powered by <span className="text-gradient">Advanced Technology</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              {t('features.title')}
+              Experience next-generation lost and found services
             </p>
           </div>
 
@@ -141,33 +139,33 @@ export default function Index() {
             {[
               {
                 icon: Sparkles,
-                title: t('features.aiMatching.title'),
-                description: t('features.aiMatching.description')
+                title: "AI-Powered Matching",
+                description: "Smart algorithms automatically match lost and found items based on descriptions, photos, and location data."
               },
               {
                 icon: Lock,
-                title: t('features.blockchainVerification.title'),
-                description: t('features.blockchainVerification.description')
+                title: "Blockchain Verification",
+                description: "Secure ownership verification using blockchain technology to ensure legitimate claims."
               },
               {
                 icon: MapPin,
-                title: t('features.smartLocation.title'),
-                description: t('features.smartLocation.description')
+                title: "Smart Location Tracking",
+                description: "Precise location matching helps connect items with their owners faster and more accurately."
               },
               {
                 icon: Shield,
-                title: t('features.secureMessaging.title'),
-                description: t('features.secureMessaging.description')
+                title: "Secure Messaging",
+                description: "Private and encrypted communication channels to safely discuss item details and arrange returns."
               },
               {
                 icon: Search,
-                title: t('features.photoRecognition.title'),
-                description: t('features.photoRecognition.description')
+                title: "Photo Recognition",
+                description: "Advanced image analysis technology to identify and match items visually across the database."
               },
               {
                 icon: Globe,
-                title: t('features.realTimeAlerts.title'),
-                description: t('features.realTimeAlerts.description')
+                title: "Real-Time Alerts",
+                description: "Instant notifications when potential matches are found, keeping you updated 24/7."
               }
             ].map((feature, index) => (
               <div
@@ -196,7 +194,7 @@ export default function Index() {
           </h2>
           
           <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            {t('cta.description')}
+            Join our community today and help reunite lost items with their owners
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -207,7 +205,7 @@ export default function Index() {
                   onClick={() => navigate('/auth')}
                   className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
                 >
-                  {t('buttons.joinToday')}
+                  Join Now
                 </Button>
                 <Button
                   size="lg"
@@ -215,7 +213,7 @@ export default function Index() {
                   onClick={() => navigate('/browse')}
                   className="text-lg px-10 py-6 font-medium hover-lift"
                 >
-                  {t('buttons.browse')}
+                  Browse Items
                 </Button>
               </>
             ) : (
@@ -224,7 +222,7 @@ export default function Index() {
                 onClick={() => navigate('/browse')}
                 className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
               >
-                {t('buttons.startSearching')}
+                Start Searching
               </Button>
             )}
           </div>
@@ -234,15 +232,15 @@ export default function Index() {
             <div className="flex flex-col sm:flex-row justify-center items-center gap-8 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
-                <span className="font-medium">{t('trust.secure')}</span>
+                <span className="font-medium">100% Secure Platform</span>
               </div>
               <div className="flex items-center gap-2">
                 <Lock className="h-4 w-4 text-primary" />
-                <span className="font-medium">{t('trust.trusted')}</span>
+                <span className="font-medium">Privacy Protected</span>
               </div>
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <span className="font-medium">{t('trust.fast')}</span>
+                <span className="font-medium">AI-Powered Matching</span>
               </div>
             </div>
           </div>
