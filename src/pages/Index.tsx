@@ -1,37 +1,38 @@
 import { useNavigate } from "react-router-dom";
-import { Search, MapPin, Shield, Sparkles, Lock, Globe } from "lucide-react";
+import { Search, MapPin, Shield, Sparkles, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { StarfieldBackground } from "@/components/StarfieldBackground";
 
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      {/* Animated Starfield Background */}
+      <StarfieldBackground />
+      
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Subtle Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5"></div>
-        
+      <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden">
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="animate-fade-in">
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold mb-6 tracking-tight">
-              Lost Something?
-              <span className="block text-gradient mt-2">We'll Help You Find It</span>
+          <div className="animate-fade-in float">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold mb-6 tracking-tight leading-tight">
+              Find What's
+              <span className="block text-gradient mt-2">Lost in Space</span>
             </h1>
             
             <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-              Connect with your community to reunite lost items using AI-powered matching and secure verification
+              A cosmic platform connecting people with their lost belongings through AI-powered matching and secure verification
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-scale-in">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               {user ? (
                 <>
                   <Button
                     size="lg"
                     onClick={() => navigate('/post-lost')}
-                    className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
+                    className="btn-modern text-lg px-12 py-7 font-semibold hover-lift"
                   >
                     <Search className="mr-2 h-5 w-5" />
                     Report Lost Item
@@ -40,7 +41,7 @@ export default function Index() {
                     size="lg"
                     variant="outline"
                     onClick={() => navigate('/post-found')}
-                    className="text-lg px-10 py-6 font-medium hover-lift"
+                    className="text-lg px-12 py-7 font-semibold hover-lift glass-effect border-primary/30 hover:border-primary/60 hover:bg-primary/10"
                   >
                     <MapPin className="mr-2 h-5 w-5" />
                     Report Found Item
@@ -51,7 +52,7 @@ export default function Index() {
                   <Button
                     size="lg"
                     onClick={() => navigate('/auth')}
-                    className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
+                    className="btn-modern text-lg px-12 py-7 font-semibold hover-lift"
                   >
                     Get Started
                   </Button>
@@ -59,7 +60,7 @@ export default function Index() {
                     size="lg"
                     variant="outline"
                     onClick={() => navigate('/browse')}
-                    className="text-lg px-10 py-6 font-medium hover-lift"
+                    className="text-lg px-12 py-7 font-semibold hover-lift glass-effect border-primary/30 hover:border-primary/60 hover:bg-primary/10"
                   >
                     <Search className="mr-2 h-5 w-5" />
                     Browse Items
@@ -72,51 +73,51 @@ export default function Index() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-24 bg-muted/30">
+      <section className="relative py-32 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4">
-              Simple & <span className="text-gradient">Effective</span>
+          <div className="text-center mb-20">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold mb-6">
+              How It <span className="text-gradient">Works</span>
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Get started in three easy steps
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Three simple steps to reunite with your belongings
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-10">
             {[
               {
                 step: "01",
                 title: "Report Your Item",
-                description: "Lost or found something? Create a detailed report with photos and location.",
+                description: "Create a detailed report with photos, descriptions, and location details. Our system securely stores your information.",
                 icon: MapPin
               },
               {
                 step: "02",
-                title: "AI Finds Matches",
-                description: "Our advanced AI scans the database to find potential matches automatically.",
+                title: "AI-Powered Matching",
+                description: "Advanced algorithms analyze your report and automatically scan for potential matches across our database.",
                 icon: Sparkles
               },
               {
                 step: "03",
-                title: "Connect & Recover",
-                description: "Get notified of matches and connect securely to reunite with your items.",
+                title: "Secure Recovery",
+                description: "Get instant notifications when matches are found. Connect safely through our verified messaging system.",
                 icon: Shield
               }
             ].map((step, index) => (
               <div
                 key={step.step}
-                className="glass-card p-8 rounded-2xl hover-lift transition-all"
-                style={{ animationDelay: `${index * 100}ms` }}
+                className="glass-card p-10 rounded-3xl hover-lift transition-all shadow-cosmic"
+                style={{ animationDelay: `${index * 150}ms` }}
               >
-                <div className="mb-6">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-4">
-                    <step.icon className="h-7 w-7 text-white" />
+                <div className="mb-8">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-6 shadow-cosmic">
+                    <step.icon className="h-8 w-8 text-white" />
                   </div>
-                  <span className="text-4xl font-display font-bold text-muted-foreground/30">{step.step}</span>
+                  <span className="text-5xl font-display font-bold text-primary/20">{step.step}</span>
                 </div>
-                <h3 className="text-xl font-display font-semibold mb-3">{step.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{step.description}</p>
+                <h3 className="text-2xl font-display font-bold mb-4">{step.title}</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">{step.description}</p>
               </div>
             ))}
           </div>
@@ -124,14 +125,14 @@ export default function Index() {
       </section>
 
       {/* Features Section */}
-      <section className="py-24">
+      <section className="relative py-32 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4">
-              Powered by <span className="text-gradient">Advanced Technology</span>
+          <div className="text-center mb-20">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold mb-6">
+              Powered by <span className="text-gradient">Innovation</span>
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Experience next-generation lost and found services
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Cutting-edge technology that makes recovery simple
             </p>
           </div>
 
@@ -139,45 +140,45 @@ export default function Index() {
             {[
               {
                 icon: Sparkles,
-                title: "AI-Powered Matching",
-                description: "Smart algorithms automatically match lost and found items based on descriptions, photos, and location data."
-              },
-              {
-                icon: Lock,
-                title: "Blockchain Verification",
-                description: "Secure ownership verification using blockchain technology to ensure legitimate claims."
-              },
-              {
-                icon: MapPin,
-                title: "Smart Location Tracking",
-                description: "Precise location matching helps connect items with their owners faster and more accurately."
+                title: "AI Matching Engine",
+                description: "Machine learning algorithms analyze patterns and characteristics to find your items faster than ever before."
               },
               {
                 icon: Shield,
-                title: "Secure Messaging",
-                description: "Private and encrypted communication channels to safely discuss item details and arrange returns."
+                title: "Blockchain Security",
+                description: "Decentralized verification ensures authentic claims and protects against fraud with immutable records."
+              },
+              {
+                icon: Zap,
+                title: "Instant Notifications",
+                description: "Real-time alerts keep you updated the moment a potential match is discovered in our system."
+              },
+              {
+                icon: MapPin,
+                title: "Location Intelligence",
+                description: "Advanced geo-matching connects items with their owners based on proximity and movement patterns."
+              },
+              {
+                icon: Heart,
+                title: "Community Trust",
+                description: "Built on transparency and collaboration, fostering a network of people helping people."
               },
               {
                 icon: Search,
-                title: "Photo Recognition",
-                description: "Advanced image analysis technology to identify and match items visually across the database."
-              },
-              {
-                icon: Globe,
-                title: "Real-Time Alerts",
-                description: "Instant notifications when potential matches are found, keeping you updated 24/7."
+                title: "Visual Recognition",
+                description: "Image analysis technology identifies items by their unique visual characteristics and features."
               }
             ].map((feature, index) => (
               <div
                 key={feature.title}
-                className="group p-6 rounded-2xl border border-border hover:border-primary/50 hover:bg-card/50 transition-all hover-lift"
+                className="group glass-card p-8 rounded-3xl hover-lift transition-all shadow-cosmic"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <feature.icon className="h-6 w-6 text-primary" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-cosmic">
+                  <feature.icon className="h-7 w-7 text-primary" />
                 </div>
-                <h3 className="text-lg font-display font-semibold mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
+                <h3 className="text-xl font-display font-bold mb-3">{feature.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -185,62 +186,70 @@ export default function Index() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10"></div>
+      <section className="relative py-32 overflow-hidden z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"></div>
         
-        <div className="relative z-10 max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-6">
-            Ready to Get Started?
-          </h2>
-          
-          <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Join our community today and help reunite lost items with their owners
-          </p>
+        <div className="relative z-10 max-w-5xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <div className="glass-card p-16 rounded-3xl shadow-cosmic">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold mb-6">
+              Begin Your <span className="text-gradient">Journey</span>
+            </h2>
+            
+            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
+              Join a community dedicated to helping people reconnect with what matters most
+            </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {!user ? (
-              <>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
+              {!user ? (
+                <>
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/auth')}
+                    className="btn-modern text-lg px-12 py-7 font-semibold hover-lift"
+                  >
+                    Join the Mission
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => navigate('/browse')}
+                    className="text-lg px-12 py-7 font-semibold hover-lift glass-effect border-primary/30 hover:border-primary/60 hover:bg-primary/10"
+                  >
+                    Explore Now
+                  </Button>
+                </>
+              ) : (
                 <Button
                   size="lg"
-                  onClick={() => navigate('/auth')}
-                  className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
-                >
-                  Join Now
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
                   onClick={() => navigate('/browse')}
-                  className="text-lg px-10 py-6 font-medium hover-lift"
+                  className="btn-modern text-lg px-12 py-7 font-semibold hover-lift"
                 >
-                  Browse Items
+                  Start Your Search
                 </Button>
-              </>
-            ) : (
-              <Button
-                size="lg"
-                onClick={() => navigate('/browse')}
-                className="btn-modern text-lg px-10 py-6 font-medium hover-lift"
-              >
-                Start Searching
-              </Button>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Trust Indicators */}
-          <div className="mt-16 pt-8 border-t border-border">
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                <span className="font-medium">100% Secure Platform</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-primary" />
-                <span className="font-medium">Privacy Protected</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="font-medium">AI-Powered Matching</span>
+            {/* Trust Indicators */}
+            <div className="pt-8 border-t border-border/30">
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-10 text-sm">
+                <div className="flex items-center gap-3 group">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Shield className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="font-semibold text-foreground">Secure & Verified</span>
+                </div>
+                <div className="flex items-center gap-3 group">
+                  <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Sparkles className="h-5 w-5 text-accent" />
+                  </div>
+                  <span className="font-semibold text-foreground">AI-Enhanced</span>
+                </div>
+                <div className="flex items-center gap-3 group">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Heart className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="font-semibold text-foreground">Community Driven</span>
+                </div>
               </div>
             </div>
           </div>
