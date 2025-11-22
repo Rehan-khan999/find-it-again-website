@@ -40,9 +40,6 @@ export const Header = () => {
                 <Link to="/my-items" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
                   {t('nav.myItems')}
                 </Link>
-                <Link to="/matches" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
-                  {t('nav.matches')}
-                </Link>
                 <Link to="/claims" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
                   {t('nav.claims')}
                 </Link>

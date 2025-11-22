@@ -3,10 +3,12 @@ import { Search, MapPin, Shield, Sparkles, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { StarfieldBackground } from "@/components/StarfieldBackground";
+import { useTranslation } from 'react-i18next';
 
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen relative">
