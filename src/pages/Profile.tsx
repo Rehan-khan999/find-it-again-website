@@ -65,8 +65,8 @@ const Profile = () => {
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast({
-        title: "Error",
-        description: "Failed to load profile",
+        title: t('toast.error'),
+        description: t('toast.profileLoadFailed'),
         variant: "destructive"
       });
     } finally {
@@ -89,14 +89,14 @@ const Profile = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Profile updated successfully"
+        title: t('toast.success'),
+        description: t('toast.profileUpdated')
       });
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
-        title: "Error",
-        description: "Failed to update profile",
+        title: t('toast.error'),
+        description: t('toast.profileUpdateFailed'),
         variant: "destructive"
       });
     } finally {
@@ -119,10 +119,10 @@ const Profile = () => {
     <div className="min-h-screen glass-effect">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-fade-in">
-          <h1 className="text-4xl font-cyber font-bold mb-2">
-            <span className="text-gradient">Your</span> <span className="text-neon">Profile</span>
+          <h1 className="text-4xl font-display font-bold mb-2 text-foreground">
+            {t('profile.title')}
           </h1>
-          <p className="text-muted-foreground mb-8 font-cyber">{t('labels.manageYourAccount')}</p>
+          <p className="text-muted-foreground mb-8">{t('labels.manageYourAccount')}</p>
 
           <div className="grid gap-6">
             {/* Profile Header Card */}
@@ -136,12 +136,12 @@ const Profile = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-2xl font-cyber">{profile.full_name || 'User'}</CardTitle>
-                    <CardDescription className="font-cyber">{profile.email}</CardDescription>
+                    <CardTitle className="text-2xl">{profile.full_name || 'User'}</CardTitle>
+                    <CardDescription>{profile.email}</CardDescription>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span className="font-cyber">
-                        Joined {format(new Date(profile.created_at), 'MMMM dd, yyyy')}
+                      <span>
+                        {t('profile.joined')} {format(new Date(profile.created_at), 'MMMM dd, yyyy')}
                       </span>
                     </div>
                   </div>
@@ -152,58 +152,58 @@ const Profile = () => {
             {/* Profile Details Card */}
             <Card className="glass-card border border-primary/20">
               <CardHeader>
-                <CardTitle className="font-cyber">Profile Information</CardTitle>
-                <CardDescription className="font-cyber">Update your personal details</CardDescription>
+                <CardTitle>{t('profile.profileInfo')}</CardTitle>
+                <CardDescription>{t('profile.updateDetails')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="full_name" className="flex items-center gap-2 font-cyber">
+                  <Label htmlFor="full_name" className="flex items-center gap-2">
                     <User className="h-4 w-4 text-primary" />
-                    Full Name
+                    {t('profile.fullName')}
                   </Label>
                   <Input
                     id="full_name"
                     value={profile.full_name}
                     onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-                    className="glass-effect border-primary/30 font-cyber"
+                    className="glass-effect border-primary/30"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2 font-cyber">
+                  <Label htmlFor="email" className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-primary" />
-                    Email
+                    {t('profile.email')}
                   </Label>
                   <Input
                     id="email"
                     value={profile.email}
                     disabled
-                    className="glass-effect border-primary/30 font-cyber opacity-60"
+                    className="glass-effect border-primary/30 opacity-60"
                   />
-                  <p className="text-xs text-muted-foreground font-cyber">
-                    Email cannot be changed
+                  <p className="text-xs text-muted-foreground">
+                    {t('profile.emailNote')}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center gap-2 font-cyber">
+                  <Label htmlFor="phone" className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-primary" />
-                    Phone Number
+                    {t('profile.phone')}
                   </Label>
                   <Input
                     id="phone"
                     value={profile.phone}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    className="glass-effect border-primary/30 font-cyber"
+                    className="glass-effect border-primary/30"
                   />
                 </div>
 
                 <Button
                   onClick={handleSave}
                   disabled={saving}
-                  className="btn-cyber hover-glow font-cyber font-semibold"
+                  className="btn-modern font-semibold"
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? t('buttons.saving') : t('buttons.saveChanges')}
                 </Button>
               </CardContent>
             </Card>

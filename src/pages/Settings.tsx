@@ -37,8 +37,8 @@ const Settings = () => {
 
   const handleDeleteAccount = async () => {
     toast({
-      title: "Account Deletion",
-      description: "Please contact support to delete your account",
+      title: t('settings.accountDeletionTitle'),
+      description: t('settings.contactSupport'),
       variant: "destructive"
     });
   };
@@ -47,29 +47,29 @@ const Settings = () => {
     <div className="min-h-screen glass-effect">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-fade-in">
-          <h1 className="text-4xl font-cyber font-bold mb-2">
-            <span className="text-gradient">Account</span> <span className="text-neon">Settings</span>
+          <h1 className="text-4xl font-display font-bold mb-2 text-foreground">
+            {t('settings.title')}
           </h1>
-          <p className="text-muted-foreground mb-8 font-cyber">{t('labels.customizeYourExperience')}</p>
+          <p className="text-muted-foreground mb-8">{t('labels.customizeYourExperience')}</p>
 
           <div className="space-y-6">
             {/* Notification Settings */}
             <Card className="glass-card border border-primary/20">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-cyber">
+                <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5 text-primary" />
-                  Notifications
+                  {t('settings.notifications')}
                 </CardTitle>
-                <CardDescription className="font-cyber">
-                  Manage how you receive updates
+                <CardDescription>
+                  {t('settings.notificationsDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="email-notifications" className="font-cyber">Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Receive updates via email
+                    <Label htmlFor="email-notifications">{t('settings.emailNotifications')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.emailNotificationsDesc')}
                     </p>
                   </div>
                   <Switch
@@ -81,9 +81,9 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="push-notifications" className="font-cyber">Push Notifications</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Get instant push notifications
+                    <Label htmlFor="push-notifications">{t('settings.pushNotifications')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.pushNotificationsDesc')}
                     </p>
                   </div>
                   <Switch
@@ -95,9 +95,9 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="match-notifications" className="font-cyber">Match Alerts</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Notify me when items are matched
+                    <Label htmlFor="match-notifications">{t('settings.matchAlerts')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.matchAlertsDesc')}
                     </p>
                   </div>
                   <Switch
@@ -112,20 +112,20 @@ const Settings = () => {
             {/* Privacy Settings */}
             <Card className="glass-card border border-primary/20">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-cyber">
+                <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
-                  Privacy & Security
+                  {t('settings.privacy')}
                 </CardTitle>
-                <CardDescription className="font-cyber">
-                  Control your data and privacy
+                <CardDescription>
+                  {t('settings.privacyDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="font-cyber">Profile Visibility</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Your profile is visible to other users
+                    <Label>{t('settings.profileVisibility')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.profileVisibilityDesc')}
                     </p>
                   </div>
                   <Switch defaultChecked />
@@ -133,9 +133,9 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="font-cyber">Show Email</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Display your email on posted items
+                    <Label>{t('settings.showEmail')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.showEmailDesc')}
                     </p>
                   </div>
                   <Switch defaultChecked />
@@ -146,20 +146,20 @@ const Settings = () => {
             {/* Email Preferences */}
             <Card className="glass-card border border-primary/20">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-cyber">
+                <CardTitle className="flex items-center gap-2">
                   <Mail className="h-5 w-5 text-primary" />
-                  Email Preferences
+                  {t('settings.emailPreferences')}
                 </CardTitle>
-                <CardDescription className="font-cyber">
-                  Choose what emails you receive
+                <CardDescription>
+                  {t('settings.emailPreferencesDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="font-cyber">Weekly Digest</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Get a weekly summary of activity
+                    <Label>{t('settings.weeklyDigest')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.weeklyDigestDesc')}
                     </p>
                   </div>
                   <Switch defaultChecked />
@@ -167,9 +167,9 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="font-cyber">Marketing Emails</Label>
-                    <p className="text-sm text-muted-foreground font-cyber">
-                      Receive news and updates
+                    <Label>{t('settings.marketingEmails')}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.marketingEmailsDesc')}
                     </p>
                   </div>
                   <Switch />
@@ -180,36 +180,35 @@ const Settings = () => {
             {/* Danger Zone */}
             <Card className="glass-card border border-destructive/30">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-cyber text-destructive">
+                <CardTitle className="flex items-center gap-2 text-destructive">
                   <Trash2 className="h-5 w-5" />
-                  Danger Zone
+                  {t('settings.dangerZone')}
                 </CardTitle>
-                <CardDescription className="font-cyber">
-                  Irreversible actions
+                <CardDescription>
+                  {t('settings.dangerZoneDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="font-cyber font-semibold">
-                      Delete Account
+                    <Button variant="destructive" className="font-semibold">
+                      {t('buttons.deleteAccount')}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="glass-card border border-primary/20">
                     <AlertDialogHeader>
-                      <AlertDialogTitle className="font-cyber">Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription className="font-cyber">
-                        This action cannot be undone. This will permanently delete your account
-                        and remove all your data from our servers.
+                      <AlertDialogTitle>{t('settings.deleteConfirmTitle')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('settings.deleteConfirmDesc')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="font-cyber">Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('buttons.cancel')}</AlertDialogCancel>
                       <AlertDialogAction 
                         onClick={handleDeleteAccount}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-cyber"
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
-                        Delete
+                        {t('buttons.delete')}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
