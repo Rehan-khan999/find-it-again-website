@@ -26,7 +26,12 @@ const resources = {
         signUpNow: 'Sign Up Now',
         viewAllItems: 'View All Items',
         grid: 'Grid',
-        map: 'Map'
+        map: 'Map',
+        saveChanges: 'Save Changes',
+        saving: 'Saving...',
+        deleteAccount: 'Delete Account',
+        cancel: 'Cancel',
+        delete: 'Delete'
       },
       labels: {
         lostSomething: 'Lost Something?',
@@ -71,6 +76,53 @@ const resources = {
         reward: 'Reward: ',
         manageYourAccount: 'Manage your account information and preferences',
         customizeYourExperience: 'Customize your experience and preferences'
+      },
+      profile: {
+        title: 'Your Profile',
+        profileInfo: 'Profile Information',
+        updateDetails: 'Update your personal details',
+        fullName: 'Full Name',
+        email: 'Email',
+        emailNote: 'Email cannot be changed',
+        phone: 'Phone Number',
+        joined: 'Joined',
+        loading: 'Loading...'
+      },
+      settings: {
+        title: 'Account Settings',
+        notifications: 'Notifications',
+        notificationsDesc: 'Manage how you receive updates',
+        emailNotifications: 'Email Notifications',
+        emailNotificationsDesc: 'Receive updates via email',
+        pushNotifications: 'Push Notifications',
+        pushNotificationsDesc: 'Get instant push notifications',
+        matchAlerts: 'Match Alerts',
+        matchAlertsDesc: 'Notify me when items are matched',
+        privacy: 'Privacy & Security',
+        privacyDesc: 'Control your data and privacy',
+        profileVisibility: 'Profile Visibility',
+        profileVisibilityDesc: 'Your profile is visible to other users',
+        showEmail: 'Show Email',
+        showEmailDesc: 'Display your email on posted items',
+        emailPreferences: 'Email Preferences',
+        emailPreferencesDesc: 'Choose what emails you receive',
+        weeklyDigest: 'Weekly Digest',
+        weeklyDigestDesc: 'Get a weekly summary of activity',
+        marketingEmails: 'Marketing Emails',
+        marketingEmailsDesc: 'Receive news and updates',
+        dangerZone: 'Danger Zone',
+        dangerZoneDesc: 'Irreversible actions',
+        deleteConfirmTitle: 'Are you absolutely sure?',
+        deleteConfirmDesc: 'This action cannot be undone. This will permanently delete your account and remove all your data from our servers.',
+        accountDeletionTitle: 'Account Deletion',
+        contactSupport: 'Please contact support to delete your account'
+      },
+      toast: {
+        success: 'Success',
+        error: 'Error',
+        profileUpdated: 'Profile updated successfully',
+        profileUpdateFailed: 'Failed to update profile',
+        profileLoadFailed: 'Failed to load profile'
       }
     }
   },
@@ -97,7 +149,12 @@ const resources = {
         signUpNow: 'अभी साइन अप करें',
         viewAllItems: 'सभी आइटम देखें',
         grid: 'ग्रिड',
-        map: 'मानचित्र'
+        map: 'मानचित्र',
+        saveChanges: 'परिवर्तन सहेजें',
+        saving: 'सहेजा जा रहा है...',
+        deleteAccount: 'खाता हटाएं',
+        cancel: 'रद्द करें',
+        delete: 'हटाएं'
       },
       labels: {
         lostSomething: 'कुछ खो गया?',
@@ -139,7 +196,56 @@ const resources = {
         found: 'मिला ',
         noItemsFound: 'कोई वस्तु नहीं मिली',
         tryAdjusting: 'अपने खोज मानदंड को समायोजित करने का प्रयास करें या नई पोस्टिंग के लिए बाद में जांचें।',
-        reward: 'इनाम: '
+        reward: 'इनाम: ',
+        manageYourAccount: 'अपने खाते की जानकारी और प्राथमिकताएं प्रबंधित करें',
+        customizeYourExperience: 'अपने अनुभव और प्राथमिकताओं को अनुकूलित करें'
+      },
+      profile: {
+        title: 'आपकी प्रोफ़ाइल',
+        profileInfo: 'प्रोफ़ाइल जानकारी',
+        updateDetails: 'अपना व्यक्तिगत विवरण अपडेट करें',
+        fullName: 'पूरा नाम',
+        email: 'ईमेल',
+        emailNote: 'ईमेल बदला नहीं जा सकता',
+        phone: 'फोन नंबर',
+        joined: 'शामिल हुए',
+        loading: 'लोड हो रहा है...'
+      },
+      settings: {
+        title: 'खाता सेटिंग्स',
+        notifications: 'सूचनाएं',
+        notificationsDesc: 'प्रबंधित करें कि आप अपडेट कैसे प्राप्त करते हैं',
+        emailNotifications: 'ईमेल सूचनाएं',
+        emailNotificationsDesc: 'ईमेल के माध्यम से अपडेट प्राप्त करें',
+        pushNotifications: 'पुश सूचनाएं',
+        pushNotificationsDesc: 'तत्काल पुश सूचनाएं प्राप्त करें',
+        matchAlerts: 'मैच अलर्ट',
+        matchAlertsDesc: 'जब आइटम मैच हों तो मुझे सूचित करें',
+        privacy: 'गोपनीयता और सुरक्षा',
+        privacyDesc: 'अपने डेटा और गोपनीयता को नियंत्रित करें',
+        profileVisibility: 'प्रोफ़ाइल दृश्यता',
+        profileVisibilityDesc: 'आपकी प्रोफ़ाइल अन्य उपयोगकर्ताओं को दिखाई देती है',
+        showEmail: 'ईमेल दिखाएं',
+        showEmailDesc: 'पोस्ट की गई वस्तुओं पर अपना ईमेल प्रदर्शित करें',
+        emailPreferences: 'ईमेल प्राथमिकताएं',
+        emailPreferencesDesc: 'चुनें कि आप कौन से ईमेल प्राप्त करते हैं',
+        weeklyDigest: 'साप्ताहिक सारांश',
+        weeklyDigestDesc: 'गतिविधि का साप्ताहिक सारांश प्राप्त करें',
+        marketingEmails: 'मार्केटिंग ईमेल',
+        marketingEmailsDesc: 'समाचार और अपडेट प्राप्त करें',
+        dangerZone: 'खतरे का क्षेत्र',
+        dangerZoneDesc: 'अपरिवर्तनीय कार्रवाइयां',
+        deleteConfirmTitle: 'क्या आप पूरी तरह से निश्चित हैं?',
+        deleteConfirmDesc: 'इस कार्रवाई को पूर्ववत नहीं किया जा सकता। यह आपके खाते को स्थायी रूप से हटा देगा और हमारे सर्वर से आपका सारा डेटा हटा देगा।',
+        accountDeletionTitle: 'खाता हटाना',
+        contactSupport: 'कृपया अपना खाता हटाने के लिए सपोर्ट से संपर्क करें'
+      },
+      toast: {
+        success: 'सफलता',
+        error: 'त्रुटि',
+        profileUpdated: 'प्रोफ़ाइल सफलतापूर्वक अपडेट की गई',
+        profileUpdateFailed: 'प्रोफ़ाइल अपडेट करने में विफल',
+        profileLoadFailed: 'प्रोफ़ाइल लोड करने में विफल'
       }
     }
   },
@@ -166,7 +272,12 @@ const resources = {
         signUpNow: 'आता साइन अप करा',
         viewAllItems: 'सर्व वस्तू पहा',
         grid: 'ग्रिड',
-        map: 'नकाशा'
+        map: 'नकाशा',
+        saveChanges: 'बदल सेव्ह करा',
+        saving: 'सेव्ह करत आहे...',
+        deleteAccount: 'खाते हटवा',
+        cancel: 'रद्द करा',
+        delete: 'हटवा'
       },
       labels: {
         lostSomething: 'काहीतरी हरवलं?',
@@ -208,7 +319,56 @@ const resources = {
         found: 'सापडले ',
         noItemsFound: 'कोणत्याही वस्तू सापडल्या नाहीत',
         tryAdjusting: 'तुमचे शोध निकष समायोजित करण्याचा प्रयत्न करा किंवा नवीन पोस्टिंगसाठी नंतर तपासा.',
-        reward: 'बक्षीस: '
+        reward: 'बक्षीस: ',
+        manageYourAccount: 'तुमच्या खात्याची माहिती आणि प्राधान्ये व्यवस्थापित करा',
+        customizeYourExperience: 'तुमचा अनुभव आणि प्राधान्ये सानुकूलित करा'
+      },
+      profile: {
+        title: 'तुमची प्रोफाइल',
+        profileInfo: 'प्रोफाइल माहिती',
+        updateDetails: 'तुमचे वैयक्तिक तपशील अपडेट करा',
+        fullName: 'पूर्ण नाव',
+        email: 'ईमेल',
+        emailNote: 'ईमेल बदलता येत नाही',
+        phone: 'फोन नंबर',
+        joined: 'सामील झाले',
+        loading: 'लोड होत आहे...'
+      },
+      settings: {
+        title: 'खाते सेटिंग्ज',
+        notifications: 'सूचना',
+        notificationsDesc: 'तुम्हाला अपडेट कसे मिळतात ते व्यवस्थापित करा',
+        emailNotifications: 'ईमेल सूचना',
+        emailNotificationsDesc: 'ईमेलद्वारे अपडेट प्राप्त करा',
+        pushNotifications: 'पुश सूचना',
+        pushNotificationsDesc: 'त्वरित पुश सूचना मिळवा',
+        matchAlerts: 'मॅच अलर्ट',
+        matchAlertsDesc: 'वस्तू जुळल्या असताना मला सूचित करा',
+        privacy: 'गोपनीयता आणि सुरक्षा',
+        privacyDesc: 'तुमचा डेटा आणि गोपनीयता नियंत्रित करा',
+        profileVisibility: 'प्रोफाइल दृश्यमानता',
+        profileVisibilityDesc: 'तुमची प्रोफाइल इतर वापरकर्त्यांना दृश्यमान आहे',
+        showEmail: 'ईमेल दाखवा',
+        showEmailDesc: 'पोस्ट केलेल्या वस्तूंवर तुमचा ईमेल प्रदर्शित करा',
+        emailPreferences: 'ईमेल प्राधान्ये',
+        emailPreferencesDesc: 'तुम्हाला कोणते ईमेल मिळतात ते निवडा',
+        weeklyDigest: 'साप्ताहिक सारांश',
+        weeklyDigestDesc: 'क्रियाकलापांचा साप्ताहिक सारांश मिळवा',
+        marketingEmails: 'मार्केटिंग ईमेल',
+        marketingEmailsDesc: 'बातम्या आणि अपडेट प्राप्त करा',
+        dangerZone: 'धोक्याचे क्षेत्र',
+        dangerZoneDesc: 'अपरिवर्तनीय क्रिया',
+        deleteConfirmTitle: 'तुम्ही पूर्णपणे निश्चित आहात का?',
+        deleteConfirmDesc: 'ही क्रिया पूर्ववत केली जाऊ शकत नाही. हे तुमचे खाते कायमचे हटवेल आणि आमच्या सर्व्हरवरून तुमचा सर्व डेटा काढून टाकेल.',
+        accountDeletionTitle: 'खाते हटवणे',
+        contactSupport: 'कृपया तुमचे खाते हटवण्यासाठी समर्थनाशी संपर्क साधा'
+      },
+      toast: {
+        success: 'यश',
+        error: 'त्रुटी',
+        profileUpdated: 'प्रोफाइल यशस्वीरित्या अपडेट केली',
+        profileUpdateFailed: 'प्रोफाइल अपडेट करण्यात अयशस्वी',
+        profileLoadFailed: 'प्रोफाइल लोड करण्यात अयशस्वी'
       }
     }
   }
