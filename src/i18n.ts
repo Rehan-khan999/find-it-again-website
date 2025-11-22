@@ -68,7 +68,9 @@ const resources = {
         found: 'Found ',
         noItemsFound: 'No items found',
         tryAdjusting: 'Try adjusting your search criteria or check back later for new postings.',
-        reward: 'Reward: '
+        reward: 'Reward: ',
+        manageYourAccount: 'Manage your account information and preferences',
+        customizeYourExperience: 'Customize your experience and preferences'
       }
     }
   },

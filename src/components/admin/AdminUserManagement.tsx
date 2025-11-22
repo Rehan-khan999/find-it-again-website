@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { Shield, UserX, Eye } from 'lucide-react';
+import { Shield, UserX } from 'lucide-react';
 
 interface User {
   id: string;
@@ -201,28 +201,16 @@ export const AdminUserManagement = () => {
                   </TableCell>
                   <TableCell>{format(new Date(user.created_at), 'MMM dd, yyyy')}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowDialog(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowDialog(true);
-                        }}
-                      >
-                        <Shield className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowDialog(true);
+                      }}
+                    >
+                      <Shield className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

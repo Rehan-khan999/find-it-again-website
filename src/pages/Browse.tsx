@@ -34,6 +34,7 @@ interface Item {
   longitude?: number;
   verification_questions?: string[];
   user_id: string;
+  photos?: string[];
 }
 
 interface Category {
@@ -166,10 +167,23 @@ const Browse = () => {
     }
   };
 
-  const ItemCard = ({ item }: { item: Item }) => (
-    <Card className="glass-card border border-primary/20 hover-lift group">
-      <CardHeader>
-        <div className="flex items-start justify-between">
+  const ItemCard = ({ item }: { item: Item }) => {
+    const photos = Array.isArray(item.photos) ? item.photos : [];
+    const thumbnailUrl = photos.length > 0 ? photos[0] : null;
+
+    return (
+      <Card className="glass-card border border-primary/20 hover-lift group">
+        {thumbnailUrl && (
+          <div className="w-full h-48 overflow-hidden rounded-t-lg">
+            <img 
+              src={thumbnailUrl} 
+              alt={item.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+        )}
+        <CardHeader>
+          <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-lg mb-2 font-cyber group-hover:text-neon transition-colors">{item.title}</CardTitle>
             <div className="flex items-center gap-2 mb-2">
@@ -239,7 +253,8 @@ const Browse = () => {
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen glass-effect">
