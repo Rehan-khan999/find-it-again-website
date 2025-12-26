@@ -29,7 +29,7 @@ export default function Index() {
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl md:text-2xl hero-text-muted mb-12 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl md:text-2xl text-white/80 mb-12 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
               A cosmic platform connecting people with their lost belongings through AI-powered matching and secure verification
             </p>
 
@@ -55,24 +55,13 @@ export default function Index() {
                   </Button>
                 </>
               ) : (
-                <>
-                  <Button
-                    size="lg"
-                    onClick={() => navigate('/auth')}
-                    className="btn-modern text-lg px-12 py-7 font-semibold"
-                  >
-                    Get Started
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => navigate('/browse')}
-                    className="text-lg px-12 py-7 font-semibold bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:border-white/50"
-                  >
-                    <Search className="mr-2 h-5 w-5" />
-                    Browse Items
-                  </Button>
-                </>
+                <Button
+                  size="lg"
+                  onClick={() => navigate('/auth')}
+                  className="btn-modern text-lg px-12 py-7 font-semibold"
+                >
+                  Get Started
+                </Button>
               )}
             </div>
           </div>
