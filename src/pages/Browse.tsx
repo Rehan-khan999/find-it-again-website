@@ -172,7 +172,7 @@ const Browse = () => {
     const thumbnailUrl = photos.length > 0 ? photos[0] : null;
 
     return (
-      <Card className="glass-card border border-primary/20 hover-lift group">
+      <Card className="glass-card border border-primary/20 card-interactive group overflow-hidden">
         {thumbnailUrl && (
           <div className="w-full h-48 overflow-hidden rounded-t-lg">
             <img 
@@ -257,8 +257,8 @@ const Browse = () => {
   };
 
   return (
-    <div className="min-h-screen glass-effect">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen glass-effect page-enter">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-cyber font-bold mb-4">

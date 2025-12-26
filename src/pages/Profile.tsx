@@ -116,8 +116,8 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen glass-effect">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen glass-effect page-enter">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="animate-fade-in">
           <h1 className="text-4xl font-display font-bold mb-2 text-foreground">
             {t('profile.title')}

@@ -11,7 +11,7 @@ export default function Index() {
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative page-enter">
       {/* Animated Starfield Background */}
       <StarfieldBackground />
       
@@ -109,7 +109,7 @@ export default function Index() {
             ].map((step, index) => (
               <div
                 key={step.step}
-                className="glass-card p-10 rounded-3xl hover-lift transition-all shadow-cosmic"
+                className="glass-card p-10 rounded-3xl card-interactive"
                 style={{ animationDelay: `${index * 150}ms` }}
               >
                 <div className="mb-8">
@@ -173,10 +173,10 @@ export default function Index() {
             ].map((feature, index) => (
               <div
                 key={feature.title}
-                className="group glass-card p-8 rounded-3xl hover-lift transition-all shadow-cosmic"
+                className="group glass-card p-8 rounded-3xl card-interactive"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-cosmic">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-300">
                   <feature.icon className="h-7 w-7 text-primary" />
                 </div>
                 <h3 className="text-xl font-display font-bold mb-3">{feature.title}</h3>
