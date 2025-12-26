@@ -56,6 +56,14 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				lost: {
+					DEFAULT: 'hsl(var(--lost))',
+					foreground: 'hsl(var(--lost-foreground))'
+				},
+				found: {
+					DEFAULT: 'hsl(var(--found))',
+					foreground: 'hsl(var(--found-foreground))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',

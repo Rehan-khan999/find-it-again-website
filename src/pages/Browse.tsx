@@ -170,122 +170,147 @@ const Browse = () => {
   const ItemCard = ({ item }: { item: Item }) => {
     const photos = Array.isArray(item.photos) ? item.photos : [];
     const thumbnailUrl = photos.length > 0 ? photos[0] : null;
+    const isLost = item.item_type === 'lost';
 
     return (
-      <Card className="glass-card border border-primary/20 card-interactive group overflow-hidden">
+      <Card className={`card-float group overflow-hidden ${isLost ? 'item-card-lost' : 'item-card-found'}`}>
+        {/* Thumbnail Image */}
         {thumbnailUrl && (
-          <div className="w-full h-48 overflow-hidden rounded-t-lg">
+          <div className="w-full h-48 overflow-hidden">
             <img 
               src={thumbnailUrl} 
               alt={item.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           </div>
         )}
-        <CardHeader>
-          <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg mb-2 font-cyber group-hover:text-neon transition-colors">{item.title}</CardTitle>
-            <div className="flex items-center gap-2 mb-2">
-                  <Badge variant={item.item_type === 'lost' ? 'destructive' : 'default'} className="font-cyber shadow-soft">
-                    {item.item_type === 'lost' ? 'LOST' : 'FOUND'}
+        
+        {/* Card Header */}
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-lg mb-3 font-semibold group-hover:text-primary transition-colors line-clamp-1">
+                {item.title}
+              </CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Lost/Found Badge with distinct styling */}
+                <span className={isLost ? 'badge-lost' : 'badge-found'}>
+                  {isLost ? 'LOST' : 'FOUND'}
+                </span>
+                <Badge variant="outline" className="text-xs border-border/50">
+                  {item.category}
+                </Badge>
+                {item.reward && (
+                  <Badge variant="secondary" className="text-xs">
+                    {t('labels.reward')}{item.reward}
                   </Badge>
-                  <Badge variant="outline" className="border-primary/30 font-cyber">{item.category}</Badge>
-                  {item.reward && (
-                    <Badge variant="secondary" className="font-cyber">{t('labels.reward')}{item.reward}</Badge>
-                  )}
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex gap-2">
+        </CardHeader>
+
+        {/* Card Content */}
+        <CardContent className="pt-0">
+          <CardDescription className="mb-4 line-clamp-2 group-hover:text-foreground/80 transition-colors">
+            {item.description}
+          </CardDescription>
+          
+          {/* Item Details */}
+          <div className="space-y-2.5 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span className="truncate">{item.location}</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span>
+                {isLost ? t('labels.lostOn') : t('labels.foundOn')}
+                {format(new Date(item.date_lost_found), 'MMM dd, yyyy')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <User className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span className="truncate">{t('labels.contact')}{item.contact_name}</span>
+            </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-5 pt-4 border-t border-border/50">
             {user && user.id !== item.user_id && item.user_id !== 'guest' && (
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  onClick={() => handleQuickContact(item)}
-                  className="btn-cyber hover-glow font-cyber font-semibold"
-                >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  {t('buttons.contact')}
-                </Button>
-            )}
               <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm"
-                onClick={() => {
-                  setSelectedItem(item);
-                  setIsDialogOpen(true);
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleQuickContact(item);
                 }}
-                className="glass-effect border-primary/30 hover-glow font-cyber font-semibold"
+                className="btn-pressable flex-1"
               >
-                <Eye className="w-4 h-4 mr-1" />
-                {t('buttons.view')}
+                <MessageCircle className="w-4 h-4 mr-1.5" />
+                {t('buttons.contact')}
               </Button>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setSelectedItem(item);
+                setIsDialogOpen(true);
+              }}
+              className="flex-1 hover-lift"
+            >
+              <Eye className="w-4 h-4 mr-1.5" />
+              {t('buttons.view')}
+            </Button>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <CardDescription className="mb-4 line-clamp-3 group-hover:text-foreground transition-colors">
-          {item.description}
-        </CardDescription>
-        
-        <div className="space-y-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary" />
-            <span>{item.location}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span>
-              {item.item_type === 'lost' ? t('labels.lostOn') : t('labels.foundOn')}
-              {format(new Date(item.date_lost_found), 'MMM dd, yyyy')}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-primary" />
-            <span>{t('labels.contact')}{item.contact_name}</span>
-          </div>
-        </div>
-        
-        <div className="mt-4 pt-4 border-t border-primary/20">
-          <p className="text-xs text-muted-foreground font-cyber">
+          
+          {/* Posted Date */}
+          <p className="text-xs text-muted-foreground mt-3 opacity-60">
             {t('labels.posted')}{format(new Date(item.created_at), 'MMM dd, yyyy')}
           </p>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
     );
   };
 
   return (
-    <div className="min-h-screen glass-effect page-enter">
+    <div className="min-h-screen bg-background page-enter">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-cyber font-bold mb-4">
-            <span className="text-gradient">Browse</span> <span className="text-neon">Lost & Found</span>
+        <div className="text-center mb-10">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+            <span className="text-gradient">Browse</span>{' '}
+            <span className="text-foreground">Lost & Found</span>
           </h1>
-          <p className="text-xl text-muted-foreground">{t('labels.helpReunite')}</p>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{t('labels.helpReunite')}</p>
         </div>
 
         {/* Search and Filters */}
-        <Card className="mb-8 glass-card border border-primary/20 shadow-cyber">
+        <Card className="mb-8 card-float">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder={t('labels.searchItems')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 glass-effect border-primary/30 font-cyber"
+                  className="pl-10 input-refined"
                 />
               </div>
               
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="glass-effect border-primary/30 font-cyber">
+                <SelectTrigger className="input-refined">
                   <SelectValue placeholder={t('labels.itemType')} />
                 </SelectTrigger>
-                <SelectContent className="glass-effect border-primary/30">
+                <SelectContent>
                   <SelectItem value="all">{t('labels.allTypes')}</SelectItem>
                   <SelectItem value="lost">{t('labels.lostItems')}</SelectItem>
                   <SelectItem value="found">{t('labels.foundItems')}</SelectItem>
@@ -293,10 +318,10 @@ const Browse = () => {
               </Select>
 
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="glass-effect border-primary/30 font-cyber">
+                <SelectTrigger className="input-refined">
                   <SelectValue placeholder={t('labels.category')} />
                 </SelectTrigger>
-                <SelectContent className="glass-effect border-primary/30">
+                <SelectContent>
                   <SelectItem value="all">{t('labels.allCategories')}</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.name} value={category.name}>
@@ -307,10 +332,10 @@ const Browse = () => {
               </Select>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="glass-effect border-primary/30 font-cyber">
+                <SelectTrigger className="input-refined">
                   <SelectValue placeholder={t('labels.status')} />
                 </SelectTrigger>
-                <SelectContent className="glass-effect border-primary/30">
+                <SelectContent>
                   <SelectItem value="active">{t('labels.active')}</SelectItem>
                   <SelectItem value="matched">{t('labels.matched')}</SelectItem>
                   <SelectItem value="returned">{t('labels.returned')}</SelectItem>
