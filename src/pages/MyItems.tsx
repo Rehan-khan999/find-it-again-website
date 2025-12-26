@@ -54,11 +54,11 @@ const MyItems = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card>
           <CardContent className="p-6 text-center">
-            <h2 className="text-xl font-semibold mb-4">Sign In Required</h2>
-            <p className="text-gray-600">Please sign in to view your items.</p>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Sign In Required</h2>
+            <p className="text-muted-foreground">Please sign in to view your items.</p>
           </CardContent>
         </Card>
       </div>
@@ -66,27 +66,27 @@ const MyItems = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Items</h1>
-          <p className="text-gray-600">Manage your posted lost and found items</p>
+          <h1 className="text-3xl font-bold text-foreground">My Items</h1>
+          <p className="text-muted-foreground">Manage your posted lost and found items</p>
         </div>
 
         <div className="space-y-6">
           {/* User's Claims */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">My Claims</h2>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">My Claims</h2>
             <ClaimStatus showUserClaims={true} />
           </div>
 
           {/* User's Posted Items */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">My Posted Items</h2>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">My Posted Items</h2>
             {items.length === 0 ? (
               <Card>
                 <CardContent className="p-6 text-center">
-                  <p className="text-gray-500">No items posted yet</p>
+                  <p className="text-muted-foreground">No items posted yet</p>
                 </CardContent>
               </Card>
             ) : (
@@ -100,14 +100,14 @@ const MyItems = () => {
                         </Badge>
                         <Badge variant="outline">{item.status}</Badge>
                       </div>
-                      <CardTitle className="text-lg">{item.title}</CardTitle>
+                      <CardTitle className="text-lg text-card-foreground">{item.title}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                         {item.description}
                       </p>
                       
-                      <div className="space-y-2 text-sm text-gray-500">
+                      <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4" />
                           <span className="truncate">{item.location}</span>

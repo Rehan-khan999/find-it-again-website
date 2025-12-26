@@ -29,7 +29,7 @@ export default function Index() {
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl md:text-2xl text-white/80 mb-12 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
+            <p className="text-lg sm:text-xl md:text-2xl mb-12 max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(255, 255, 255, 0.9)', textShadow: '0 2px 10px rgba(0, 0, 0, 0.8)' }}>
               A cosmic platform connecting people with their lost belongings through AI-powered matching and secure verification
             </p>
 
@@ -46,22 +46,31 @@ export default function Index() {
                   </Button>
                   <Button
                     size="lg"
-                    variant="outline"
                     onClick={() => navigate('/post-found')}
-                    className="text-lg px-12 py-7 font-semibold bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:border-white/50"
+                    className="text-lg px-12 py-7 font-semibold bg-teal-600 hover:bg-teal-700 text-white border-none shadow-lg"
                   >
                     <MapPin className="mr-2 h-5 w-5" />
                     Report Found Item
                   </Button>
                 </>
               ) : (
-                <Button
-                  size="lg"
-                  onClick={() => navigate('/auth')}
-                  className="btn-modern text-lg px-12 py-7 font-semibold"
-                >
-                  Get Started
-                </Button>
+                <>
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/auth')}
+                    className="btn-modern text-lg px-12 py-7 font-semibold"
+                  >
+                    Get Started
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/browse')}
+                    className="text-lg px-12 py-7 font-semibold bg-white/20 backdrop-blur-sm border-2 border-white/40 text-white hover:bg-white/30 hover:border-white/60 shadow-lg"
+                  >
+                    <Search className="mr-2 h-5 w-5" />
+                    Browse Items
+                  </Button>
+                </>
               )}
             </div>
           </div>
