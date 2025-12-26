@@ -17,12 +17,12 @@ export const Header = () => {
   const { t } = useTranslation();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/30 glass-effect shadow-cosmic">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-cosmic group-hover:scale-110 transition-all logo-glow">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md group-hover:scale-105 group-hover:shadow-lg transition-all duration-300">
               <Search className="h-5 w-5 text-white" />
             </div>
             <span className="text-2xl font-display font-bold tracking-tight">
@@ -32,22 +32,22 @@ export const Header = () => {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/browse" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
+            <Link to="/browse" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
               {t('nav.browse')}
             </Link>
             {user && (
               <>
-                <Link to="/my-items" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
+                <Link to="/my-items" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
                   {t('nav.myItems')}
                 </Link>
-                <Link to="/claims" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
+                <Link to="/claims" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
                   {t('nav.claims')}
                 </Link>
-                <Link to="/messages" className="text-muted-foreground hover:text-primary transition-colors font-semibold hover:scale-105 transition-all">
+                <Link to="/messages" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
                   {t('nav.messages')}
                 </Link>
                 {(isAdmin || isModerator) && (
-                  <Link to="/admin" className="text-muted-foreground hover:text-primary transition-colors font-semibold flex items-center gap-1 hover:scale-105 transition-all">
+                  <Link to="/admin" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold flex items-center gap-1 hover:-translate-y-0.5">
                     <Shield className="h-4 w-4" />
                     {t('nav.admin')}
                   </Link>
