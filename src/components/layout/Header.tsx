@@ -38,8 +38,11 @@ export const Header = () => {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            {user && (
+            {user ? (
               <>
+                <Link to="/browse" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
+                  {t('nav.browse')}
+                </Link>
                 <Link to="/my-items" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
                   {t('nav.myItems')}
                 </Link>
@@ -56,7 +59,7 @@ export const Header = () => {
                   </Link>
                 )}
               </>
-            )}
+            ) : null}
           </nav>
 
           {/* Auth Section */}

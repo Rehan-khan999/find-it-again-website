@@ -36,8 +36,8 @@ export const MessageSystem = () => {
       {/* Conversations List */}
       <div className="lg:col-span-1">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <MessageCircle className="w-5 h-5" />
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
+            <MessageCircle className="w-5 h-5 text-primary" />
             Conversations
           </h2>
         </div>
