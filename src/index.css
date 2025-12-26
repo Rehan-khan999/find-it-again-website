@@ -70,56 +70,57 @@
   }
 
   .dark {
-    --background: 220 25% 7%;
-    --foreground: 210 20% 95%;
+    /* Dark Mode - Deep Space Theme */
+    --background: 225 30% 6%;
+    --foreground: 0 0% 98%;
 
-    --card: 220 25% 11%;
-    --card-foreground: 210 20% 95%;
+    --card: 225 25% 10%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 25% 11%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 225 25% 10%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 192 80% 55%;
-    --primary-foreground: 220 25% 7%;
+    --primary: 192 85% 60%;
+    --primary-foreground: 225 30% 6%;
 
-    --secondary: 220 20% 16%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 225 20% 15%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 220 20% 16%;
-    --muted-foreground: 210 15% 55%;
+    --muted: 225 20% 18%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 168 70% 50%;
-    --accent-foreground: 220 25% 7%;
+    --accent: 168 75% 55%;
+    --accent-foreground: 225 30% 6%;
 
-    --lost: 25 95% 58%;
-    --lost-foreground: 220 25% 7%;
+    --lost: 30 100% 60%;
+    --lost-foreground: 225 30% 6%;
 
-    --found: 168 70% 50%;
-    --found-foreground: 220 25% 7%;
+    --found: 160 75% 50%;
+    --found-foreground: 225 30% 6%;
 
-    --destructive: 0 75% 55%;
+    --destructive: 0 80% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
-    --ring: 192 80% 55%;
+    --border: 225 20% 20%;
+    --input: 225 20% 18%;
+    --ring: 192 85% 60%;
 
-    --sidebar-background: 220 25% 9%;
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-primary: 192 80% 55%;
-    --sidebar-primary-foreground: 220 25% 7%;
-    --sidebar-accent: 220 20% 16%;
-    --sidebar-accent-foreground: 210 20% 95%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-ring: 192 80% 55%;
+    --sidebar-background: 225 28% 8%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 192 85% 60%;
+    --sidebar-primary-foreground: 225 30% 6%;
+    --sidebar-accent: 225 20% 15%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 225 20% 18%;
+    --sidebar-ring: 192 85% 60%;
 
-    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.25);
-    --shadow-medium: 0 4px 16px -4px hsl(0 0% 0% / 0.35);
-    --shadow-elevated: 0 12px 32px -8px hsl(0 0% 0% / 0.45);
-    --shadow-floating: 0 20px 48px -12px hsl(0 0% 0% / 0.55);
+    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.4);
+    --shadow-medium: 0 4px 16px -4px hsl(0 0% 0% / 0.5);
+    --shadow-elevated: 0 12px 32px -8px hsl(0 0% 0% / 0.6);
+    --shadow-floating: 0 20px 48px -12px hsl(0 0% 0% / 0.7);
 
-    --glass-bg: hsl(220 25% 11% / 0.85);
-    --glass-border: hsl(220 20% 22% / 0.6);
+    --glass-bg: hsl(225 25% 10% / 0.9);
+    --glass-border: hsl(225 20% 25% / 0.5);
   }
 }
 
@@ -147,6 +148,17 @@
   .text-gradient {
     @apply bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent;
     background-size: 200% auto;
+  }
+
+  /* Hero text - always readable on dark backgrounds */
+  .hero-text {
+    @apply text-white drop-shadow-lg;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+  }
+  
+  .hero-text-muted {
+    @apply text-white/85 drop-shadow-md;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.4);
   }
 
   /* ============================================
