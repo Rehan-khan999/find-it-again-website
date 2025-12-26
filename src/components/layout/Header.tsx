@@ -5,10 +5,16 @@ import { UserMenu } from '@/components/auth/UserMenu';
 import { NotificationSystem } from '@/components/NotificationSystem';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
-import { Search, Plus, Shield } from 'lucide-react';
+import { Search, Plus, Shield, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export const Header = () => {
   const { user } = useAuth();
@@ -32,9 +38,6 @@ export const Header = () => {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/browse" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
-              {t('nav.browse')}
-            </Link>
             {user && (
               <>
                 <Link to="/my-items" className="text-muted-foreground hover:text-primary transition-all duration-200 font-semibold hover:-translate-y-0.5">
@@ -62,14 +65,33 @@ export const Header = () => {
             <ThemeToggle />
             {user ? (
               <>
-                <Button
-                  onClick={() => navigate('/post-lost')}
-                  size="sm"
-                  className="hidden sm:inline-flex btn-modern font-semibold hover-lift"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('buttons.postItem')}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="hidden sm:inline-flex btn-modern font-semibold hover-lift"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t('buttons.postItem')}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/post-lost')}
+                      className="cursor-pointer py-3 text-amber-600 dark:text-amber-400 hover:!bg-amber-50 dark:hover:!bg-amber-950/50 font-medium"
+                    >
+                      <Search className="h-4 w-4 mr-2" />
+                      Report Lost Item
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => navigate('/post-found')}
+                      className="cursor-pointer py-3 text-teal-600 dark:text-teal-400 hover:!bg-teal-50 dark:hover:!bg-teal-950/50 font-medium"
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Report Found Item
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <NotificationSystem />
                 <UserMenu />
               </>

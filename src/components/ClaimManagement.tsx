@@ -144,8 +144,8 @@ export const ClaimManagement = () => {
     return (
       <Card>
         <CardContent className="text-center py-8">
-          <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No claims submitted for your items yet.</p>
+          <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">No claims submitted for your items yet.</p>
         </CardContent>
       </Card>
     );
@@ -170,7 +170,7 @@ export const ClaimManagement = () => {
                 {claim.status}
               </Badge>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Submitted on {format(new Date(claim.created_at), 'MMM dd, yyyy')}
             </p>
           </CardHeader>
@@ -178,11 +178,11 @@ export const ClaimManagement = () => {
           <CardContent>
             {claim.items.verification_questions?.length > 0 && (
               <div className="space-y-3 mb-4">
-                <Label className="font-medium">Verification Answers:</Label>
+                <Label className="font-medium text-foreground">Verification Answers:</Label>
                 {claim.items.verification_questions.map((question, index) => (
-                  <div key={index} className="border rounded-lg p-3 bg-gray-50">
-                    <p className="font-medium text-sm mb-2">{question}</p>
-                    <p className="text-sm text-gray-700">
+                  <div key={index} className="border border-border rounded-lg p-3 bg-muted/50">
+                    <p className="font-medium text-sm mb-2 text-foreground">{question}</p>
+                    <p className="text-sm text-muted-foreground">
                       {claim.verification_answers?.[index.toString()] || 'No answer provided'}
                     </p>
                   </div>
@@ -226,9 +226,9 @@ export const ClaimManagement = () => {
             )}
 
             {claim.status !== 'pending' && claim.notes && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <Label className="font-medium">Review Notes:</Label>
-                <p className="text-sm text-gray-700 mt-1">{claim.notes}</p>
+              <div className="mt-4 p-3 bg-muted/50 border border-border rounded-lg">
+                <Label className="font-medium text-foreground">Review Notes:</Label>
+                <p className="text-sm text-muted-foreground mt-1">{claim.notes}</p>
               </div>
             )}
           </CardContent>
