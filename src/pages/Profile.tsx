@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, Calendar } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Camera, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import VerifiedBadge from '@/components/VerifiedBadge';
@@ -30,6 +30,8 @@ const Profile = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<Profile>({
     full_name: '',
     email: '',
@@ -113,6 +115,86 @@ const Profile = () => {
     setProfile(prev => ({ ...prev, is_verified: true }));
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: t('toast.error'),
+        description: 'Please upload a valid image file (JPG, PNG, or WebP)',
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: t('toast.error'),
+        description: 'Image size must be less than 2MB',
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      // Delete old image if exists
+      if (profile.avatar_url) {
+        const oldPath = profile.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage.from('profile-images').remove([`${user.id}/${oldPath}`]);
+        }
+      }
+
+      // Upload new image
+      const fileExt = file.name.split('.').pop();
+      const fileName = `profile.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(filePath);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+      toast({
+        title: t('toast.success'),
+        description: 'Profile picture updated successfully'
+      });
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: t('toast.error'),
+        description: error.message || 'Failed to upload profile picture',
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingImage(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen glass-effect flex items-center justify-center">
@@ -138,12 +220,37 @@ const Profile = () => {
             <Card className="glass-card border border-primary/20">
               <CardHeader>
                 <div className="flex items-center gap-6">
-                  <Avatar className="h-24 w-24 border-2 border-primary/30">
-                    <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
-                    <AvatarFallback className="text-2xl bg-primary/20">
-                      {profile.full_name?.charAt(0) || profile.email?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative group">
+                    <Avatar className="h-24 w-24 border-2 border-primary/30">
+                      <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+                      <AvatarFallback className="text-2xl bg-primary/20 text-foreground">
+                        {profile.full_name?.charAt(0) || profile.email?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    {profile.is_verified && (
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={uploadingImage}
+                        />
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          {uploadingImage ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          ) : (
+                            <Camera className="h-6 w-6 text-primary" />
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <div>
                     <CardTitle className="text-2xl flex items-center gap-2">
                       {profile.full_name || 'User'}
@@ -156,6 +263,11 @@ const Profile = () => {
                         {t('profile.joined')} {format(new Date(profile.created_at), 'MMMM dd, yyyy')}
                       </span>
                     </div>
+                    {!profile.is_verified && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Profile picture available after verification
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardHeader>
