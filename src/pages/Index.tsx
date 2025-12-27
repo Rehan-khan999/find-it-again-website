@@ -13,7 +13,7 @@ export default function Index() {
   return (
     <div className="min-h-screen relative">
       {/* Dark background for hero with starfield */}
-      <div className="fixed inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 -z-10" />
+      <div className="fixed inset-0 bg-background dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 -z-10" />
       
       {/* Animated Starfield Background */}
       <StarfieldBackground />
@@ -22,14 +22,14 @@ export default function Index() {
       <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter">
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="animate-fade-in">
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tight leading-tight hero-text">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tight leading-tight text-foreground dark:text-white dark:drop-shadow-lg">
               Find What's
               <span className="block mt-2 bg-gradient-to-r from-cyan-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl">
                 Lost in Space
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl md:text-2xl mb-12 max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(255, 255, 255, 0.9)', textShadow: '0 2px 10px rgba(0, 0, 0, 0.8)' }}>
+            <p className="text-lg sm:text-xl md:text-2xl mb-12 max-w-3xl mx-auto leading-relaxed text-foreground dark:text-white/90 dark:drop-shadow-md">
               A cosmic platform connecting people with their lost belongings through AI-powered matching and secure verification
             </p>
 
@@ -64,8 +64,9 @@ export default function Index() {
                   </Button>
                   <Button
                     size="lg"
+                    variant="outline"
                     onClick={() => navigate('/browse')}
-                    className="text-lg px-12 py-7 font-semibold bg-white/20 backdrop-blur-sm border-2 border-white/40 text-white hover:bg-white/30 hover:border-white/60 shadow-lg"
+                    className="text-lg px-12 py-7 font-semibold bg-secondary text-secondary-foreground border-2 border-border hover:bg-secondary/80 dark:bg-white/20 dark:backdrop-blur-sm dark:border-white/40 dark:text-white dark:hover:bg-white/30 dark:hover:border-white/60 shadow-lg"
                   >
                     <Search className="mr-2 h-5 w-5" />
                     Browse Items
@@ -78,8 +79,8 @@ export default function Index() {
         
         {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 rounded-full border-2 border-white/30 flex items-start justify-center p-2">
-            <div className="w-1 h-2 bg-white/60 rounded-full" />
+          <div className="w-6 h-10 rounded-full border-2 border-border dark:border-white/30 flex items-start justify-center p-2">
+            <div className="w-1 h-2 bg-muted-foreground dark:bg-white/60 rounded-full" />
           </div>
         </div>
       </section>
