@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Filter, MapPin, Calendar, User, Tag, Eye, Map, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface Item {
   id: string;
@@ -35,10 +36,15 @@ interface Item {
   verification_questions?: string[];
   user_id: string;
   photos?: string[];
+  is_owner_verified?: boolean;
 }
 
 interface Category {
   name: string;
+}
+
+interface UserVerification {
+  [userId: string]: boolean;
 }
 
 const Browse = () => {
@@ -53,6 +59,7 @@ const Browse = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const [userVerifications, setUserVerifications] = useState<UserVerification>({});
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -119,6 +126,31 @@ const Browse = () => {
       return ([...(coreItems || []), ...mappedGuest]) as Item[];
     }
   });
+
+  // Fetch verification status for item owners
+  useEffect(() => {
+    const fetchVerifications = async () => {
+      if (!items || items.length === 0) return;
+      
+      const userIds = [...new Set(items.map(item => item.user_id).filter(id => id !== 'guest'))];
+      if (userIds.length === 0) return;
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, is_verified')
+        .in('id', userIds);
+
+      if (profiles) {
+        const verifications: UserVerification = {};
+        profiles.forEach(profile => {
+          verifications[profile.id] = profile.is_verified || false;
+        });
+        setUserVerifications(verifications);
+      }
+    };
+
+    fetchVerifications();
+  }, [items]);
 
   const handleQuickContact = async (item: Item) => {
     if (!user) {
@@ -237,7 +269,12 @@ const Browse = () => {
               <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <User className="w-3.5 h-3.5 text-primary" />
               </div>
-              <span className="truncate">{t('labels.contact')}{item.contact_name}</span>
+              <span className="truncate flex items-center gap-1.5">
+                {t('labels.contact')}{item.contact_name}
+                {item.user_id !== 'guest' && userVerifications[item.user_id] && (
+                  <VerifiedBadge size="sm" />
+                )}
+              </span>
             </div>
           </div>
           
