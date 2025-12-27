@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { User, Mail, Phone, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import VerifiedBadge from '@/components/VerifiedBadge';
+import VerificationPayment from '@/components/VerificationPayment';
 
 interface Profile {
   full_name: string;
@@ -18,6 +20,7 @@ interface Profile {
   phone: string;
   avatar_url: string;
   created_at: string;
+  is_verified: boolean;
 }
 
 const Profile = () => {
@@ -32,7 +35,8 @@ const Profile = () => {
     email: '',
     phone: '',
     avatar_url: '',
-    created_at: ''
+    created_at: '',
+    is_verified: false
   });
 
   useEffect(() => {
@@ -59,7 +63,8 @@ const Profile = () => {
           email: data.email || user?.email || '',
           phone: data.phone || '',
           avatar_url: data.avatar_url || '',
-          created_at: data.created_at
+          created_at: data.created_at,
+          is_verified: data.is_verified || false
         });
       }
     } catch (error) {
@@ -104,6 +109,10 @@ const Profile = () => {
     }
   };
 
+  const handleVerificationComplete = () => {
+    setProfile(prev => ({ ...prev, is_verified: true }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen glass-effect flex items-center justify-center">
@@ -136,7 +145,10 @@ const Profile = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle className="text-2xl">{profile.full_name || 'User'}</CardTitle>
+                    <CardTitle className="text-2xl flex items-center gap-2">
+                      {profile.full_name || 'User'}
+                      {profile.is_verified && <VerifiedBadge size="lg" />}
+                    </CardTitle>
                     <CardDescription>{profile.email}</CardDescription>
                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
@@ -148,6 +160,14 @@ const Profile = () => {
                 </div>
               </CardHeader>
             </Card>
+
+            {/* Verification Card */}
+            <VerificationPayment
+              isVerified={profile.is_verified}
+              onVerificationComplete={handleVerificationComplete}
+              userEmail={profile.email}
+              userName={profile.full_name}
+            />
 
             {/* Profile Details Card */}
             <Card className="glass-card border border-primary/20">

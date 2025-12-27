@@ -7,12 +7,13 @@ import { format } from "date-fns";
 import { GoogleMap } from "./GoogleMap";
 import { ClaimDialog } from "./ClaimDialog";
 import { ClaimStatus } from "./ClaimStatus";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeTag } from "@/components/QRCodeTag";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface Item {
   id: string;
@@ -45,9 +46,30 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
   const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [isOwnerVerified, setIsOwnerVerified] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Fetch owner verification status
+  useEffect(() => {
+    const fetchOwnerVerification = async () => {
+      if (!item || item.user_id === 'guest') {
+        setIsOwnerVerified(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('is_verified')
+        .eq('id', item.user_id)
+        .maybeSingle();
+
+      setIsOwnerVerified(data?.is_verified || false);
+    };
+
+    fetchOwnerVerification();
+  }, [item?.user_id]);
   
   if (!item) return null;
 
@@ -199,8 +221,9 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
                 <User className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">
+                <span className="text-gray-700 flex items-center gap-1.5">
                   Contact: <span className="font-medium">{item.contact_name}</span>
+                  {isOwnerVerified && <VerifiedBadge size="sm" />}
                 </span>
               </div>
               
