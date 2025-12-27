@@ -69,8 +69,8 @@ export const UserMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+          <Avatar className="h-8 w-8 ring-2 ring-cyan-500/70 dark:ring-cyan-400/60">
             <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email} />
             <AvatarFallback>
               {user.user_metadata?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
