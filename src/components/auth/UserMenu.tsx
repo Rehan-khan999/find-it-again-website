@@ -18,26 +18,30 @@ export const UserMenu = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [isVerified, setIsVerified] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
-      const fetchVerificationStatus = async () => {
+      const fetchProfile = async () => {
         const { data } = await supabase
           .from('profiles')
-          .select('is_verified')
+          .select('is_verified, avatar_url, full_name')
           .eq('id', user.id)
           .single();
         
-        if (data?.is_verified) {
-          setIsVerified(true);
+        if (data) {
+          setIsVerified(data.is_verified || false);
+          setAvatarUrl(data.avatar_url);
+          setFullName(data.full_name);
         }
       };
       
-      fetchVerificationStatus();
+      fetchProfile();
 
       // Subscribe to realtime changes for instant updates
       const channel = supabase
-        .channel('profile-verification')
+        .channel('profile-updates')
         .on(
           'postgres_changes',
           {
@@ -49,6 +53,12 @@ export const UserMenu = () => {
           (payload) => {
             if (payload.new?.is_verified !== undefined) {
               setIsVerified(payload.new.is_verified);
+            }
+            if (payload.new?.avatar_url !== undefined) {
+              setAvatarUrl(payload.new.avatar_url);
+            }
+            if (payload.new?.full_name !== undefined) {
+              setFullName(payload.new.full_name);
             }
           }
         )
@@ -71,9 +81,9 @@ export const UserMenu = () => {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
           <Avatar className="h-8 w-8 ring-2 ring-cyan-500/70 dark:ring-cyan-400/60">
-            <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email} />
-            <AvatarFallback>
-              {user.user_metadata?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+            <AvatarImage src={avatarUrl || undefined} alt={user.email} />
+            <AvatarFallback className="bg-primary/20 text-foreground text-sm font-medium">
+              {fullName?.charAt(0) || user.email?.charAt(0) || 'U'}
             </AvatarFallback>
           </Avatar>
           {isVerified && (
@@ -87,7 +97,7 @@ export const UserMenu = () => {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">
-              {user.user_metadata?.full_name || 'User'}
+              {fullName || 'User'}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
