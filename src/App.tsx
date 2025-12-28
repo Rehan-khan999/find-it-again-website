@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
+import { AIAssistantButton } from "@/components/AIAssistantButton";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PostLost from "./pages/PostLost";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <AIAssistantButton />
         </div>
         
       </TooltipProvider>
