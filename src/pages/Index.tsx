@@ -268,6 +268,28 @@ export default function Index() {
             </div>
           </div>
         </section>
+
+        {/* Footer */}
+        <footer className="py-12 border-t border-border/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              <div className="text-center md:text-left">
+                <p className="text-sm text-muted-foreground">
+                  © {new Date().getFullYear()} FindIt. A student-built, non-profit platform.
+                </p>
+              </div>
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={() => navigate('/support')}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
+                  <Heart className="h-4 w-4" />
+                  Support This Project
+                </button>
+              </div>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

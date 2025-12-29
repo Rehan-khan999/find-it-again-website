@@ -82,6 +82,42 @@ export type Database = {
           },
         ]
       }
+      donations: {
+        Row: {
+          amount: number
+          created_at: string
+          donor_email: string | null
+          donor_user_id: string | null
+          id: string
+          razorpay_order_id: string
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          donor_email?: string | null
+          donor_user_id?: string | null
+          id?: string
+          razorpay_order_id: string
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          donor_email?: string | null
+          donor_user_id?: string | null
+          id?: string
+          razorpay_order_id?: string
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       guest_submissions: {
         Row: {
           additional_info: string | null
