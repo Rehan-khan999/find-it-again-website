@@ -21,6 +21,7 @@ import SuccessStories from "./pages/SuccessStories";
 import GuestPost from "./pages/GuestPost";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/success-stories" element={<SuccessStories />} />
             <Route path="/guest-post/:type" element={<GuestPost />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/user/:userId" element={<UserProfile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
