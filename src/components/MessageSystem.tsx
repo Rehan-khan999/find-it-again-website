@@ -12,7 +12,7 @@ export const MessageSystem = () => {
 
   if (!user) {
     return (
-      <Card className="h-[600px]">
+      <Card className="h-full flex-1">
         <CardContent className="flex items-center justify-center h-full">
           <div className="text-center">
             <MessageCircle className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -32,7 +32,7 @@ export const MessageSystem = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full flex-1 min-h-0">
       {/* Conversations List */}
       <div className="lg:col-span-1">
         <div className="mb-4">
