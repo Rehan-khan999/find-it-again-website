@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.verify-donation-payment]
 verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.get-google-maps-key]
+verify_jwt = true
