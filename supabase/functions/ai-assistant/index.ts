@@ -12,9 +12,11 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // HuggingFace chat completions endpoint (OpenAI-compatible)
 const HF_CHAT_API = 'https://router.huggingface.co/v1/chat/completions';
+// Using DeepSeek which is available on HuggingFace router
+const AI_MODEL = 'deepseek-ai/DeepSeek-V3-0324';
 
-async function callMistral(prompt: string, maxTokens = 500): Promise<string> {
-  console.log('Calling Mistral with prompt:', prompt.substring(0, 100) + '...');
+async function callAI(prompt: string, maxTokens = 500): Promise<string> {
+  console.log('Calling AI with prompt:', prompt.substring(0, 100) + '...');
   
   const response = await fetch(HF_CHAT_API, {
     method: 'POST',
@@ -23,32 +25,31 @@ async function callMistral(prompt: string, maxTokens = 500): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'mistralai/Mistral-7B-Instruct-v0.2',
+      model: AI_MODEL,
       messages: [
         { role: 'user', content: prompt }
       ],
       max_tokens: maxTokens,
       temperature: 0.7,
-      top_p: 0.95,
       stream: false,
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Mistral API error:', error);
-    throw new Error(`Mistral API error: ${error}`);
+    console.error('AI API error:', error);
+    throw new Error(`AI API error: ${error}`);
   }
 
   const result = await response.json();
-  console.log('Mistral response:', JSON.stringify(result).substring(0, 200));
+  console.log('AI response:', JSON.stringify(result).substring(0, 200));
   
   // OpenAI-compatible format
   if (result.choices && result.choices[0]?.message?.content) {
     return result.choices[0].message.content.trim();
   }
   
-  throw new Error('Unexpected response format from Mistral');
+  throw new Error('Unexpected response format from AI');
 }
 
 // Image tagging - simplified using text description via Mistral
@@ -64,7 +65,7 @@ Generate 5-10 generic but helpful tags for a lost and found database. Consider c
 Return ONLY a comma-separated list of tags, nothing else.`;
 
   try {
-    const tagsResponse = await callMistral(tagsPrompt, 100);
+    const tagsResponse = await callAI(tagsPrompt, 100);
     const tags = tagsResponse.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
     return { tags, objects: [] };
   } catch (error) {
@@ -87,7 +88,7 @@ Respond in this exact format:
 TITLE: [a short descriptive title, max 60 chars]
 DESCRIPTION: [a brief description, 1-2 sentences] [/INST]`;
 
-  const response = await callMistral(prompt, 150);
+  const response = await callAI(prompt, 150);
   
   const titleMatch = response.match(/TITLE:\s*(.+?)(?:\n|DESCRIPTION:)/i);
   const descMatch = response.match(/DESCRIPTION:\s*(.+)/i);
@@ -122,7 +123,7 @@ TEXT_SIMILARITY: [0-100]
 LOCATION_PROXIMITY: [0-100]
 REASONING: [brief explanation of why these items might or might not be a match] [/INST]`;
 
-  const response = await callMistral(prompt, 200);
+  const response = await callAI(prompt, 200);
   
   const scoreMatch = response.match(/SCORE:\s*(\d+)/i);
   const textMatch = response.match(/TEXT_SIMILARITY:\s*(\d+)/i);
@@ -148,7 +149,7 @@ ${items.slice(0, 20).map((item, i) => `${i + 1}. ID: ${item.id} | Title: ${item.
 
 Return ONLY a comma-separated list of item IDs in order of relevance (most relevant first), nothing else. [/INST]`;
 
-  const response = await callMistral(prompt, 200);
+  const response = await callAI(prompt, 200);
   const ids = response.split(',').map(id => id.trim()).filter(id => id);
   
   // Reorder items based on AI ranking
@@ -177,7 +178,7 @@ Context: ${context}
 
 Return ONLY a comma-separated list of 5 complete search suggestions, nothing else. [/INST]`;
 
-  const response = await callMistral(prompt, 100);
+  const response = await callAI(prompt, 100);
   return response.split(',').map(s => s.trim()).filter(s => s.length > 0).slice(0, 5);
 }
 
@@ -198,7 +199,7 @@ ${existingItems.slice(0, 10).map((item, i) => `${i + 1}. ID: ${item.id} | Title:
 
 Return ONLY the IDs of potential duplicates as a comma-separated list, or "NONE" if no duplicates. [/INST]`;
 
-  const response = await callMistral(prompt, 100);
+  const response = await callAI(prompt, 100);
   
   if (response.toUpperCase().includes('NONE')) return [];
   
@@ -222,7 +223,7 @@ INTENT: [intent type]
 CLARIFICATION: [question to ask user if query is unclear, or "CLEAR" if understood]
 SUGGESTIONS: [comma-separated list of helpful next steps] [/INST]`;
 
-  const response = await callMistral(prompt, 200);
+  const response = await callAI(prompt, 200);
   
   const intentMatch = response.match(/INTENT:\s*(.+?)(?:\n|CLARIFICATION:)/i);
   const clarificationMatch = response.match(/CLARIFICATION:\s*(.+?)(?:\n|SUGGESTIONS:)/i);
@@ -249,7 +250,7 @@ Item:
 
 Return ONLY a comma-separated list of missing or helpful information to add, or "COMPLETE" if the posting is comprehensive. [/INST]`;
 
-  const response = await callMistral(prompt, 150);
+  const response = await callAI(prompt, 150);
   
   if (response.toUpperCase().includes('COMPLETE')) return [];
   
@@ -267,7 +268,7 @@ Respond in this exact format:
 TITLE: [short notification title]
 MESSAGE: [brief, helpful notification message] [/INST]`;
 
-  const response = await callMistral(prompt, 100);
+  const response = await callAI(prompt, 100);
   
   const titleMatch = response.match(/TITLE:\s*(.+?)(?:\n|MESSAGE:)/i);
   const messageMatch = response.match(/MESSAGE:\s*(.+)/i);
