@@ -7,6 +7,7 @@ import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import AIAssistant from "@/components/AIAssistant";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PostLost from "./pages/PostLost";
@@ -61,6 +62,9 @@ const App = () => (
           </div>
           <Footer />
         </div>
+        
+        {/* AI Assistant floating button */}
+        <AIAssistant />
         
       </TooltipProvider>
     </AuthProvider>

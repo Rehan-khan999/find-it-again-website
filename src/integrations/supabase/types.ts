@@ -14,6 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_match_suggestions: {
+        Row: {
+          ai_score: number
+          created_at: string
+          found_item_id: string
+          id: string
+          image_similarity: number | null
+          location_proximity: number | null
+          lost_item_id: string
+          reasoning: string | null
+          reviewed_at: string | null
+          status: string
+          text_similarity: number | null
+        }
+        Insert: {
+          ai_score?: number
+          created_at?: string
+          found_item_id: string
+          id?: string
+          image_similarity?: number | null
+          location_proximity?: number | null
+          lost_item_id: string
+          reasoning?: string | null
+          reviewed_at?: string | null
+          status?: string
+          text_similarity?: number | null
+        }
+        Update: {
+          ai_score?: number
+          created_at?: string
+          found_item_id?: string
+          id?: string
+          image_similarity?: number | null
+          location_proximity?: number | null
+          lost_item_id?: string
+          reasoning?: string | null
+          reviewed_at?: string | null
+          status?: string
+          text_similarity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_match_suggestions_found_item_id_fkey"
+            columns: ["found_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_match_suggestions_lost_item_id_fkey"
+            columns: ["lost_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string | null
+          message: string
+          metadata: Json | null
+          notification_type: string
+          sent: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          message: string
+          metadata?: Json | null
+          notification_type: string
+          sent?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          sent?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_notifications_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_tags: {
+        Row: {
+          auto_description: string | null
+          auto_title: string | null
+          created_at: string
+          embedding: Json | null
+          id: string
+          item_id: string
+          objects_detected: string[]
+          tags: string[]
+          updated_at: string
+        }
+        Insert: {
+          auto_description?: string | null
+          auto_title?: string | null
+          created_at?: string
+          embedding?: Json | null
+          id?: string
+          item_id: string
+          objects_detected?: string[]
+          tags?: string[]
+          updated_at?: string
+        }
+        Update: {
+          auto_description?: string | null
+          auto_title?: string | null
+          created_at?: string
+          embedding?: Json | null
+          id?: string
+          item_id?: string
+          objects_detected?: string[]
+          tags?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
