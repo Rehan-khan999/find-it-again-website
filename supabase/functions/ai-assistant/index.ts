@@ -10,8 +10,8 @@ const HF_TOKEN = Deno.env.get('HF_TOKEN');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Mistral model endpoint
-const MISTRAL_API = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
+// Mistral model endpoint - using new HuggingFace router
+const MISTRAL_API = 'https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2';
 
 async function callMistral(prompt: string, maxTokens = 500): Promise<string> {
   console.log('Calling Mistral with prompt:', prompt.substring(0, 100) + '...');
@@ -54,7 +54,7 @@ async function analyzeImage(imageUrl: string): Promise<{ tags: string[], objects
   console.log('Analyzing image:', imageUrl);
   
   // Use BLIP for image captioning
-  const blipResponse = await fetch('https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base', {
+  const blipResponse = await fetch('https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-base', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${HF_TOKEN}`,
@@ -71,7 +71,7 @@ async function analyzeImage(imageUrl: string): Promise<{ tags: string[], objects
   }
 
   // Use object detection
-  const detectionResponse = await fetch('https://api-inference.huggingface.co/models/facebook/detr-resnet-50', {
+  const detectionResponse = await fetch('https://router.huggingface.co/hf-inference/models/facebook/detr-resnet-50', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${HF_TOKEN}`,
