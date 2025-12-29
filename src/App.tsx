@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PostLost from "./pages/PostLost";
@@ -34,28 +35,31 @@ const App = () => (
         <Toaster />
         <Sonner />
         
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background flex flex-col">
           <Header />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/post-lost" element={<PostLost />} />
-            <Route path="/post-found" element={<PostFound />} />
-            <Route path="/browse" element={<Browse />} />
-            <Route path="/matches" element={<Matches />} />
-            <Route path="/claims" element={<Claims />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/my-items" element={<MyItems />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/success-stories" element={<SuccessStories />} />
-            <Route path="/guest-post/:type" element={<GuestPost />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/user/:userId" element={<UserProfile />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/support" element={<SupportUs />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="flex-1">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/post-lost" element={<PostLost />} />
+              <Route path="/post-found" element={<PostFound />} />
+              <Route path="/browse" element={<Browse />} />
+              <Route path="/matches" element={<Matches />} />
+              <Route path="/claims" element={<Claims />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/my-items" element={<MyItems />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/success-stories" element={<SuccessStories />} />
+              <Route path="/guest-post/:type" element={<GuestPost />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/user/:userId" element={<UserProfile />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/support" element={<SupportUs />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+          <Footer />
         </div>
         
       </TooltipProvider>
