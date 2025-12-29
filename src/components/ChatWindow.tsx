@@ -5,9 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UserAvatar } from './UserAvatar';
 
 interface Message {
   id: string;
@@ -167,11 +168,12 @@ export const ChatWindow = ({ otherUserId, otherUserName }: ChatWindowProps) => {
     <Card className="h-full flex flex-col">
       <CardHeader className="flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
-          <Avatar className="w-8 h-8">
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {otherUserName?.charAt(0)?.toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar 
+            userId={otherUserId} 
+            userName={otherUserName}
+            size="sm"
+            clickable={true}
+          />
           {otherUserName}
         </CardTitle>
       </CardHeader>
@@ -196,11 +198,12 @@ export const ChatWindow = ({ otherUserId, otherUserName }: ChatWindowProps) => {
                 )}
               >
                 {message.sender_id !== user?.id && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-muted text-muted-foreground">
-                      {otherUserName?.charAt(0)?.toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar 
+                    userId={otherUserId} 
+                    userName={otherUserName}
+                    size="sm"
+                    clickable={true}
+                  />
                 )}
                 
                 <div

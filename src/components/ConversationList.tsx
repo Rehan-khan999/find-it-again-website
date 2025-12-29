@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UserAvatar } from './UserAvatar';
 
 interface Conversation {
   other_user_id: string;
@@ -86,11 +86,12 @@ export const ConversationList = ({ selectedUserId, onSelectConversation }: Conve
               )}
               onClick={() => onSelectConversation(conversation.other_user_id, conversation.user_name)}
             >
-              <Avatar className="w-10 h-10">
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {conversation.user_name?.charAt(0)?.toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar 
+                userId={conversation.other_user_id} 
+                userName={conversation.user_name}
+                size="md"
+                clickable={true}
+              />
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">

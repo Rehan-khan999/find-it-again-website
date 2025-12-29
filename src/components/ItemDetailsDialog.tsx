@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReportDialog } from "./ReportDialog";
-import { CalendarDays, MapPin, User, Phone, Mail, DollarSign, MessageCircle, Flag, QrCode } from "lucide-react";
+import { CalendarDays, MapPin, Phone, Mail, DollarSign, MessageCircle, Flag, QrCode } from "lucide-react";
 import { format } from "date-fns";
 import { GoogleMap } from "./GoogleMap";
 import { ClaimDialog } from "./ClaimDialog";
@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeTag } from "@/components/QRCodeTag";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { UserAvatar } from "./UserAvatar";
 
 interface Item {
   id: string;
@@ -219,10 +220,15 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-900">Contact Information</h3>
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="w-4 h-4 text-gray-500" />
+              <div className="flex items-center gap-3 text-sm">
+                <UserAvatar 
+                  userId={item.user_id} 
+                  userName={item.contact_name}
+                  size="md"
+                  clickable={item.user_id !== 'guest'}
+                />
                 <span className="text-gray-700 flex items-center gap-1.5">
-                  Contact: <span className="font-medium">{item.contact_name}</span>
+                  <span className="font-medium">{item.contact_name}</span>
                   {isOwnerVerified && <VerifiedBadge size="sm" />}
                 </span>
               </div>

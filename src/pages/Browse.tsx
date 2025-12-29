@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Search, Filter, MapPin, Calendar, User, Tag, Eye, Map, MessageCircle } from "lucide-react";
+import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { UserAvatar } from "@/components/UserAvatar";
 
 interface Item {
   id: string;
@@ -266,11 +267,14 @@ const Browse = () => {
               </span>
             </div>
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <User className="w-3.5 h-3.5 text-primary" />
-              </div>
+              <UserAvatar 
+                userId={item.user_id} 
+                userName={item.contact_name}
+                size="sm"
+                clickable={item.user_id !== 'guest'}
+              />
               <span className="truncate flex items-center gap-1.5">
-                {t('labels.contact')}{item.contact_name}
+                {item.contact_name}
                 {item.user_id !== 'guest' && userVerifications[item.user_id] && (
                   <VerifiedBadge size="sm" />
                 )}
