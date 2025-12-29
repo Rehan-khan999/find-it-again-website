@@ -15,8 +15,37 @@ const HF_CHAT_API = 'https://router.huggingface.co/v1/chat/completions';
 // Using DeepSeek which is available on HuggingFace router
 const AI_MODEL = 'deepseek-ai/DeepSeek-V3-0324';
 
-async function callAI(prompt: string, maxTokens = 500): Promise<string> {
+// Lost & Found Investigator System Prompt
+const INVESTIGATOR_SYSTEM_PROMPT = `You are an AI Lost & Found Investigator for a college campus.
+
+Your responsibilities:
+- Understand whether the user is searching, reporting, refining, or seeking guidance.
+- Analyze lost and found items using logic, not keywords.
+- Compare items based on category, location proximity, date, description, and uniqueness.
+- Assign a clear Match Confidence percentage for every result.
+- Explain WHY a match is strong or weak in simple language.
+- Ask follow-up questions if information is missing.
+- Suggest the next best action (refine search, contact finder, post item, wait for updates).
+- Never give short or boring answers.
+- Always think step-by-step internally before responding.
+- Be proactive, investigative, and helpful like a human assistant, not a chatbot.
+
+Rules:
+- If confidence < 50%, recommend posting a lost item.
+- If multiple matches exist, rank them.
+- If user intent is unclear, ask clarifying questions before acting.
+- Use emojis sparingly for clarity, not decoration.`;
+
+async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = false): Promise<string> {
   console.log('Calling AI with prompt:', prompt.substring(0, 100) + '...');
+  
+  const messages: { role: string; content: string }[] = [];
+  
+  if (useInvestigatorMode) {
+    messages.push({ role: 'system', content: INVESTIGATOR_SYSTEM_PROMPT });
+  }
+  
+  messages.push({ role: 'user', content: prompt });
   
   const response = await fetch(HF_CHAT_API, {
     method: 'POST',
@@ -26,9 +55,7 @@ async function callAI(prompt: string, maxTokens = 500): Promise<string> {
     },
     body: JSON.stringify({
       model: AI_MODEL,
-      messages: [
-        { role: 'user', content: prompt }
-      ],
+      messages,
       max_tokens: maxTokens,
       temperature: 0.7,
       stream: false,
@@ -99,31 +126,37 @@ DESCRIPTION: [a brief description, 1-2 sentences] [/INST]`;
   };
 }
 
-// Calculate match score between two items
+// Calculate match score between two items - uses investigator mode
 async function calculateMatchScore(lostItem: any, foundItem: any): Promise<{ score: number, reasoning: string, textSimilarity: number, locationProximity: number }> {
-  const prompt = `<s>[INST] Compare these two items and determine if they might be a match:
+  const prompt = `Compare these two items and determine if they might be a match. Think step-by-step about category, location proximity, date, description, and uniqueness.
 
 LOST ITEM:
 - Title: ${lostItem.title}
 - Description: ${lostItem.description}
 - Category: ${lostItem.category}
 - Location: ${lostItem.location}
-- Date: ${lostItem.date_lost_found}
+- Date Lost: ${lostItem.date_lost_found}
 
 FOUND ITEM:
 - Title: ${foundItem.title}
 - Description: ${foundItem.description}
 - Category: ${foundItem.category}
 - Location: ${foundItem.location}
-- Date: ${foundItem.date_lost_found}
+- Date Found: ${foundItem.date_lost_found}
+
+Analyze using logic, not just keywords. Consider:
+- Are the categories compatible?
+- How close are the locations on a college campus?
+- Does the timeline make sense (found after lost)?
+- Do the descriptions describe similar unique features?
 
 Respond in this exact format:
-SCORE: [0-100 match percentage]
+SCORE: [0-100 Match Confidence percentage]
 TEXT_SIMILARITY: [0-100]
 LOCATION_PROXIMITY: [0-100]
-REASONING: [brief explanation of why these items might or might not be a match] [/INST]`;
+REASONING: [Clear explanation of WHY this is a strong or weak match in simple language]`;
 
-  const response = await callAI(prompt, 200);
+  const response = await callAI(prompt, 300, true);
   
   const scoreMatch = response.match(/SCORE:\s*(\d+)/i);
   const textMatch = response.match(/TEXT_SIMILARITY:\s*(\d+)/i);
@@ -207,23 +240,23 @@ Return ONLY the IDs of potential duplicates as a comma-separated list, or "NONE"
   return existingItems.filter(item => ids.includes(item.id));
 }
 
-// Intent clarification
+// Intent clarification - uses investigator mode
 async function clarifyIntent(userQuery: string): Promise<{ intent: string, suggestions: string[], clarification: string }> {
-  const prompt = `<s>[INST] Analyze this user query for a lost and found website:
+  const prompt = `Analyze this user query for a lost and found website:
 
 Query: "${userQuery}"
 
-Determine:
+As the Lost & Found Investigator, determine:
 1. The user's intent (lost_item, found_item, search, claim, question)
-2. If the query is unclear, suggest clarifying questions
-3. Provide helpful suggestions
+2. If the query is unclear, ask clarifying questions to better help them
+3. Provide helpful, actionable suggestions for next steps
 
-Respond in this exact format:
+Think step-by-step about what the user really needs, then respond in this exact format:
 INTENT: [intent type]
-CLARIFICATION: [question to ask user if query is unclear, or "CLEAR" if understood]
-SUGGESTIONS: [comma-separated list of helpful next steps] [/INST]`;
+CLARIFICATION: [insightful question to ask user if query is unclear, or "CLEAR" if you understand their need well]
+SUGGESTIONS: [comma-separated list of specific, helpful next steps]`;
 
-  const response = await callAI(prompt, 200);
+  const response = await callAI(prompt, 300, true);
   
   const intentMatch = response.match(/INTENT:\s*(.+?)(?:\n|CLARIFICATION:)/i);
   const clarificationMatch = response.match(/CLARIFICATION:\s*(.+?)(?:\n|SUGGESTIONS:)/i);
