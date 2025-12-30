@@ -240,20 +240,26 @@ export const AIAssistant = () => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-16 w-16 rounded-full z-50 p-0 overflow-hidden cursor-pointer
-          shadow-[0_4px_20px_rgba(0,191,166,0.3)] 
-          hover:shadow-[0_8px_30px_rgba(0,191,166,0.45)] 
+        className="fixed bottom-6 right-6 z-50 cursor-pointer flex flex-col items-center gap-1.5
           hover:-translate-y-1 
           transition-all duration-200 ease-out
-          ring-2 ring-teal-400/20 hover:ring-teal-400/40
           group"
         aria-label="Open AI Lost & Found Assistant"
       >
-        <img 
-          src={aiAssistantLogo} 
-          alt="AI Lost & Found Assistant" 
-          className="h-full w-full object-cover group-hover:brightness-110 transition-all duration-200" 
-        />
+        <div className="h-14 w-14 rounded-full overflow-hidden
+          shadow-[0_4px_20px_rgba(0,191,166,0.3)] 
+          group-hover:shadow-[0_8px_30px_rgba(0,191,166,0.45)] 
+          ring-2 ring-teal-400/20 group-hover:ring-teal-400/40
+          transition-all duration-200">
+          <img 
+            src={aiAssistantLogo} 
+            alt="AI Lost & Found Assistant" 
+            className="h-full w-full object-cover group-hover:brightness-110 transition-all duration-200" 
+          />
+        </div>
+        <span className="text-[11px] font-medium tracking-tight text-primary dark:text-teal-400">
+          FindIt AI
+        </span>
       </button>
     );
   }
