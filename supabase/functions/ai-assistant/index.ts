@@ -22,9 +22,14 @@ Your responsibilities:
 - Understand whether the user is searching, reporting, refining, or seeking guidance.
 - Analyze lost and found items using logic, not keywords.
 - Compare items based on category, location proximity, date, description, and uniqueness.
-- Assign a clear Match Confidence percentage for every result.
+- Assign a clear Match Confidence percentage for every result using this scoring:
+  +40% → Same category
+  +25% → Same or nearby location  
+  +20% → Date within 3 days
+  +10% → Description similarity
+  +5%  → Unique identifiers (color, brand, mark)
 - Explain WHY a match is strong or weak in simple language.
-- Ask follow-up questions if information is missing.
+- Ask follow-up questions if CRITICAL information is missing (location, category, or date).
 - Suggest the next best action (refine search, contact finder, post item, wait for updates).
 - Never give short or boring answers.
 - Always think step-by-step internally before responding.
@@ -32,9 +37,11 @@ Your responsibilities:
 
 Rules:
 - If confidence < 50%, recommend posting a lost item.
-- If multiple matches exist, rank them.
+- If multiple matches exist, rank them clearly with reasons.
 - If user intent is unclear, ask clarifying questions before acting.
-- Use emojis sparingly for clarity, not decoration.`;
+- Use emojis sparingly for clarity, not decoration.
+- Always end with a clear 👉 Recommended Action.`;
+
 
 // Structured conversation flow types
 interface ConversationContext {
@@ -219,7 +226,113 @@ async function searchForMatches(
   return items || [];
 }
 
-// Calculate confidence scores for matches
+// Calculate confidence scores using LOGICAL scoring (no ML needed)
+function calculateLogicalConfidence(
+  extractedInfo: any,
+  item: any
+): { score: number; breakdown: { category: number; location: number; date: number; description: number; identifiers: number }; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+  const breakdown = { category: 0, location: 0, date: 0, description: 0, identifiers: 0 };
+
+  // +40% → Same category
+  if (extractedInfo.category && item.category) {
+    const userCat = extractedInfo.category.toLowerCase();
+    const itemCat = item.category.toLowerCase();
+    if (userCat === itemCat || itemCat.includes(userCat) || userCat.includes(itemCat)) {
+      breakdown.category = 40;
+      score += 40;
+      reasons.push(`Same category (${item.category})`);
+    } else {
+      breakdown.category = 0;
+      reasons.push(`Different category`);
+    }
+  }
+
+  // +25% → Same or nearby location
+  if (extractedInfo.location && item.location) {
+    const userLoc = extractedInfo.location.toLowerCase();
+    const itemLoc = item.location.toLowerCase();
+    // Check for common location keywords
+    const locationWords = userLoc.split(/\s+/).filter((w: string) => w.length > 2);
+    const matchingWords = locationWords.filter((w: string) => itemLoc.includes(w));
+    
+    if (userLoc === itemLoc || matchingWords.length >= 2) {
+      breakdown.location = 25;
+      score += 25;
+      reasons.push(`Location match`);
+    } else if (matchingWords.length >= 1) {
+      breakdown.location = 15;
+      score += 15;
+      reasons.push(`Nearby location`);
+    }
+  }
+
+  // +20% → Date within 3 days
+  if (extractedInfo.date && item.date_lost_found) {
+    const userDate = new Date(extractedInfo.date);
+    const itemDate = new Date(item.date_lost_found);
+    const daysDiff = Math.abs((userDate.getTime() - itemDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff <= 1) {
+      breakdown.date = 20;
+      score += 20;
+      reasons.push(`Found within 1 day`);
+    } else if (daysDiff <= 3) {
+      breakdown.date = 15;
+      score += 15;
+      reasons.push(`Found within 3 days`);
+    } else if (daysDiff <= 7) {
+      breakdown.date = 10;
+      score += 10;
+      reasons.push(`Found within a week`);
+    }
+  } else {
+    // Give partial credit if date not specified
+    breakdown.date = 5;
+    score += 5;
+  }
+
+  // +10% → Description similarity
+  if (extractedInfo.description && item.description) {
+    const userDesc = extractedInfo.description.toLowerCase();
+    const itemDesc = item.description.toLowerCase();
+    const descWords = userDesc.split(/\s+/).filter((w: string) => w.length > 3);
+    const matchingDesc = descWords.filter((w: string) => itemDesc.includes(w));
+    
+    if (matchingDesc.length >= 3) {
+      breakdown.description = 10;
+      score += 10;
+      reasons.push(`Description matches`);
+    } else if (matchingDesc.length >= 1) {
+      breakdown.description = 5;
+      score += 5;
+      reasons.push(`Partial description match`);
+    }
+  }
+
+  // +5% → Unique identifiers (color, brand)
+  const identifiers = ['black', 'white', 'red', 'blue', 'green', 'gold', 'silver', 'brown', 
+    'apple', 'samsung', 'nike', 'adidas', 'leather', 'metal', 'plastic'];
+  
+  if (extractedInfo.description && item.description) {
+    const userDesc = extractedInfo.description.toLowerCase();
+    const itemDesc = item.description.toLowerCase();
+    
+    for (const id of identifiers) {
+      if (userDesc.includes(id) && itemDesc.includes(id)) {
+        breakdown.identifiers = 5;
+        score += 5;
+        reasons.push(`Matching identifier: ${id}`);
+        break;
+      }
+    }
+  }
+
+  return { score: Math.min(score, 100), breakdown, reasons };
+}
+
+// Score matches with logical confidence
 async function scoreMatches(
   userMessage: string,
   extractedInfo: any,
@@ -227,65 +340,26 @@ async function scoreMatches(
 ): Promise<MatchResult[]> {
   if (items.length === 0) return [];
 
-  const itemsList = items.map((item, i) => 
-    `${i + 1}. ID: ${item.id}
-   Title: ${item.title}
-   Category: ${item.category}
-   Location: ${item.location}
-   Date: ${item.date_lost_found}
-   Description: ${item.description?.substring(0, 150) || 'No description'}`
-  ).join('\n\n');
-
-  const prompt = `As the Lost & Found Investigator, analyze these items against the user's search:
-
-USER LOOKING FOR:
-- Query: "${userMessage}"
-- Category: ${extractedInfo.category || 'Not specified'}
-- Location: ${extractedInfo.location || 'Not specified'}
-- Date: ${extractedInfo.date || 'Not specified'}
-- Description: ${extractedInfo.description || 'Not specified'}
-
-AVAILABLE ITEMS:
-${itemsList}
-
-For each item, analyze:
-1. Category match (exact, related, or unrelated)
-2. Location proximity (same building/area, nearby, far, unknown)
-3. Date logic (does the timeline make sense?)
-4. Description similarity (unique features, colors, brands)
-
-Rate each item's match confidence (0-100%) and explain your reasoning.
-
-Respond in this format for EACH item (include ALL items):
-ITEM_${'{item_number}'}:
-CONFIDENCE: [0-100]
-REASONING: [1-2 sentences explaining why this is or isn't a good match]
----`;
-
-  const response = await callAI(prompt, 1000, true);
-  
   const results: MatchResult[] = [];
-  
-  for (let i = 0; i < items.length; i++) {
-    const itemPattern = new RegExp(`ITEM_${i + 1}:[\\s\\S]*?CONFIDENCE:\\s*(\\d+)[\\s\\S]*?REASONING:\\s*([^\\n]+(?:\\n(?!ITEM_|---).*)?)`,'i');
-    const match = response.match(itemPattern);
+
+  for (const item of items) {
+    const { score, breakdown, reasons } = calculateLogicalConfidence(extractedInfo, item);
     
-    if (match) {
-      results.push({
-        item: items[i],
-        confidence: parseInt(match[1]) || 0,
-        reasoning: match[2]?.trim() || 'Unable to analyze',
-        rank: 0,
-      });
-    } else {
-      // Fallback: still include the item with low confidence
-      results.push({
-        item: items[i],
-        confidence: 20,
-        reasoning: 'Could not analyze - please review manually',
-        rank: 0,
-      });
-    }
+    // Generate reasoning text
+    const reasoningText = `🧠 Match Confidence: ${score}%\n` +
+      `• Category: +${breakdown.category}%\n` +
+      `• Location: +${breakdown.location}%\n` +
+      `• Date: +${breakdown.date}%\n` +
+      `• Description: +${breakdown.description}%\n` +
+      `• Identifiers: +${breakdown.identifiers}%\n\n` +
+      `Reason: ${reasons.join(', ')}`;
+
+    results.push({
+      item,
+      confidence: score,
+      reasoning: reasoningText,
+      rank: 0,
+    });
   }
 
   // Sort by confidence and assign ranks
@@ -302,7 +376,8 @@ async function generateInvestigatorResponse(
   extractedInfo: any,
   clarifyingQuestions: string[],
   matches: MatchResult[],
-  isComplete: boolean
+  isComplete: boolean,
+  duplicateWarning?: string
 ): Promise<{
   response: string;
   recommendedAction: string;
@@ -316,7 +391,8 @@ Intent: ${intent}
 Data complete: ${isComplete}
 ${clarifyingQuestions.length > 0 ? `Clarifying questions needed: ${clarifyingQuestions.join('; ')}` : ''}
 Number of potential matches: ${matches.length}
-Top matches: ${topMatches.map(m => `${m.item.title} (${m.confidence}%)`).join(', ') || 'None'}`;
+Top matches: ${topMatches.map(m => `${m.item.title} (${m.confidence}%)`).join(', ') || 'None'}
+${duplicateWarning ? `DUPLICATE WARNING: ${duplicateWarning}` : ''}`;
 
   const prompt = `As the Lost & Found Investigator, respond to this user:
 
@@ -327,7 +403,8 @@ Rules:
 - If there are good matches (>=50%), present them with confidence scores and reasoning
 - If matches are weak (<50%), recommend posting the item
 - Rank multiple matches clearly
-- Always suggest a next action
+- ${duplicateWarning ? 'WARN the user about the potential duplicate before they create a new post' : ''}
+- Always suggest a next action with the format: 👉 Recommended Action: [action]
 - Be helpful, investigative, and conversational
 - Use emojis sparingly for clarity only
 
@@ -335,7 +412,7 @@ Generate a complete, helpful response that:
 1. Acknowledges what they're looking for
 2. ${clarifyingQuestions.length > 0 ? 'Asks the clarifying questions' : 'Presents findings'}
 3. Explains the match confidence for any results
-4. Recommends a clear next action
+4. ${duplicateWarning ? 'Warns about duplicate' : 'Recommends a clear next action'}
 
 Keep response under 300 words but make it thorough and helpful.`;
 
@@ -357,6 +434,50 @@ Keep response under 300 words but make it thorough and helpful.`;
     recommendedAction,
     topMatches,
   };
+}
+
+// Check for duplicate posts
+async function checkForDuplicates(
+  supabase: any,
+  extractedInfo: any,
+  intent: string
+): Promise<string | null> {
+  if (intent !== 'post_lost' && intent !== 'post_found') {
+    return null;
+  }
+
+  const itemType = intent === 'post_lost' ? 'lost' : 'found';
+  
+  // Look for similar items posted in last 24 hours
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  
+  let query = supabase
+    .from('items')
+    .select('id, title, description, category, location')
+    .eq('item_type', itemType)
+    .eq('status', 'active')
+    .gte('created_at', oneDayAgo)
+    .limit(10);
+
+  if (extractedInfo.category) {
+    query = query.ilike('category', `%${extractedInfo.category}%`);
+  }
+
+  const { data: recentItems, error } = await query;
+  
+  if (error || !recentItems || recentItems.length === 0) {
+    return null;
+  }
+
+  // Check for high similarity
+  for (const item of recentItems) {
+    const { score } = calculateLogicalConfidence(extractedInfo, item);
+    if (score >= 70) {
+      return `⚠️ Similar ${itemType} item already exists: "${item.title}". Would you like to link to it instead of creating a new post?`;
+    }
+  }
+
+  return null;
 }
 
 // Main chat handler with full conversation flow
@@ -382,6 +503,16 @@ async function handleChat(
   const { isComplete, missingFields, criticalMissing } = checkDataCompleteness(extractedInfo, intent);
   console.log('Complete:', isComplete, 'Missing:', [...criticalMissing, ...missingFields]);
 
+  // Step 2.5: Check for duplicates if posting
+  let duplicateWarning: string | null = null;
+  if (intent === 'post_lost' || intent === 'post_found') {
+    console.log('Step 2.5: Checking for duplicates...');
+    duplicateWarning = await checkForDuplicates(supabase, extractedInfo, intent);
+    if (duplicateWarning) {
+      console.log('Duplicate warning:', duplicateWarning);
+    }
+  }
+
   // Step 3: Generate Clarifying Questions (if needed)
   let clarifyingQuestions: string[] = [];
   if (!isComplete || intentConfidence < 60) {
@@ -397,9 +528,9 @@ async function handleChat(
     const items = await searchForMatches(supabase, extractedInfo, intent);
     console.log('Found items:', items.length);
 
-    // Step 5: Confidence Scoring
+    // Step 5: Confidence Scoring (using logical scoring)
     if (items.length > 0) {
-      console.log('Step 5: Scoring matches...');
+      console.log('Step 5: Scoring matches with logical confidence...');
       matches = await scoreMatches(userMessage, extractedInfo, items);
       console.log('Scored matches:', matches.map(m => ({ title: m.item.title, confidence: m.confidence })));
     }
@@ -413,7 +544,8 @@ async function handleChat(
     extractedInfo,
     clarifyingQuestions,
     matches,
-    isComplete
+    isComplete,
+    duplicateWarning || undefined
   );
 
   console.log('=== INVESTIGATOR FLOW END ===');
