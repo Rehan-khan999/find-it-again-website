@@ -1,6 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle } from "lucide-react";
+import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle, Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { DemoListings } from "@/components/DemoListings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +59,7 @@ const Browse = () => {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+  const [showDemoItems, setShowDemoItems] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -385,11 +388,24 @@ const Browse = () => {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Demo Items Toggle */}
+            <div className="flex items-center gap-2 pt-4 border-t border-border/50">
+              <Checkbox 
+                id="show-demo" 
+                checked={showDemoItems}
+                onCheckedChange={(checked) => setShowDemoItems(checked === true)}
+              />
+              <Label 
+                htmlFor="show-demo" 
+                className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Show demo items (for fun)
+              </Label>
+            </div>
           </CardContent>
         </Card>
-
-        {/* Demo Listings Section - Always visible, separate from real data */}
-        <DemoListings />
 
         {/* Real Results */}
         {isLoading ? (
@@ -474,6 +490,22 @@ const Browse = () => {
                     <ItemCard item={item} />
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Demo Listings Section - Only shown when toggle is ON, after real items */}
+            {showDemoItems && (
+              <div className="mt-12 pt-8 border-t border-border/30">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    Demo / Sample Listings — For UI Demonstration Only
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                </div>
+                <DemoListings />
               </div>
             )}
           </>
