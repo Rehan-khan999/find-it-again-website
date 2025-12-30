@@ -4,10 +4,51 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Bot, Send, X, Sparkles, MapPin, Calendar, Tag } from "lucide-react";
+import { Loader2, Bot, Send, X, Sparkles, MapPin, Calendar, Tag, RotateCcw } from "lucide-react";
 import { chat, getAutocomplete, ChatMessage, MatchResult } from "@/services/aiAssistant";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+
+// Session memory keys
+const MEMORY_KEYS = {
+  lastSearchCategory: 'ai_last_search_category',
+  lastSearchLocation: 'ai_last_search_location',
+  lastSearchDate: 'ai_last_search_date',
+  conversationHistory: 'ai_conversation_history',
+};
+
+// Helper to get session memory
+const getSessionMemory = () => {
+  try {
+    return {
+      lastCategory: sessionStorage.getItem(MEMORY_KEYS.lastSearchCategory),
+      lastLocation: sessionStorage.getItem(MEMORY_KEYS.lastSearchLocation),
+      lastDate: sessionStorage.getItem(MEMORY_KEYS.lastSearchDate),
+      history: JSON.parse(sessionStorage.getItem(MEMORY_KEYS.conversationHistory) || '[]'),
+    };
+  } catch {
+    return { lastCategory: null, lastLocation: null, lastDate: null, history: [] };
+  }
+};
+
+// Helper to save session memory
+const saveSessionMemory = (category?: string, location?: string, date?: string, history?: ChatMessage[]) => {
+  try {
+    if (category) sessionStorage.setItem(MEMORY_KEYS.lastSearchCategory, category);
+    if (location) sessionStorage.setItem(MEMORY_KEYS.lastSearchLocation, location);
+    if (date) sessionStorage.setItem(MEMORY_KEYS.lastSearchDate, date);
+    if (history) sessionStorage.setItem(MEMORY_KEYS.conversationHistory, JSON.stringify(history.slice(-10)));
+  } catch {
+    // Silently fail if storage is full
+  }
+};
+
+// Clear session memory
+const clearSessionMemory = () => {
+  try {
+    Object.values(MEMORY_KEYS).forEach(key => sessionStorage.removeItem(key));
+  } catch {}
+};
 
 interface Message {
   role: "user" | "assistant";
@@ -19,16 +60,27 @@ interface Message {
 
 export const AIAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const sessionMemory = getSessionMemory();
+  
+  // Generate welcome message with memory context
+  const getWelcomeMessage = () => {
+    const { lastCategory, lastLocation } = sessionMemory;
+    if (lastCategory && lastLocation) {
+      return `🔍 Welcome back! Last time you searched for a **${lastCategory}** near **${lastLocation}**.\n\nWould you like me to check for new updates, or start a fresh search?`;
+    }
+    return "🔍 Hi! I'm your Lost & Found Investigator. I can help you search for lost items, report found items, and find potential matches using smart analysis. What can I help you with today?";
+  };
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "🔍 Hi! I'm your Lost & Found Investigator. I can help you search for lost items, report found items, and find potential matches using smart analysis. What can I help you with today?",
+      content: getWelcomeMessage(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
-  const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>(sessionMemory.history);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -83,10 +135,24 @@ export const AIAssistant = () => {
         const { response, context } = data;
 
         // Update conversation history with assistant response
-        setConversationHistory([
+        const updatedHistory: ChatMessage[] = [
           ...newHistory,
           { role: "assistant", content: response },
-        ]);
+        ];
+        setConversationHistory(updatedHistory);
+        
+        // Save to session memory
+        if (context.matches && context.matches.length > 0) {
+          const firstMatch = context.matches[0];
+          saveSessionMemory(
+            firstMatch.item?.category,
+            firstMatch.item?.location,
+            firstMatch.item?.date_lost_found,
+            updatedHistory
+          );
+        } else {
+          saveSessionMemory(undefined, undefined, undefined, updatedHistory);
+        }
 
         // Create message with matches and context
         const newMessage: Message = {
@@ -111,6 +177,17 @@ export const AIAssistant = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Handle clearing conversation and memory
+  const handleClearConversation = () => {
+    clearSessionMemory();
+    setMessages([{
+      role: "assistant",
+      content: "🔍 Hi! I'm your Lost & Found Investigator. I can help you search for lost items, report found items, and find potential matches using smart analysis. What can I help you with today?",
+    }]);
+    setConversationHistory([]);
+    toast.success("Conversation cleared");
   };
 
   const handleActionClick = (action: string) => {
@@ -182,9 +259,14 @@ export const AIAssistant = () => {
             <p className="text-xs text-muted-foreground">AI-powered search assistant</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={handleClearConversation} title="Clear conversation">
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
 
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
