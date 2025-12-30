@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle } from "lucide-react";
+import { DemoListings } from "@/components/DemoListings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -387,7 +388,10 @@ const Browse = () => {
           </CardContent>
         </Card>
 
-        {/* Results */}
+        {/* Demo Listings Section - Always visible, separate from real data */}
+        <DemoListings />
+
+        {/* Real Results */}
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="relative">
