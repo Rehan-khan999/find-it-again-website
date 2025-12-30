@@ -18,6 +18,13 @@ const AI_MODEL = 'deepseek-ai/DeepSeek-V3-0324';
 // Lost & Found Investigator System Prompt
 const INVESTIGATOR_SYSTEM_PROMPT = `You are an AI Lost & Found Investigator for a college campus.
 
+CRITICAL RULES (NO EXCEPTIONS):
+- You DO NOT answer from assumptions or general knowledge.
+- You MUST ALWAYS use database query results provided in context.
+- If items exist in the database results, you MUST reference them.
+- You are NOT allowed to say "I couldn't find anything" unless the database query returns ZERO results.
+- NEVER hallucinate items that don't exist in the provided database results.
+
 Your responsibilities:
 - Understand whether the user is searching, reporting, refining, or seeking guidance.
 - Analyze lost and found items using logic, not keywords.
@@ -31,9 +38,15 @@ Your responsibilities:
 - Explain WHY a match is strong or weak in simple language.
 - Ask follow-up questions if CRITICAL information is missing (location, category, or date).
 - Suggest the next best action (refine search, contact finder, post item, wait for updates).
-- Never give short or boring answers.
-- Always think step-by-step internally before responding.
 - Be proactive, investigative, and helpful like a human assistant, not a chatbot.
+
+Response Format for Found Items:
+When presenting database results, format each item as:
+📦 Item: [title]
+📍 Location: [location]
+📅 Date: [date]
+🏷️ Status: [Lost/Found]
+🎯 Match Confidence: [percentage]%
 
 Rules:
 - If confidence < 50%, recommend posting a lost item.
@@ -192,38 +205,189 @@ Respond with ONLY the questions, one per line.`;
   return response.split('\n').filter(q => q.trim().length > 0).slice(0, 3);
 }
 
-// Search database for matches
+// Item synonyms for better matching
+const ITEM_SYNONYMS: Record<string, string[]> = {
+  phone: ['mobile', 'smartphone', 'iphone', 'android', 'cell', 'cellphone', 'handset'],
+  wallet: ['purse', 'billfold', 'pocketbook', 'card holder', 'money clip'],
+  bag: ['backpack', 'handbag', 'satchel', 'tote', 'rucksack', 'pouch', 'sling bag'],
+  laptop: ['notebook', 'macbook', 'chromebook', 'computer'],
+  keys: ['keychain', 'key ring', 'car keys', 'house keys'],
+  earphones: ['earbuds', 'headphones', 'airpods', 'headset'],
+  glasses: ['spectacles', 'eyeglasses', 'sunglasses', 'shades'],
+  watch: ['wristwatch', 'smartwatch', 'timepiece'],
+  card: ['id card', 'identity card', 'credit card', 'debit card', 'aadhar', 'pan card'],
+  bottle: ['water bottle', 'flask', 'tumbler'],
+  umbrella: ['parasol', 'brolly'],
+  charger: ['adapter', 'power bank', 'charging cable'],
+  electronics: ['phone', 'laptop', 'tablet', 'camera', 'earphones', 'charger', 'smartwatch'],
+  documents: ['id card', 'passport', 'license', 'certificate', 'paper'],
+  accessories: ['watch', 'jewelry', 'glasses', 'belt', 'tie'],
+};
+
+// Get all synonyms for a term
+function getSynonyms(term: string): string[] {
+  const lowerTerm = term.toLowerCase();
+  const synonyms = new Set<string>([lowerTerm]);
+  
+  for (const [key, values] of Object.entries(ITEM_SYNONYMS)) {
+    if (key === lowerTerm || values.includes(lowerTerm)) {
+      synonyms.add(key);
+      values.forEach(v => synonyms.add(v));
+    }
+  }
+  
+  return Array.from(synonyms);
+}
+
+// Search database for matches - DATABASE FIRST approach
 async function searchForMatches(
   supabase: any,
   extractedInfo: any,
-  intent: string
+  intent: string,
+  forceSearch: boolean = false
 ): Promise<any[]> {
+  console.log('=== DATABASE SEARCH START ===');
+  console.log('Search params:', JSON.stringify(extractedInfo));
+  
   // Determine what type of items to search for
   let searchType = 'found'; // Default: if user lost something, search found items
   if (intent === 'post_found' || extractedInfo.itemType === 'found') {
     searchType = 'lost'; // If user found something, search lost items
   }
+  
+  // Also search all items if no clear intent
+  const searchBothTypes = intent === 'search' || intent === 'unknown' || forceSearch;
 
+  // Build search terms from description and category
+  const searchTerms: string[] = [];
+  
+  if (extractedInfo.category) {
+    searchTerms.push(...getSynonyms(extractedInfo.category));
+  }
+  
+  if (extractedInfo.description) {
+    const words = extractedInfo.description.toLowerCase().split(/\s+/);
+    words.forEach((word: string) => {
+      if (word.length > 2) {
+        searchTerms.push(...getSynonyms(word));
+      }
+    });
+  }
+
+  console.log('Search terms:', searchTerms);
+  console.log('Search type:', searchBothTypes ? 'both' : searchType);
+
+  // Perform broad search first, then filter
   let query = supabase
     .from('items')
     .select('*')
     .eq('status', 'active')
-    .eq('item_type', searchType)
-    .limit(20);
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  // Add category filter if provided
-  if (extractedInfo.category) {
-    query = query.ilike('category', `%${extractedInfo.category}%`);
+  // Only filter by type if we have clear intent
+  if (!searchBothTypes) {
+    query = query.eq('item_type', searchType);
   }
 
-  const { data: items, error } = await query;
+  const { data: allItems, error } = await query;
   
   if (error) {
     console.error('Database search error:', error);
     return [];
   }
 
-  return items || [];
+  console.log('Total items fetched:', allItems?.length || 0);
+
+  if (!allItems || allItems.length === 0) {
+    return [];
+  }
+
+  // Score and filter items based on relevance
+  const scoredItems = allItems.map((item: any) => {
+    let relevanceScore = 0;
+    const matchReasons: string[] = [];
+    
+    const itemTitle = (item.title || '').toLowerCase();
+    const itemDesc = (item.description || '').toLowerCase();
+    const itemCategory = (item.category || '').toLowerCase();
+    const itemLocation = (item.location || '').toLowerCase();
+    
+    // Check each search term
+    for (const term of searchTerms) {
+      if (itemTitle.includes(term)) {
+        relevanceScore += 30;
+        matchReasons.push(`Title contains "${term}"`);
+      }
+      if (itemDesc.includes(term)) {
+        relevanceScore += 20;
+        matchReasons.push(`Description contains "${term}"`);
+      }
+      if (itemCategory.includes(term)) {
+        relevanceScore += 25;
+        matchReasons.push(`Category matches "${term}"`);
+      }
+    }
+    
+    // Location matching (case-insensitive, partial)
+    if (extractedInfo.location) {
+      const userLoc = extractedInfo.location.toLowerCase();
+      const locWords = userLoc.split(/\s+/).filter((w: string) => w.length > 2);
+      
+      for (const word of locWords) {
+        if (itemLocation.includes(word)) {
+          relevanceScore += 20;
+          matchReasons.push(`Location matches "${word}"`);
+        }
+      }
+    }
+    
+    // Date proximity scoring
+    if (extractedInfo.date && item.date_lost_found) {
+      try {
+        const userDate = new Date(extractedInfo.date);
+        const itemDate = new Date(item.date_lost_found);
+        const daysDiff = Math.abs((userDate.getTime() - itemDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff <= 1) relevanceScore += 15;
+        else if (daysDiff <= 3) relevanceScore += 10;
+        else if (daysDiff <= 7) relevanceScore += 5;
+      } catch (e) {}
+    }
+    
+    return { ...item, relevanceScore, matchReasons };
+  });
+
+  // Filter items with relevance > 0, or return top items if no matches
+  let relevantItems = scoredItems.filter((item: any) => item.relevanceScore > 0);
+  
+  // If no relevant items found but we have search terms, still return some items
+  if (relevantItems.length === 0 && searchTerms.length > 0) {
+    // Return items from the same category at least
+    if (extractedInfo.category) {
+      relevantItems = scoredItems.filter((item: any) => 
+        item.category?.toLowerCase().includes(extractedInfo.category.toLowerCase())
+      );
+    }
+  }
+  
+  // If still nothing, return latest items for user to browse
+  if (relevantItems.length === 0) {
+    relevantItems = scoredItems.slice(0, 10);
+  }
+
+  // Sort by relevance score
+  relevantItems.sort((a: any, b: any) => b.relevanceScore - a.relevanceScore);
+  
+  console.log('Relevant items found:', relevantItems.length);
+  console.log('Top matches:', relevantItems.slice(0, 5).map((i: any) => ({
+    title: i.title,
+    score: i.relevanceScore,
+    reasons: i.matchReasons
+  })));
+  console.log('=== DATABASE SEARCH END ===');
+
+  return relevantItems.slice(0, 20);
 }
 
 // Calculate confidence scores using LOGICAL scoring (no ML needed)
@@ -369,6 +533,31 @@ async function scoreMatches(
   return results;
 }
 
+// Format database results for AI context
+function formatDatabaseResults(matches: MatchResult[]): string {
+  if (matches.length === 0) {
+    return 'DATABASE QUERY RETURNED: 0 items found matching the search criteria.';
+  }
+
+  let formatted = `DATABASE QUERY RETURNED: ${matches.length} items found.\n\n`;
+  formatted += 'ACTUAL DATABASE RESULTS (you MUST reference these):\n';
+  formatted += '─'.repeat(50) + '\n';
+
+  matches.slice(0, 10).forEach((match, index) => {
+    const item = match.item;
+    formatted += `\n${index + 1}. ${item.title}\n`;
+    formatted += `   📍 Location: ${item.location || 'Not specified'}\n`;
+    formatted += `   📅 Date: ${item.date_lost_found || 'Not specified'}\n`;
+    formatted += `   🏷️ Status: ${item.item_type === 'lost' ? 'Lost' : 'Found'}\n`;
+    formatted += `   📝 Description: ${(item.description || '').substring(0, 150)}${item.description?.length > 150 ? '...' : ''}\n`;
+    formatted += `   🎯 Match Confidence: ${match.confidence}%\n`;
+    formatted += `   💡 Reason: ${match.reasoning?.split('\n')[0] || 'Matches search criteria'}\n`;
+  });
+
+  formatted += '\n' + '─'.repeat(50);
+  return formatted;
+}
+
 // Generate response with recommendations
 async function generateInvestigatorResponse(
   userMessage: string,
@@ -377,56 +566,62 @@ async function generateInvestigatorResponse(
   clarifyingQuestions: string[],
   matches: MatchResult[],
   isComplete: boolean,
-  duplicateWarning?: string
+  duplicateWarning?: string,
+  totalDbResults?: number
 ): Promise<{
   response: string;
   recommendedAction: string;
   topMatches: MatchResult[];
 }> {
-  const topMatches = matches.filter(m => m.confidence >= 30).slice(0, 5);
+  const topMatches = matches.filter(m => m.confidence >= 20).slice(0, 10);
   const hasGoodMatches = topMatches.some(m => m.confidence >= 50);
+  const hasAnyMatches = topMatches.length > 0;
 
-  let context = `User message: "${userMessage}"
-Intent: ${intent}
-Data complete: ${isComplete}
-${clarifyingQuestions.length > 0 ? `Clarifying questions needed: ${clarifyingQuestions.join('; ')}` : ''}
-Number of potential matches: ${matches.length}
-Top matches: ${topMatches.map(m => `${m.item.title} (${m.confidence}%)`).join(', ') || 'None'}
-${duplicateWarning ? `DUPLICATE WARNING: ${duplicateWarning}` : ''}`;
+  // Format actual database results for the AI
+  const dbResultsFormatted = formatDatabaseResults(topMatches);
 
-  const prompt = `As the Lost & Found Investigator, respond to this user:
+  const prompt = `As the Lost & Found Investigator, respond to this user query.
 
-${context}
+USER MESSAGE: "${userMessage}"
+DETECTED INTENT: ${intent}
+EXTRACTED INFO: Category=${extractedInfo.category || 'unknown'}, Location=${extractedInfo.location || 'unknown'}, Date=${extractedInfo.date || 'unknown'}
 
-Rules:
-- If clarifying questions are needed, ask them naturally
-- If there are good matches (>=50%), present them with confidence scores and reasoning
-- If matches are weak (<50%), recommend posting the item
-- Rank multiple matches clearly
-- ${duplicateWarning ? 'WARN the user about the potential duplicate before they create a new post' : ''}
-- Always suggest a next action with the format: 👉 Recommended Action: [action]
-- Be helpful, investigative, and conversational
-- Use emojis sparingly for clarity only
+${dbResultsFormatted}
 
-Generate a complete, helpful response that:
-1. Acknowledges what they're looking for
-2. ${clarifyingQuestions.length > 0 ? 'Asks the clarifying questions' : 'Presents findings'}
-3. Explains the match confidence for any results
-4. ${duplicateWarning ? 'Warns about duplicate' : 'Recommends a clear next action'}
+CRITICAL RULES:
+1. You MUST base your response on the DATABASE RESULTS above.
+2. If items were found in the database, you MUST list them clearly.
+3. NEVER say "I couldn't find anything" if the database returned results.
+4. Format each found item as:
+   📦 **[Item Title]**
+   📍 Location: [location]
+   📅 Date: [date]
+   🎯 Match Confidence: [X]%
 
-Keep response under 300 words but make it thorough and helpful.`;
+${totalDbResults === 0 ? 'The database returned ZERO results. Suggest the user post their item or refine their search.' : ''}
+${duplicateWarning ? `⚠️ DUPLICATE WARNING: ${duplicateWarning}` : ''}
+${clarifyingQuestions.length > 0 ? `Ask these to refine: ${clarifyingQuestions.join('; ')}` : ''}
 
-  const response = await callAI(prompt, 600, true);
+RESPONSE REQUIREMENTS:
+- Start by acknowledging what they're looking for
+- Present the database results clearly
+- ${hasGoodMatches ? 'Highlight the best matches (>50% confidence)' : hasAnyMatches ? 'Show available matches even if confidence is lower' : 'Explain that no matching items were found and suggest next steps'}
+- Ask a follow-up question to confirm ownership or refine results
+- End with: 👉 Recommended Action: [specific action]
+
+Keep response concise but include ALL relevant database results.`;
+
+  const response = await callAI(prompt, 800, true);
 
   let recommendedAction = 'continue_search';
-  if (!isComplete) {
-    recommendedAction = 'provide_more_info';
-  } else if (hasGoodMatches) {
+  if (hasGoodMatches) {
     recommendedAction = 'review_matches';
-  } else if (matches.length > 0) {
+  } else if (hasAnyMatches) {
+    recommendedAction = 'refine_search';
+  } else if (totalDbResults === 0) {
     recommendedAction = 'post_item';
   } else {
-    recommendedAction = 'post_item';
+    recommendedAction = 'check_categories';
   }
 
   return {
@@ -480,7 +675,7 @@ async function checkForDuplicates(
   return null;
 }
 
-// Main chat handler with full conversation flow
+// Main chat handler with full conversation flow - DATABASE FIRST approach
 async function handleChat(
   supabase: any,
   userMessage: string,
@@ -492,52 +687,56 @@ async function handleChat(
   console.log('=== INVESTIGATOR FLOW START ===');
   console.log('User message:', userMessage);
 
-  // Step 1: Intent Detection
+  // Step 1: Intent Detection and Info Extraction
   console.log('Step 1: Detecting intent...');
   const { intent, extractedInfo, confidence: intentConfidence } = await detectIntent(userMessage, conversationHistory);
   console.log('Intent:', intent, 'Confidence:', intentConfidence);
   console.log('Extracted info:', extractedInfo);
 
-  // Step 2: Data Completeness Check
-  console.log('Step 2: Checking data completeness...');
+  // Step 2: ALWAYS SEARCH DATABASE FIRST (even with incomplete info)
+  // This is critical - we MUST query the database before responding
+  console.log('Step 2: MANDATORY DATABASE SEARCH...');
+  const items = await searchForMatches(supabase, extractedInfo, intent, true);
+  console.log('Database returned:', items.length, 'items');
+
+  // Step 3: Score all matches using logical confidence
+  let matches: MatchResult[] = [];
+  if (items.length > 0) {
+    console.log('Step 3: Scoring matches with logical confidence...');
+    matches = await scoreMatches(userMessage, extractedInfo, items);
+    console.log('Scored matches:', matches.slice(0, 5).map(m => ({ 
+      title: m.item.title, 
+      confidence: m.confidence,
+      location: m.item.location 
+    })));
+  }
+
+  // Step 4: Data Completeness Check (for follow-up questions)
+  console.log('Step 4: Checking data completeness...');
   const { isComplete, missingFields, criticalMissing } = checkDataCompleteness(extractedInfo, intent);
   console.log('Complete:', isComplete, 'Missing:', [...criticalMissing, ...missingFields]);
 
-  // Step 2.5: Check for duplicates if posting
+  // Step 5: Check for duplicates if posting
   let duplicateWarning: string | null = null;
   if (intent === 'post_lost' || intent === 'post_found') {
-    console.log('Step 2.5: Checking for duplicates...');
+    console.log('Step 5: Checking for duplicates...');
     duplicateWarning = await checkForDuplicates(supabase, extractedInfo, intent);
     if (duplicateWarning) {
       console.log('Duplicate warning:', duplicateWarning);
     }
   }
 
-  // Step 3: Generate Clarifying Questions (if needed)
+  // Step 6: Generate Clarifying Questions (only if needed AND no good matches found)
   let clarifyingQuestions: string[] = [];
-  if (!isComplete || intentConfidence < 60) {
-    console.log('Step 3: Generating clarifying questions...');
+  const hasGoodMatches = matches.some(m => m.confidence >= 50);
+  if ((!isComplete || intentConfidence < 60) && !hasGoodMatches) {
+    console.log('Step 6: Generating clarifying questions...');
     clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing);
     console.log('Questions:', clarifyingQuestions);
   }
 
-  // Step 4: Database Search (if we have enough info)
-  let matches: MatchResult[] = [];
-  if (isComplete || (extractedInfo.category || extractedInfo.description)) {
-    console.log('Step 4: Searching database...');
-    const items = await searchForMatches(supabase, extractedInfo, intent);
-    console.log('Found items:', items.length);
-
-    // Step 5: Confidence Scoring (using logical scoring)
-    if (items.length > 0) {
-      console.log('Step 5: Scoring matches with logical confidence...');
-      matches = await scoreMatches(userMessage, extractedInfo, items);
-      console.log('Scored matches:', matches.map(m => ({ title: m.item.title, confidence: m.confidence })));
-    }
-  }
-
-  // Step 6: Generate Response with Recommendations
-  console.log('Step 6: Generating response...');
+  // Step 7: Generate Response with Database Results
+  console.log('Step 7: Generating response with database results...');
   const { response, recommendedAction, topMatches } = await generateInvestigatorResponse(
     userMessage,
     intent,
@@ -545,10 +744,13 @@ async function handleChat(
     clarifyingQuestions,
     matches,
     isComplete,
-    duplicateWarning || undefined
+    duplicateWarning || undefined,
+    items.length // Pass total database results count
   );
 
   console.log('=== INVESTIGATOR FLOW END ===');
+  console.log('Total matches found:', matches.length);
+  console.log('Recommended action:', recommendedAction);
 
   return {
     response,
