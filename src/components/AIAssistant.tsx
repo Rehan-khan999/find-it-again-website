@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw } from "lucide-react";
+import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye } from "lucide-react";
 import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
 import { chat, getAutocomplete, ChatMessage, MatchResult } from "@/services/aiAssistant";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { ItemDetailsDialog } from "./ItemDetailsDialog";
 
 // Session memory keys
 const MEMORY_KEYS = {
@@ -61,6 +62,8 @@ interface Message {
 
 export const AIAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const sessionMemory = getSessionMemory();
   
   // Generate welcome message with memory context
@@ -84,6 +87,33 @@ export const AIAssistant = () => {
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>(sessionMemory.history);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Handle viewing item details in dialog
+  const handleViewItem = (item: any) => {
+    // Transform the item to match ItemDetailsDialog expected format
+    const formattedItem = {
+      id: item.id,
+      title: item.title,
+      description: item.description || '',
+      category: item.category || '',
+      item_type: item.item_type || 'lost',
+      date_lost_found: item.date_lost_found || new Date().toISOString(),
+      location: item.location || '',
+      contact_name: item.contact_name || 'Unknown',
+      contact_phone: item.contact_phone || '',
+      contact_email: item.contact_email || '',
+      reward: item.reward,
+      status: item.status || 'active',
+      created_at: item.created_at || new Date().toISOString(),
+      photos: item.photos || [],
+      latitude: item.latitude,
+      longitude: item.longitude,
+      verification_questions: item.verification_questions || [],
+      user_id: item.user_id || '',
+    };
+    setSelectedItem(formattedItem);
+    setIsItemDialogOpen(true);
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -311,8 +341,7 @@ export const AIAssistant = () => {
                     {message.matches.map((match: MatchResult, i: number) => (
                       <div
                         key={match.item.id}
-                        className="bg-background rounded-lg p-3 cursor-pointer hover:bg-accent transition-colors border"
-                        onClick={() => handleItemClick(match.item.id)}
+                        className="bg-background rounded-lg p-3 border"
                       >
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
@@ -345,9 +374,22 @@ export const AIAssistant = () => {
                                 {match.item.location?.substring(0, 20)}
                               </span>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {match.reasoning}
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                              {match.reasoning?.split('\n')[0]}
                             </p>
+                            {/* View Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 w-full h-7 text-xs gap-1.5 hover:bg-primary hover:text-primary-foreground transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewItem(match.item);
+                              }}
+                            >
+                              <Eye className="h-3 w-3" />
+                              View Details
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -452,6 +494,16 @@ export const AIAssistant = () => {
           </Button>
         </form>
       </CardContent>
+
+      {/* Item Details Dialog */}
+      <ItemDetailsDialog
+        item={selectedItem}
+        isOpen={isItemDialogOpen}
+        onClose={() => {
+          setIsItemDialogOpen(false);
+          setSelectedItem(null);
+        }}
+      />
     </Card>
   );
 };
