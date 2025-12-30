@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Bot, Send, X, Sparkles, MapPin, Calendar, Tag, RotateCcw } from "lucide-react";
+import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw } from "lucide-react";
+import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
 import { chat, getAutocomplete, ChatMessage, MatchResult } from "@/services/aiAssistant";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -239,10 +240,10 @@ export const AIAssistant = () => {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 p-0 overflow-hidden"
         size="icon"
       >
-        <Bot className="h-6 w-6" />
+        <img src={aiAssistantLogo} alt="AI Assistant" className="h-full w-full object-cover" />
       </Button>
     );
   }
@@ -251,8 +252,8 @@ export const AIAssistant = () => {
     <Card className="fixed bottom-6 right-6 w-[420px] h-[550px] shadow-2xl z-50 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-primary" />
+          <div className="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+            <img src={aiAssistantLogo} alt="AI Assistant" className="h-full w-full object-cover" />
           </div>
           <div>
             <CardTitle className="text-base">Lost & Found Investigator</CardTitle>
