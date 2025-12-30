@@ -4,17 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Bot, Send, X, Sparkles, Search, Tag, AlertCircle, Lightbulb } from "lucide-react";
-import { clarifyIntent, getAutocomplete, semanticSearch } from "@/services/aiAssistant";
-import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Bot, Send, X, Sparkles, MapPin, Calendar, Tag } from "lucide-react";
+import { chat, getAutocomplete, ChatMessage, MatchResult } from "@/services/aiAssistant";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  suggestions?: string[];
-  searchResults?: any[];
+  matches?: MatchResult[];
+  recommendedAction?: string;
+  intent?: string;
 }
 
 export const AIAssistant = () => {
@@ -22,13 +22,13 @@ export const AIAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'm your AI assistant for FindIt. I can help you search for items, report lost/found items, and find potential matches. What can I help you with today?",
-      suggestions: ["Search for lost items", "Report a found item", "Check my matches", "How does this work?"],
+      content: "🔍 Hi! I'm your Lost & Found Investigator. I can help you search for lost items, report found items, and find potential matches using smart analysis. What can I help you with today?",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -64,101 +64,40 @@ export const AIAssistant = () => {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
+    // Update conversation history
+    const newHistory: ChatMessage[] = [
+      ...conversationHistory,
+      { role: "user", content: userMessage },
+    ];
+    setConversationHistory(newHistory);
+
     try {
-      // First, clarify intent
-      const { data: intentData } = await clarifyIntent(userMessage);
+      // Use the new structured chat flow
+      const { data, error } = await chat(userMessage, newHistory);
 
-      if (intentData) {
-        const { intent, clarification, suggestions } = intentData;
+      if (error) {
+        throw new Error(error);
+      }
 
-        // Handle different intents
-        if (intent === "search" || userMessage.toLowerCase().includes("search") || userMessage.toLowerCase().includes("find")) {
-          // Perform semantic search
-          const { data: items } = await supabase
-            .from("items")
-            .select("*")
-            .eq("status", "active")
-            .limit(50);
+      if (data) {
+        const { response, context } = data;
 
-          if (items && items.length > 0) {
-            const { data: searchResults } = await semanticSearch(userMessage, items);
+        // Update conversation history with assistant response
+        setConversationHistory([
+          ...newHistory,
+          { role: "assistant", content: response },
+        ]);
 
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content: searchResults && searchResults.length > 0
-                  ? `I found ${searchResults.length} items that might match your search. Here are the most relevant ones:`
-                  : "I couldn't find any items matching your search. Would you like to post a lost item report instead?",
-                searchResults: searchResults?.slice(0, 5),
-                suggestions: searchResults && searchResults.length > 0
-                  ? ["Refine search", "Post lost item", "View all results"]
-                  : ["Post lost item", "Search again", "Browse all items"],
-              },
-            ]);
-          } else {
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content: "There are no items in the database yet. Would you like to be the first to post an item?",
-                suggestions: ["Post lost item", "Post found item"],
-              },
-            ]);
-          }
-        } else if (intent === "lost_item" || userMessage.toLowerCase().includes("lost")) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "I can help you report a lost item. Would you like to start the reporting process?",
-              suggestions: ["Start reporting", "Search first", "How does it work?"],
-            },
-          ]);
-        } else if (intent === "found_item" || userMessage.toLowerCase().includes("found")) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "Thank you for wanting to report a found item! Would you like to start the reporting process?",
-              suggestions: ["Start reporting", "Learn more", "View existing items"],
-            },
-          ]);
-        } else if (clarification !== "CLEAR") {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: clarification,
-              suggestions,
-            },
-          ]);
-        } else {
-          // Handle general queries
-          let response = "";
-          
-          if (userMessage.toLowerCase().includes("match")) {
-            response = "I can help you check for potential matches! Our AI automatically analyzes all items and finds potential matches based on descriptions, locations, and images.";
-          } else if (userMessage.toLowerCase().includes("how") || userMessage.toLowerCase().includes("work")) {
-            response = "FindIt uses AI to help reunite people with their lost items. Simply post a lost or found item, and our system will automatically find potential matches and notify you. We use image recognition, smart text matching, and location analysis.";
-          } else if (userMessage.toLowerCase().includes("browse") || userMessage.toLowerCase().includes("all")) {
-            navigate("/browse");
-            response = "I'm taking you to the browse page where you can see all items.";
-          } else {
-            response = suggestions.length > 0
-              ? `Here are some things I can help you with:`
-              : "I'm here to help you find lost items or report found items. What would you like to do?";
-          }
+        // Create message with matches and context
+        const newMessage: Message = {
+          role: "assistant",
+          content: response,
+          matches: context.matches,
+          recommendedAction: context.recommendedAction,
+          intent: context.intent,
+        };
 
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: response,
-              suggestions: suggestions.length > 0 ? suggestions : ["Search items", "Post lost item", "Post found item", "Browse all"],
-            },
-          ]);
-        }
+        setMessages((prev) => [...prev, newMessage]);
       }
     } catch (error) {
       console.error("AI Assistant error:", error);
@@ -167,7 +106,6 @@ export const AIAssistant = () => {
         {
           role: "assistant",
           content: "I'm having trouble processing your request. Please try again or use the navigation menu to explore the site.",
-          suggestions: ["Try again", "Browse items", "Post item"],
         },
       ]);
     } finally {
@@ -175,29 +113,49 @@ export const AIAssistant = () => {
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    if (suggestion.toLowerCase().includes("post lost") || suggestion.toLowerCase().includes("start reporting") && messages[messages.length - 1]?.content.includes("lost")) {
-      navigate("/post-lost");
-      setIsOpen(false);
-      toast.success("Taking you to post a lost item");
-    } else if (suggestion.toLowerCase().includes("post found") || suggestion.toLowerCase().includes("start reporting")) {
-      navigate("/post-found");
-      setIsOpen(false);
-      toast.success("Taking you to post a found item");
-    } else if (suggestion.toLowerCase().includes("browse") || suggestion.toLowerCase().includes("view all")) {
-      navigate("/browse");
-      setIsOpen(false);
-    } else if (suggestion.toLowerCase().includes("match")) {
-      navigate("/matches");
-      setIsOpen(false);
-    } else {
-      handleSend(suggestion);
+  const handleActionClick = (action: string) => {
+    switch (action) {
+      case "post_item":
+        navigate("/post-lost");
+        setIsOpen(false);
+        toast.success("Taking you to post a lost item");
+        break;
+      case "review_matches":
+        navigate("/matches");
+        setIsOpen(false);
+        break;
+      case "provide_more_info":
+        // Just focus input
+        break;
+      default:
+        break;
     }
   };
 
   const handleItemClick = (itemId: string) => {
     navigate(`/browse?item=${itemId}`);
     setIsOpen(false);
+  };
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 70) return "bg-green-500/10 text-green-600 border-green-500/30";
+    if (confidence >= 50) return "bg-yellow-500/10 text-yellow-600 border-yellow-500/30";
+    return "bg-red-500/10 text-red-600 border-red-500/30";
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case "post_item":
+        return "📝 Post Your Item";
+      case "review_matches":
+        return "👀 Review Matches";
+      case "provide_more_info":
+        return "💬 Provide More Details";
+      case "continue_search":
+        return "🔍 Continue Searching";
+      default:
+        return action;
+    }
   };
 
   if (!isOpen) {
@@ -213,13 +171,16 @@ export const AIAssistant = () => {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-2xl z-50 flex flex-col">
+    <Card className="fixed bottom-6 right-6 w-[420px] h-[550px] shadow-2xl z-50 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <CardTitle className="text-base">AI Assistant</CardTitle>
+          <div>
+            <CardTitle className="text-base">Lost & Found Investigator</CardTitle>
+            <p className="text-xs text-muted-foreground">AI-powered search assistant</p>
+          </div>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
           <X className="h-4 w-4" />
@@ -234,41 +195,60 @@ export const AIAssistant = () => {
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                className={`max-w-[90%] rounded-lg px-3 py-2 ${
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted"
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
 
-                {/* Search Results */}
-                {message.searchResults && message.searchResults.length > 0 && (
+                {/* Match Results with Confidence Scores */}
+                {message.matches && message.matches.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    {message.searchResults.map((item: any) => (
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      📊 Ranked Matches:
+                    </p>
+                    {message.matches.map((match: MatchResult, i: number) => (
                       <div
-                        key={item.id}
-                        className="bg-background rounded p-2 cursor-pointer hover:bg-accent transition-colors"
-                        onClick={() => handleItemClick(item.id)}
+                        key={match.item.id}
+                        className="bg-background rounded-lg p-3 cursor-pointer hover:bg-accent transition-colors border"
+                        onClick={() => handleItemClick(match.item.id)}
                       >
-                        <div className="flex items-start gap-2">
-                          {item.photos && item.photos[0] && (
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
+                            #{match.rank}
+                          </div>
+                          {match.item.photos && match.item.photos[0] && (
                             <img
-                              src={item.photos[0]}
-                              alt={item.title}
-                              className="w-10 h-10 rounded object-cover"
+                              src={match.item.photos[0]}
+                              alt={match.item.title}
+                              className="w-12 h-12 rounded object-cover"
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{item.title}</p>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                {item.item_type}
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium truncate">{match.item.title}</p>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getConfidenceColor(match.confidence)}`}
+                              >
+                                {match.confidence}%
                               </Badge>
-                              <span className="text-[10px] text-muted-foreground truncate">
-                                {item.location}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Tag className="h-3 w-3" />
+                                {match.item.category}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {match.item.location?.substring(0, 20)}
                               </span>
                             </div>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {match.reasoning}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -276,20 +256,17 @@ export const AIAssistant = () => {
                   </div>
                 )}
 
-                {/* Suggestions */}
-                {message.suggestions && message.suggestions.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {message.suggestions.map((suggestion, i) => (
-                      <Button
-                        key={i}
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => handleSuggestionClick(suggestion)}
-                      >
-                        {suggestion}
-                      </Button>
-                    ))}
+                {/* Recommended Action Button */}
+                {message.recommendedAction && message.recommendedAction !== "continue_search" && (
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-center"
+                      onClick={() => handleActionClick(message.recommendedAction!)}
+                    >
+                      {getActionLabel(message.recommendedAction)}
+                    </Button>
                   </div>
                 )}
               </div>
@@ -298,8 +275,11 @@ export const AIAssistant = () => {
 
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-muted rounded-lg px-3 py-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="bg-muted rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Investigating...</span>
+                </div>
               </div>
             </div>
           )}
@@ -326,6 +306,34 @@ export const AIAssistant = () => {
           </div>
         )}
 
+        {/* Quick action buttons */}
+        <div className="mb-2 flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => handleSend("I lost something")}
+          >
+            🔴 Lost Item
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => handleSend("I found something")}
+          >
+            🟢 Found Item
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => navigate("/browse")}
+          >
+            📋 Browse
+          </Button>
+        </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -336,7 +344,7 @@ export const AIAssistant = () => {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me anything..."
+            placeholder="Describe what you're looking for..."
             className="flex-1"
             disabled={isLoading}
           />

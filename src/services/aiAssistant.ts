@@ -77,6 +77,38 @@ export async function clarifyIntent(query: string): Promise<AIResponse<{
   return callAI('clarify_intent', { query });
 }
 
+// Conversation context from the investigator flow
+export interface ConversationContext {
+  intent: 'search' | 'post_lost' | 'post_found' | 'refine' | 'help' | 'claim' | 'unknown';
+  missingFields: string[];
+  clarifyingQuestions: string[];
+  matches: MatchResult[];
+  recommendedAction: string;
+}
+
+export interface MatchResult {
+  item: any;
+  confidence: number;
+  reasoning: string;
+  rank: number;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+// Main chat function - uses full investigator flow
+export async function chat(
+  message: string,
+  history: ChatMessage[] = []
+): Promise<AIResponse<{
+  response: string;
+  context: ConversationContext;
+}>> {
+  return callAI('chat', { message, history });
+}
+
 // Suggest missing info
 export async function suggestMissingInfo(item: any): Promise<AIResponse<string[]>> {
   return callAI('suggest_missing_info', { item });
