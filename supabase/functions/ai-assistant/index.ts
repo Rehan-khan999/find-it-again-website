@@ -36,6 +36,400 @@ Rules:
 - If user intent is unclear, ask clarifying questions before acting.
 - Use emojis sparingly for clarity, not decoration.`;
 
+// Structured conversation flow types
+interface ConversationContext {
+  intent: 'search' | 'post_lost' | 'post_found' | 'refine' | 'help' | 'claim' | 'unknown';
+  missingFields: string[];
+  clarifyingQuestions: string[];
+  matches: MatchResult[];
+  recommendedAction: string;
+}
+
+interface MatchResult {
+  item: any;
+  confidence: number;
+  reasoning: string;
+  rank: number;
+}
+
+// Intent detection
+async function detectIntent(userMessage: string, conversationHistory: any[] = []): Promise<{
+  intent: 'search' | 'post_lost' | 'post_found' | 'refine' | 'help' | 'claim' | 'unknown';
+  extractedInfo: {
+    category?: string;
+    location?: string;
+    date?: string;
+    description?: string;
+    itemType?: 'lost' | 'found';
+  };
+  confidence: number;
+}> {
+  const historyContext = conversationHistory.length > 0 
+    ? `\nConversation history:\n${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}\n`
+    : '';
+
+  const prompt = `Analyze this user message for a Lost & Found system:
+${historyContext}
+Current message: "${userMessage}"
+
+Determine:
+1. INTENT: What does the user want to do?
+   - search: Looking for a lost item
+   - post_lost: Wants to report something they lost
+   - post_found: Wants to report something they found
+   - refine: Providing more details about a previous query
+   - help: General questions about the system
+   - claim: Wants to claim an item
+   - unknown: Cannot determine intent
+
+2. EXTRACTED INFO: What details did they provide?
+   - category (e.g., electronics, wallet, keys, bag, clothing, documents, jewelry, other)
+   - location (where the item was lost/found)
+   - date (when it was lost/found)
+   - description (physical details, color, brand, etc.)
+   - itemType (lost or found)
+
+Respond in this exact format:
+INTENT: [intent]
+CONFIDENCE: [0-100]
+CATEGORY: [category or NONE]
+LOCATION: [location or NONE]
+DATE: [date or NONE]
+DESCRIPTION: [description or NONE]
+ITEM_TYPE: [lost/found or NONE]`;
+
+  const response = await callAI(prompt, 300, true);
+  
+  const intentMatch = response.match(/INTENT:\s*(\w+)/i);
+  const confidenceMatch = response.match(/CONFIDENCE:\s*(\d+)/i);
+  const categoryMatch = response.match(/CATEGORY:\s*(.+?)(?:\n|$)/i);
+  const locationMatch = response.match(/LOCATION:\s*(.+?)(?:\n|$)/i);
+  const dateMatch = response.match(/DATE:\s*(.+?)(?:\n|$)/i);
+  const descriptionMatch = response.match(/DESCRIPTION:\s*(.+?)(?:\n|$)/i);
+  const itemTypeMatch = response.match(/ITEM_TYPE:\s*(.+?)(?:\n|$)/i);
+
+  const extractValue = (match: RegExpMatchArray | null): string | undefined => {
+    const val = match?.[1]?.trim();
+    return val && val.toUpperCase() !== 'NONE' ? val : undefined;
+  };
+
+  return {
+    intent: (intentMatch?.[1]?.toLowerCase() || 'unknown') as any,
+    extractedInfo: {
+      category: extractValue(categoryMatch),
+      location: extractValue(locationMatch),
+      date: extractValue(dateMatch),
+      description: extractValue(descriptionMatch),
+      itemType: extractValue(itemTypeMatch)?.toLowerCase() as 'lost' | 'found' | undefined,
+    },
+    confidence: parseInt(confidenceMatch?.[1] || '50'),
+  };
+}
+
+// Data completeness check
+function checkDataCompleteness(extractedInfo: any, intent: string): {
+  isComplete: boolean;
+  missingFields: string[];
+  criticalMissing: string[];
+} {
+  const requiredFields = ['category', 'description'];
+  const helpfulFields = ['location', 'date'];
+  
+  const missingFields: string[] = [];
+  const criticalMissing: string[] = [];
+
+  if (intent === 'search' || intent === 'post_lost' || intent === 'post_found') {
+    for (const field of requiredFields) {
+      if (!extractedInfo[field]) {
+        criticalMissing.push(field);
+      }
+    }
+    for (const field of helpfulFields) {
+      if (!extractedInfo[field]) {
+        missingFields.push(field);
+      }
+    }
+  }
+
+  return {
+    isComplete: criticalMissing.length === 0,
+    missingFields,
+    criticalMissing,
+  };
+}
+
+// Generate clarifying questions
+async function generateClarifyingQuestions(
+  userMessage: string,
+  intent: string,
+  missingFields: string[],
+  criticalMissing: string[]
+): Promise<string[]> {
+  if (criticalMissing.length === 0 && missingFields.length === 0) {
+    return [];
+  }
+
+  const prompt = `You are the Lost & Found Investigator. The user said: "${userMessage}"
+Their intent appears to be: ${intent}
+
+Critical missing information: ${criticalMissing.join(', ') || 'None'}
+Helpful missing information: ${missingFields.join(', ') || 'None'}
+
+Generate 1-3 natural, conversational questions to gather the missing information.
+Be friendly and investigative, not robotic.
+Focus on critical missing info first.
+
+Respond with ONLY the questions, one per line.`;
+
+  const response = await callAI(prompt, 200, true);
+  return response.split('\n').filter(q => q.trim().length > 0).slice(0, 3);
+}
+
+// Search database for matches
+async function searchForMatches(
+  supabase: any,
+  extractedInfo: any,
+  intent: string
+): Promise<any[]> {
+  // Determine what type of items to search for
+  let searchType = 'found'; // Default: if user lost something, search found items
+  if (intent === 'post_found' || extractedInfo.itemType === 'found') {
+    searchType = 'lost'; // If user found something, search lost items
+  }
+
+  let query = supabase
+    .from('items')
+    .select('*')
+    .eq('status', 'active')
+    .eq('item_type', searchType)
+    .limit(20);
+
+  // Add category filter if provided
+  if (extractedInfo.category) {
+    query = query.ilike('category', `%${extractedInfo.category}%`);
+  }
+
+  const { data: items, error } = await query;
+  
+  if (error) {
+    console.error('Database search error:', error);
+    return [];
+  }
+
+  return items || [];
+}
+
+// Calculate confidence scores for matches
+async function scoreMatches(
+  userMessage: string,
+  extractedInfo: any,
+  items: any[]
+): Promise<MatchResult[]> {
+  if (items.length === 0) return [];
+
+  const itemsList = items.map((item, i) => 
+    `${i + 1}. ID: ${item.id}
+   Title: ${item.title}
+   Category: ${item.category}
+   Location: ${item.location}
+   Date: ${item.date_lost_found}
+   Description: ${item.description?.substring(0, 150) || 'No description'}`
+  ).join('\n\n');
+
+  const prompt = `As the Lost & Found Investigator, analyze these items against the user's search:
+
+USER LOOKING FOR:
+- Query: "${userMessage}"
+- Category: ${extractedInfo.category || 'Not specified'}
+- Location: ${extractedInfo.location || 'Not specified'}
+- Date: ${extractedInfo.date || 'Not specified'}
+- Description: ${extractedInfo.description || 'Not specified'}
+
+AVAILABLE ITEMS:
+${itemsList}
+
+For each item, analyze:
+1. Category match (exact, related, or unrelated)
+2. Location proximity (same building/area, nearby, far, unknown)
+3. Date logic (does the timeline make sense?)
+4. Description similarity (unique features, colors, brands)
+
+Rate each item's match confidence (0-100%) and explain your reasoning.
+
+Respond in this format for EACH item (include ALL items):
+ITEM_${'{item_number}'}:
+CONFIDENCE: [0-100]
+REASONING: [1-2 sentences explaining why this is or isn't a good match]
+---`;
+
+  const response = await callAI(prompt, 1000, true);
+  
+  const results: MatchResult[] = [];
+  
+  for (let i = 0; i < items.length; i++) {
+    const itemPattern = new RegExp(`ITEM_${i + 1}:[\\s\\S]*?CONFIDENCE:\\s*(\\d+)[\\s\\S]*?REASONING:\\s*([^\\n]+(?:\\n(?!ITEM_|---).*)?)`,'i');
+    const match = response.match(itemPattern);
+    
+    if (match) {
+      results.push({
+        item: items[i],
+        confidence: parseInt(match[1]) || 0,
+        reasoning: match[2]?.trim() || 'Unable to analyze',
+        rank: 0,
+      });
+    } else {
+      // Fallback: still include the item with low confidence
+      results.push({
+        item: items[i],
+        confidence: 20,
+        reasoning: 'Could not analyze - please review manually',
+        rank: 0,
+      });
+    }
+  }
+
+  // Sort by confidence and assign ranks
+  results.sort((a, b) => b.confidence - a.confidence);
+  results.forEach((r, i) => r.rank = i + 1);
+
+  return results;
+}
+
+// Generate response with recommendations
+async function generateInvestigatorResponse(
+  userMessage: string,
+  intent: string,
+  extractedInfo: any,
+  clarifyingQuestions: string[],
+  matches: MatchResult[],
+  isComplete: boolean
+): Promise<{
+  response: string;
+  recommendedAction: string;
+  topMatches: MatchResult[];
+}> {
+  const topMatches = matches.filter(m => m.confidence >= 30).slice(0, 5);
+  const hasGoodMatches = topMatches.some(m => m.confidence >= 50);
+
+  let context = `User message: "${userMessage}"
+Intent: ${intent}
+Data complete: ${isComplete}
+${clarifyingQuestions.length > 0 ? `Clarifying questions needed: ${clarifyingQuestions.join('; ')}` : ''}
+Number of potential matches: ${matches.length}
+Top matches: ${topMatches.map(m => `${m.item.title} (${m.confidence}%)`).join(', ') || 'None'}`;
+
+  const prompt = `As the Lost & Found Investigator, respond to this user:
+
+${context}
+
+Rules:
+- If clarifying questions are needed, ask them naturally
+- If there are good matches (>=50%), present them with confidence scores and reasoning
+- If matches are weak (<50%), recommend posting the item
+- Rank multiple matches clearly
+- Always suggest a next action
+- Be helpful, investigative, and conversational
+- Use emojis sparingly for clarity only
+
+Generate a complete, helpful response that:
+1. Acknowledges what they're looking for
+2. ${clarifyingQuestions.length > 0 ? 'Asks the clarifying questions' : 'Presents findings'}
+3. Explains the match confidence for any results
+4. Recommends a clear next action
+
+Keep response under 300 words but make it thorough and helpful.`;
+
+  const response = await callAI(prompt, 600, true);
+
+  let recommendedAction = 'continue_search';
+  if (!isComplete) {
+    recommendedAction = 'provide_more_info';
+  } else if (hasGoodMatches) {
+    recommendedAction = 'review_matches';
+  } else if (matches.length > 0) {
+    recommendedAction = 'post_item';
+  } else {
+    recommendedAction = 'post_item';
+  }
+
+  return {
+    response,
+    recommendedAction,
+    topMatches,
+  };
+}
+
+// Main chat handler with full conversation flow
+async function handleChat(
+  supabase: any,
+  userMessage: string,
+  conversationHistory: any[] = []
+): Promise<{
+  response: string;
+  context: ConversationContext;
+}> {
+  console.log('=== INVESTIGATOR FLOW START ===');
+  console.log('User message:', userMessage);
+
+  // Step 1: Intent Detection
+  console.log('Step 1: Detecting intent...');
+  const { intent, extractedInfo, confidence: intentConfidence } = await detectIntent(userMessage, conversationHistory);
+  console.log('Intent:', intent, 'Confidence:', intentConfidence);
+  console.log('Extracted info:', extractedInfo);
+
+  // Step 2: Data Completeness Check
+  console.log('Step 2: Checking data completeness...');
+  const { isComplete, missingFields, criticalMissing } = checkDataCompleteness(extractedInfo, intent);
+  console.log('Complete:', isComplete, 'Missing:', [...criticalMissing, ...missingFields]);
+
+  // Step 3: Generate Clarifying Questions (if needed)
+  let clarifyingQuestions: string[] = [];
+  if (!isComplete || intentConfidence < 60) {
+    console.log('Step 3: Generating clarifying questions...');
+    clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing);
+    console.log('Questions:', clarifyingQuestions);
+  }
+
+  // Step 4: Database Search (if we have enough info)
+  let matches: MatchResult[] = [];
+  if (isComplete || (extractedInfo.category || extractedInfo.description)) {
+    console.log('Step 4: Searching database...');
+    const items = await searchForMatches(supabase, extractedInfo, intent);
+    console.log('Found items:', items.length);
+
+    // Step 5: Confidence Scoring
+    if (items.length > 0) {
+      console.log('Step 5: Scoring matches...');
+      matches = await scoreMatches(userMessage, extractedInfo, items);
+      console.log('Scored matches:', matches.map(m => ({ title: m.item.title, confidence: m.confidence })));
+    }
+  }
+
+  // Step 6: Generate Response with Recommendations
+  console.log('Step 6: Generating response...');
+  const { response, recommendedAction, topMatches } = await generateInvestigatorResponse(
+    userMessage,
+    intent,
+    extractedInfo,
+    clarifyingQuestions,
+    matches,
+    isComplete
+  );
+
+  console.log('=== INVESTIGATOR FLOW END ===');
+
+  return {
+    response,
+    context: {
+      intent,
+      missingFields: [...criticalMissing, ...missingFields],
+      clarifyingQuestions,
+      matches: topMatches,
+      recommendedAction,
+    },
+  };
+}
+
 async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = false): Promise<string> {
   console.log('Calling AI with prompt:', prompt.substring(0, 100) + '...');
   
@@ -523,6 +917,11 @@ serve(async (req) => {
         }
 
         result = { success: true, processed: webhookItem.id };
+        break;
+
+      case 'chat':
+        // Full investigator conversation flow
+        result = await handleChat(supabase, params.message, params.history || []);
         break;
 
       default:
