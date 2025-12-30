@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from "react";
-import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle, Sparkles } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle, Sparkles, Info } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DemoListings } from "@/components/DemoListings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,7 @@ const Browse = () => {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
-  const [showDemoItems, setShowDemoItems] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -389,124 +390,134 @@ const Browse = () => {
               </Select>
             </div>
             
-            {/* Demo Items Toggle */}
-            <div className="flex items-center gap-2 pt-4 border-t border-border/50">
-              <Checkbox 
-                id="show-demo" 
-                checked={showDemoItems}
-                onCheckedChange={(checked) => setShowDemoItems(checked === true)}
-              />
-              <Label 
-                htmlFor="show-demo" 
-                className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Show demo items (for fun)
-              </Label>
+            {/* Demo Mode Toggle */}
+            <div className="flex items-center justify-between pt-4 border-t border-border/50">
+              <div className="flex items-center gap-3">
+                <Switch 
+                  id="demo-mode" 
+                  checked={demoMode}
+                  onCheckedChange={setDemoMode}
+                />
+                <Label 
+                  htmlFor="demo-mode" 
+                  className="text-sm cursor-pointer flex items-center gap-2"
+                >
+                  <Sparkles className={`w-4 h-4 ${demoMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className={demoMode ? 'text-foreground font-medium' : 'text-muted-foreground'}>
+                    View demo items (fictional)
+                  </span>
+                </Label>
+              </div>
+              {demoMode && (
+                <Badge variant="secondary" className="text-xs">
+                  Demo Mode
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Real Results */}
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              <div className="absolute inset-0 rounded-full border-2 border-primary/20"></div>
-            </div>
-          </div>
+        {/* Demo Mode Banner */}
+        {demoMode && (
+          <Alert className="mb-6 border-primary/30 bg-primary/5">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-sm">
+              <span className="font-medium">Demo Mode Active:</span> You are viewing demo items added for UI demonstration only. These are fictional listings.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Demo Listings - Only when demo mode is ON */}
+        {demoMode ? (
+          <DemoListings />
         ) : (
+          /* Real Results - Only when demo mode is OFF */
           <>
-            <div className="flex items-center justify-between mb-6 animate-fade-in">
-              <p className="text-muted-foreground font-cyber">
-                {t('labels.found')} <span className="text-neon font-bold">{items.length}</span> item{items.length !== 1 ? 's' : ''}
-              </p>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-primary" />
-                  <span className="text-sm text-muted-foreground font-cyber">
-                    {selectedType !== 'all' && `${selectedType} items`}
-                    {selectedCategory !== 'all' && ` in ${selectedCategory}`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                    className="font-cyber hover-glow"
-                  >
-                    <Tag className="w-4 h-4 mr-1" />
-                    {t('buttons.grid')}
-                  </Button>
-                  <Button
-                    variant={viewMode === 'map' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('map')}
-                    className="font-cyber hover-glow"
-                  >
-                    <Map className="w-4 h-4 mr-1" />
-                    {t('buttons.map')}
-                  </Button>
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <div className="absolute inset-0 rounded-full border-2 border-primary/20"></div>
                 </div>
               </div>
-            </div>
-
-            {items.length === 0 ? (
-              <Card className="text-center py-12 glass-card border border-primary/20">
-                <CardContent>
-                  <Tag className="w-12 h-12 text-primary mx-auto mb-4 animate-float" />
-                  <h3 className="text-lg font-cyber font-semibold text-foreground mb-2">{t('labels.noItemsFound')}</h3>
-                  <p className="text-muted-foreground font-cyber">
-                    {t('labels.tryAdjusting')}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : viewMode === 'map' ? (
-              <Card className="glass-card border border-primary/20">
-                <CardContent className="p-0">
-                  <GoogleMap
-                    center={{ lat: 40.7128, lng: -74.0060 }}
-                    zoom={12}
-                    markers={items
-                      .filter(item => item.latitude && item.longitude)
-                      .map(item => ({
-                        position: { lat: item.latitude!, lng: item.longitude! },
-                        title: item.title,
-                        type: item.item_type,
-                        onClick: () => {
-                          setSelectedItem(item);
-                          setIsDialogOpen(true);
-                        }
-                      }))}
-                    height="600px"
-                  />
-                </CardContent>
-              </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-                {items.map((item, index) => (
-                  <div key={item.id} style={{ animationDelay: `${index * 100}ms` }}>
-                    <ItemCard item={item} />
+              <>
+                <div className="flex items-center justify-between mb-6 animate-fade-in">
+                  <p className="text-muted-foreground font-cyber">
+                    {t('labels.found')} <span className="text-neon font-bold">{items.length}</span> item{items.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-muted-foreground font-cyber">
+                        {selectedType !== 'all' && `${selectedType} items`}
+                        {selectedCategory !== 'all' && ` in ${selectedCategory}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={viewMode === 'grid' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('grid')}
+                        className="font-cyber hover-glow"
+                      >
+                        <Tag className="w-4 h-4 mr-1" />
+                        {t('buttons.grid')}
+                      </Button>
+                      <Button
+                        variant={viewMode === 'map' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('map')}
+                        className="font-cyber hover-glow"
+                      >
+                        <Map className="w-4 h-4 mr-1" />
+                        {t('buttons.map')}
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Demo Listings Section - Only shown when toggle is ON, after real items */}
-            {showDemoItems && (
-              <div className="mt-12 pt-8 border-t border-border/30">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    Demo / Sample Listings — For UI Demonstration Only
-                    <Sparkles className="w-4 h-4 text-primary" />
-                  </h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
                 </div>
-                <DemoListings />
-              </div>
+
+                {items.length === 0 ? (
+                  <Card className="text-center py-12 glass-card border border-primary/20">
+                    <CardContent>
+                      <Tag className="w-12 h-12 text-primary mx-auto mb-4 animate-float" />
+                      <h3 className="text-lg font-cyber font-semibold text-foreground mb-2">{t('labels.noItemsFound')}</h3>
+                      <p className="text-muted-foreground font-cyber">
+                        {t('labels.tryAdjusting')}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : viewMode === 'map' ? (
+                  <Card className="glass-card border border-primary/20">
+                    <CardContent className="p-0">
+                      <GoogleMap
+                        center={{ lat: 40.7128, lng: -74.0060 }}
+                        zoom={12}
+                        markers={items
+                          .filter(item => item.latitude && item.longitude)
+                          .map(item => ({
+                            position: { lat: item.latitude!, lng: item.longitude! },
+                            title: item.title,
+                            type: item.item_type,
+                            onClick: () => {
+                              setSelectedItem(item);
+                              setIsDialogOpen(true);
+                            }
+                          }))}
+                        height="600px"
+                      />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+                    {items.map((item, index) => (
+                      <div key={item.id} style={{ animationDelay: `${index * 100}ms` }}>
+                        <ItemCard item={item} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
