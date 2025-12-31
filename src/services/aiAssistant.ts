@@ -84,6 +84,32 @@ export interface ConversationContext {
   clarifyingQuestions: string[];
   matches: MatchResult[];
   recommendedAction: string;
+  aiUsed?: boolean;
+  sessionContext?: SessionContext;
+  autoPost?: AutoPost;
+}
+
+export interface SessionContext {
+  intent?: string;
+  category?: string;
+  location?: string;
+  date?: string;
+  description?: string;
+  color?: string;
+  brand?: string;
+  itemType?: 'lost' | 'found';
+  infoScore: number;
+  conversationTurn: number;
+}
+
+export interface AutoPost {
+  title: string;
+  description: string;
+  category: string;
+  location: string;
+  itemType: 'lost' | 'found';
+  canGenerate: boolean;
+  missingFields: string[];
 }
 
 export interface MatchResult {
@@ -98,15 +124,16 @@ export interface ChatMessage {
   content: string;
 }
 
-// Main chat function - uses full investigator flow
+// Main chat function - uses full investigator flow with session context
 export async function chat(
   message: string,
-  history: ChatMessage[] = []
+  history: ChatMessage[] = [],
+  sessionContext?: SessionContext
 ): Promise<AIResponse<{
   response: string;
   context: ConversationContext;
 }>> {
-  return callAI('chat', { message, history });
+  return callAI('chat', { message, history, sessionContext });
 }
 
 // Suggest missing info
