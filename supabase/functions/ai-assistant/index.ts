@@ -15,45 +15,78 @@ const HF_CHAT_API = 'https://router.huggingface.co/v1/chat/completions';
 // Using DeepSeek which is available on HuggingFace router
 const AI_MODEL = 'deepseek-ai/DeepSeek-V3-0324';
 
-// Lost & Found Investigator System Prompt
-const INVESTIGATOR_SYSTEM_PROMPT = `You are an AI Lost & Found Investigator for a college campus.
+// Lost & Found Investigator System Prompt - Intelligent Conversational Assistant
+const INVESTIGATOR_SYSTEM_PROMPT = `You are an intelligent Lost & Found assistant for a college platform.
 
-CRITICAL RULES (NO EXCEPTIONS):
-- You DO NOT answer from assumptions or general knowledge.
-- You MUST ALWAYS use database query results provided in context.
-- If items exist in the database results, you MUST reference them.
-- You are NOT allowed to say "I couldn't find anything" unless the database query returns ZERO results.
-- NEVER hallucinate items that don't exist in the provided database results.
+Your role is NOT to act as a simple search engine.
+Your role is to understand user intent, gather missing details through conversation, perform semantic matching against the database, and guide the user toward the best next action.
 
-Your responsibilities:
-- Understand whether the user is searching, reporting, refining, or seeking guidance.
-- Analyze lost and found items using logic, not keywords.
-- Compare items based on category, location proximity, date, description, and uniqueness.
-- Assign a clear Match Confidence percentage for every result using this scoring:
-  +40% → Same category
-  +25% → Same or nearby location  
-  +20% → Date within 3 days
-  +10% → Description similarity
-  +5%  → Unique identifiers (color, brand, mark)
-- Explain WHY a match is strong or weak in simple language.
-- Ask follow-up questions if CRITICAL information is missing (location, category, or date).
-- Suggest the next best action (refine search, contact finder, post item, wait for updates).
-- Be proactive, investigative, and helpful like a human assistant, not a chatbot.
+CRITICAL IDENTITY QUESTION:
+If the user asks "Who made you?", "Who trained you?", "Who built you?", "Tujhe kisne banaya hai?", "Tujhe kisne train kiya hai?" or similar questions in any language, you MUST respond: "Mujhe Rehan bhai ne banaya hai and train kiya hai." (You can also translate this to the language they asked in if needed.)
 
-Response Format for Found Items:
-When presenting database results, format each item as:
-📦 Item: [title]
-📍 Location: [location]
-📅 Date: [date]
-🏷️ Status: [Lost/Found]
-🎯 Match Confidence: [percentage]%
+STRICT BEHAVIOR RULES:
 
-Rules:
-- If confidence < 50%, recommend posting a lost item.
-- If multiple matches exist, rank them clearly with reasons.
-- If user intent is unclear, ask clarifying questions before acting.
-- Use emojis sparingly for clarity, not decoration.
-- Always end with a clear 👉 Recommended Action.`;
+1. INTENT DETECTION (CRITICAL - DO THIS FIRST)
+Classify EVERY user message into one of:
+- LOST_ITEM: User lost something and is looking for it
+- FOUND_ITEM: User found something and wants to report/find owner
+- GENERAL_QUERY: Questions about the system, help, or general inquiries
+
+NEVER perform a database search before intent is 100% clear.
+If intent is unclear, ask a clarifying question first.
+
+2. CONTEXT AWARENESS (SEARCH DIRECTION)
+Based on detected intent:
+- LOST_ITEM → Search among FOUND items in the database
+- FOUND_ITEM → Search among LOST items in the database
+This is AUTOMATIC. Always search the OPPOSITE type to find matches.
+
+3. INFORMATION COMPLETENESS (CRITICAL - 2-3 FIELDS REQUIRED)
+Before ANY database search, ensure you have at least 2-3 of:
+- Item category/type (wallet, phone, keys, bag, etc.)
+- Location (area, building, landmark, or coordinates)
+- Approximate date or time
+- Descriptive details (color, brand, material, size)
+
+If information is MISSING:
+- Ask follow-up questions CONVERSATIONALLY (natural, friendly tone)
+- Ask a MAXIMUM of 2 questions per response
+- Do NOT search until you have enough detail
+- Example: "I'd love to help you find your item! Could you tell me what kind of item you lost and roughly where you think you lost it?"
+
+4. SEMANTIC MATCHING (SMART SEARCH)
+When searching (only after you have enough info):
+- Match by MEANING, not exact keywords
+- Use synonyms (phone = mobile = smartphone = cellphone)
+- Consider nearby locations (library could match reading room, study area)
+- Use approximate date ranges (yesterday could match today morning)
+- If no exact match, show up to 3 SIMILAR items with explanation
+
+5. GUIDED RESPONSES (NEVER DEAD-END)
+If no useful match is found, NEVER end the conversation abruptly.
+NEVER just say "no items found" without guidance.
+Always offer helpful next actions:
+- "Would you like to post your lost item so others can find you?"
+- "Should I expand the search to nearby areas?"
+- "Want me to notify you if a similar item appears?"
+- "Let's try refining your description - any unique marks or features?"
+
+6. RESPONSE FORMAT
+When presenting database results, format each item clearly:
+📦 **Item:** [title]
+📍 **Location:** [location]
+📅 **Date:** [date]
+🏷️ **Status:** [Lost/Found]
+🎯 **Match Confidence:** [percentage]%
+
+Always end with:
+👉 **Recommended Action:** [specific, actionable next step]
+
+7. TONE
+- Calm, helpful, and human
+- Never robotic or overly short
+- Be conversational and empathetic
+- Use the user's language (Hindi, English, Hinglish - match their style)`;
 
 
 // Structured conversation flow types
@@ -92,31 +125,43 @@ async function detectIntent(userMessage: string, conversationHistory: any[] = []
 ${historyContext}
 Current message: "${userMessage}"
 
-Determine:
+CRITICAL: First check if this is an identity question about who made/built/trained the assistant.
+If yes, set INTENT to "identity_question".
+
+Then determine:
 1. INTENT: What does the user want to do?
-   - search: Looking for a lost item
+   - identity_question: Asking about who made/created/trained the assistant
+   - search: Looking for a lost item (they LOST something)
    - post_lost: Wants to report something they lost
-   - post_found: Wants to report something they found
+   - post_found: Wants to report something they found (they FOUND something)
    - refine: Providing more details about a previous query
    - help: General questions about the system
    - claim: Wants to claim an item
-   - unknown: Cannot determine intent
+   - unknown: Cannot determine intent - MUST ask clarifying question
 
-2. EXTRACTED INFO: What details did they provide?
-   - category (e.g., electronics, wallet, keys, bag, clothing, documents, jewelry, other)
-   - location (where the item was lost/found)
-   - date (when it was lost/found)
-   - description (physical details, color, brand, etc.)
-   - itemType (lost or found)
+2. ITEM_CONTEXT: Based on intent, what should we search for?
+   - If user LOST something → search FOUND items
+   - If user FOUND something → search LOST items
+
+3. EXTRACTED INFO: What details did they provide?
+   - category (e.g., electronics, wallet, keys, bag, clothing, documents, jewelry, phone, laptop, other)
+   - location (where the item was lost/found - building, area, landmark)
+   - date (when it was lost/found - specific date or relative like "yesterday", "last week")
+   - description (physical details, color, brand, size, material, unique marks)
+   - itemType (lost or found - from USER's perspective)
+
+4. INFO_SCORE: How many of the 4 fields above have meaningful values? (0-4)
 
 Respond in this exact format:
 INTENT: [intent]
 CONFIDENCE: [0-100]
+SEARCH_CONTEXT: [lost/found - what to search in database]
 CATEGORY: [category or NONE]
 LOCATION: [location or NONE]
 DATE: [date or NONE]
 DESCRIPTION: [description or NONE]
-ITEM_TYPE: [lost/found or NONE]`;
+ITEM_TYPE: [lost/found or NONE]
+INFO_SCORE: [0-4]`;
 
   const response = await callAI(prompt, 300, true);
   
@@ -146,63 +191,87 @@ ITEM_TYPE: [lost/found or NONE]`;
   };
 }
 
-// Data completeness check
+// Data completeness check - STRICT: Need at least 2-3 fields before searching
 function checkDataCompleteness(extractedInfo: any, intent: string): {
   isComplete: boolean;
+  infoScore: number;
   missingFields: string[];
   criticalMissing: string[];
+  canSearch: boolean;
 } {
-  const requiredFields = ['category', 'description'];
-  const helpfulFields = ['location', 'date'];
+  const allFields = ['category', 'location', 'date', 'description'];
   
   const missingFields: string[] = [];
   const criticalMissing: string[] = [];
+  let infoScore = 0;
 
-  if (intent === 'search' || intent === 'post_lost' || intent === 'post_found') {
-    for (const field of requiredFields) {
-      if (!extractedInfo[field]) {
-        criticalMissing.push(field);
-      }
-    }
-    for (const field of helpfulFields) {
-      if (!extractedInfo[field]) {
-        missingFields.push(field);
-      }
+  // Count how many fields we have
+  for (const field of allFields) {
+    if (extractedInfo[field] && extractedInfo[field].length > 0) {
+      infoScore++;
+    } else {
+      missingFields.push(field);
     }
   }
 
+  // Category is always critical for search
+  if (!extractedInfo.category) {
+    criticalMissing.push('category');
+  }
+
+  // For posting, we need more info
+  if (intent === 'post_lost' || intent === 'post_found') {
+    if (!extractedInfo.description) criticalMissing.push('description');
+    if (!extractedInfo.location) criticalMissing.push('location');
+  }
+
+  // STRICT RULE: Need at least 2 fields to perform a search
+  const canSearch = infoScore >= 2;
+  const isComplete = criticalMissing.length === 0 && infoScore >= 2;
+
   return {
-    isComplete: criticalMissing.length === 0,
+    isComplete,
+    infoScore,
     missingFields,
     criticalMissing,
+    canSearch,
   };
 }
 
-// Generate clarifying questions
+// Generate clarifying questions - STRICT: Max 2 questions per response
 async function generateClarifyingQuestions(
   userMessage: string,
   intent: string,
   missingFields: string[],
-  criticalMissing: string[]
+  criticalMissing: string[],
+  infoScore: number
 ): Promise<string[]> {
-  if (criticalMissing.length === 0 && missingFields.length === 0) {
+  // If we have enough info (2+ fields), don't ask more questions
+  if (infoScore >= 2 && criticalMissing.length === 0) {
     return [];
   }
 
-  const prompt = `You are the Lost & Found Investigator. The user said: "${userMessage}"
-Their intent appears to be: ${intent}
+  const prompt = `You are a friendly Lost & Found assistant. The user said: "${userMessage}"
+Their intent: ${intent}
 
-Critical missing information: ${criticalMissing.join(', ') || 'None'}
-Helpful missing information: ${missingFields.join(', ') || 'None'}
+Information we're missing: ${[...criticalMissing, ...missingFields].join(', ') || 'None'}
+Fields we already have: ${4 - missingFields.length - criticalMissing.length} out of 4
 
-Generate 1-3 natural, conversational questions to gather the missing information.
-Be friendly and investigative, not robotic.
-Focus on critical missing info first.
+RULES:
+- Generate EXACTLY 1-2 conversational, friendly questions to gather missing info
+- Be empathetic and helpful, not robotic
+- Focus on the most important missing fields first (category > location > date > description)
+- Combine related questions when possible
+- Use natural language, like talking to a friend
 
-Respond with ONLY the questions, one per line.`;
+Example good questions:
+- "What kind of item did you lose? And roughly where do you think you lost it?"
+- "Could you describe the item a bit more? Any specific color, brand, or unique features?"
 
-  const response = await callAI(prompt, 200, true);
-  return response.split('\n').filter(q => q.trim().length > 0).slice(0, 3);
+Respond with ONLY the questions (max 2), one per line.`;
+
+  const response = await callAI(prompt, 150, true);
+  return response.split('\n').filter(q => q.trim().length > 0 && q.trim().length > 10).slice(0, 2);
 }
 
 // Item synonyms for better matching
@@ -675,7 +744,65 @@ async function checkForDuplicates(
   return null;
 }
 
-// Main chat handler with full conversation flow - DATABASE FIRST approach
+// Generate friendly response when more info is needed (NO SEARCH YET)
+async function generateNeedMoreInfoResponse(
+  userMessage: string,
+  intent: string,
+  infoScore: number,
+  clarifyingQuestions: string[]
+): Promise<string> {
+  const intentLabel = intent === 'search' || intent === 'post_lost' 
+    ? 'looking for a lost item' 
+    : intent === 'post_found' 
+    ? 'reporting a found item' 
+    : 'helping you';
+
+  const prompt = `You are a friendly Lost & Found assistant. The user said: "${userMessage}"
+
+They seem to be ${intentLabel}, but we don't have enough details yet (${infoScore}/4 fields).
+
+Generate a warm, conversational response that:
+1. Acknowledges what they're trying to do
+2. Explains we need a bit more info to help effectively
+3. Asks these clarifying questions naturally: ${clarifyingQuestions.join(' | ')}
+
+RULES:
+- Be friendly and empathetic, like a helpful friend
+- Don't be robotic or use bullet points
+- Keep it conversational and warm
+- Maximum 2-3 sentences + the questions
+- Use natural language, match their tone (Hindi/English/Hinglish)
+
+Example good responses:
+- "Oh no, I'm sorry to hear you lost something! To help you find it, could you tell me what kind of item it was and where you might have lost it?"
+- "I'd love to help you track that down! What exactly did you lose, and do you remember roughly when and where?"`;
+
+  return await callAI(prompt, 250, true);
+}
+
+// Generate help/guidance response for general queries
+async function generateHelpResponse(userMessage: string): Promise<string> {
+  const prompt = `You are a friendly Lost & Found assistant. The user asked: "${userMessage}"
+
+Generate a helpful response that explains how you can help them:
+1. Search for lost items in the database
+2. Help them report a lost item
+3. Help them report a found item
+4. Find potential matches between lost and found items
+
+RULES:
+- Be warm and friendly
+- Give clear guidance on what they can do
+- Offer to help with a specific action
+- Keep it concise (3-4 sentences max)
+- Use natural language
+
+End with asking what they'd like to do: search for something, report a lost item, or report a found item.`;
+
+  return await callAI(prompt, 200, true);
+}
+
+// Main chat handler with full conversation flow - INTELLIGENT CONVERSATIONAL APPROACH
 async function handleChat(
   supabase: any,
   userMessage: string,
@@ -684,8 +811,27 @@ async function handleChat(
   response: string;
   context: ConversationContext;
 }> {
-  console.log('=== INVESTIGATOR FLOW START ===');
+  console.log('=== INTELLIGENT INVESTIGATOR FLOW START ===');
   console.log('User message:', userMessage);
+
+  // Step 0: Check for identity questions FIRST
+  const lowerMessage = userMessage.toLowerCase();
+  const identityKeywords = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer'];
+  const isIdentityQuestion = identityKeywords.some(kw => lowerMessage.includes(kw));
+  
+  if (isIdentityQuestion) {
+    console.log('Identity question detected - responding directly');
+    return {
+      response: "Mujhe Rehan bhai ne banaya hai and train kiya hai! 🙏\n\nMain aapki Lost & Found items dhundne mein madad karne ke liye yahan hoon. Kya aap kuch kho diye hain ya kuch mila hai?",
+      context: {
+        intent: 'help',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'continue_conversation',
+      },
+    };
+  }
 
   // Step 1: Intent Detection and Info Extraction
   console.log('Step 1: Detecting intent...');
@@ -693,16 +839,57 @@ async function handleChat(
   console.log('Intent:', intent, 'Confidence:', intentConfidence);
   console.log('Extracted info:', extractedInfo);
 
-  // Step 2: ALWAYS SEARCH DATABASE FIRST (even with incomplete info)
-  // This is critical - we MUST query the database before responding
-  console.log('Step 2: MANDATORY DATABASE SEARCH...');
-  const items = await searchForMatches(supabase, extractedInfo, intent, true);
+  // Step 2: Data Completeness Check - STRICT: Need 2+ fields before searching
+  console.log('Step 2: Checking data completeness (STRICT)...');
+  const { isComplete, infoScore, missingFields, criticalMissing, canSearch } = checkDataCompleteness(extractedInfo, intent);
+  console.log('Info score:', infoScore, '/4, Can search:', canSearch, 'Missing:', [...criticalMissing, ...missingFields]);
+
+  // Step 3: If intent is unclear or info insufficient, ask clarifying questions FIRST (don't search yet)
+  if (intent === 'unknown' || (intent !== 'help' && !canSearch)) {
+    console.log('Step 3: Insufficient info - generating clarifying questions...');
+    const clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing, infoScore);
+    
+    // Generate a friendly response asking for more info
+    const needsMoreInfoResponse = await generateNeedMoreInfoResponse(userMessage, intent, infoScore, clarifyingQuestions);
+    
+    console.log('=== FLOW END (Need more info) ===');
+    return {
+      response: needsMoreInfoResponse,
+      context: {
+        intent,
+        missingFields: [...criticalMissing, ...missingFields],
+        clarifyingQuestions,
+        matches: [],
+        recommendedAction: 'provide_more_info',
+      },
+    };
+  }
+
+  // Step 4: Handle help/general queries
+  if (intent === 'help') {
+    console.log('Step 4: Help intent - providing guidance...');
+    const helpResponse = await generateHelpResponse(userMessage);
+    return {
+      response: helpResponse,
+      context: {
+        intent: 'help',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'continue_conversation',
+      },
+    };
+  }
+
+  // Step 5: NOW search database (only after we have enough info)
+  console.log('Step 5: SEARCHING DATABASE (info score >= 2)...');
+  const items = await searchForMatches(supabase, extractedInfo, intent, false);
   console.log('Database returned:', items.length, 'items');
 
-  // Step 3: Score all matches using logical confidence
+  // Step 6: Score all matches using logical confidence
   let matches: MatchResult[] = [];
   if (items.length > 0) {
-    console.log('Step 3: Scoring matches with logical confidence...');
+    console.log('Step 6: Scoring matches with logical confidence...');
     matches = await scoreMatches(userMessage, extractedInfo, items);
     console.log('Scored matches:', matches.slice(0, 5).map(m => ({ 
       title: m.item.title, 
@@ -711,32 +898,27 @@ async function handleChat(
     })));
   }
 
-  // Step 4: Data Completeness Check (for follow-up questions)
-  console.log('Step 4: Checking data completeness...');
-  const { isComplete, missingFields, criticalMissing } = checkDataCompleteness(extractedInfo, intent);
-  console.log('Complete:', isComplete, 'Missing:', [...criticalMissing, ...missingFields]);
-
-  // Step 5: Check for duplicates if posting
+  // Step 7: Check for duplicates if posting
   let duplicateWarning: string | null = null;
   if (intent === 'post_lost' || intent === 'post_found') {
-    console.log('Step 5: Checking for duplicates...');
+    console.log('Step 7: Checking for duplicates...');
     duplicateWarning = await checkForDuplicates(supabase, extractedInfo, intent);
     if (duplicateWarning) {
       console.log('Duplicate warning:', duplicateWarning);
     }
   }
 
-  // Step 6: Generate Clarifying Questions (only if needed AND no good matches found)
+  // Step 8: Generate additional clarifying questions if no good matches
   let clarifyingQuestions: string[] = [];
   const hasGoodMatches = matches.some(m => m.confidence >= 50);
-  if ((!isComplete || intentConfidence < 60) && !hasGoodMatches) {
-    console.log('Step 6: Generating clarifying questions...');
-    clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing);
+  if (!hasGoodMatches && matches.length < 3) {
+    console.log('Step 8: No good matches - generating refinement questions...');
+    clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing, infoScore);
     console.log('Questions:', clarifyingQuestions);
   }
 
-  // Step 7: Generate Response with Database Results
-  console.log('Step 7: Generating response with database results...');
+  // Step 9: Generate Response with Database Results
+  console.log('Step 9: Generating response with database results...');
   const { response, recommendedAction, topMatches } = await generateInvestigatorResponse(
     userMessage,
     intent,
@@ -745,10 +927,10 @@ async function handleChat(
     matches,
     isComplete,
     duplicateWarning || undefined,
-    items.length // Pass total database results count
+    items.length
   );
 
-  console.log('=== INVESTIGATOR FLOW END ===');
+  console.log('=== INTELLIGENT INVESTIGATOR FLOW END ===');
   console.log('Total matches found:', matches.length);
   console.log('Recommended action:', recommendedAction);
 
