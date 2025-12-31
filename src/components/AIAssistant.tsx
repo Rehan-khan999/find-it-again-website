@@ -89,6 +89,7 @@ export const AIAssistant = () => {
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>(sessionMemory.history);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   // Handle viewing item details in dialog
@@ -266,7 +267,12 @@ export const AIAssistant = () => {
         setIsOpen(false);
         break;
       case "provide_more_info":
-        // Just focus input - user needs to provide more details
+      case "refine_search":
+        // Focus input and show helpful placeholder
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 100);
+        toast.info("Please provide more details about your item");
         break;
       case "expand_search":
         // Suggest broadening search
@@ -559,6 +565,7 @@ export const AIAssistant = () => {
           className="flex gap-2"
         >
           <Input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Describe what you're looking for..."
