@@ -10,251 +10,259 @@ const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Lovable AI Gateway (OpenAI-compatible)
+// Lovable AI Gateway (OpenAI-compatible) - ONLY USED WHEN NECESSARY
 const LOVABLE_AI_API = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const AI_MODEL = 'google/gemini-2.5-flash';
 
-// Lost & Found Investigator System Prompt - Intelligent Conversational Assistant
-const INVESTIGATOR_SYSTEM_PROMPT = `You are an intelligent Lost & Found assistant for a college platform.
+// Track AI usage for monitoring
+let aiCallCount = 0;
 
-CRITICAL RESPONSE RULES:
-1. KEEP IT SHORT - Maximum 2-3 lines. People are in a hurry to find their belongings!
-2. REPLY IN USER'S LANGUAGE - If they ask in Hindi, reply in Hindi. If English, reply in English. No unnecessary translations.
-3. Be direct and helpful, not verbose.
+// ============= RULE-BASED INTENT DETECTION (NO AI) =============
 
-IDENTITY QUESTION:
-If asked "Who made you?" / "Tujhe kisne banaya?" → Reply: "Mujhe Rehan bhai ne banaya hai!" (in user's language)
+// Keywords for intent detection
+const LOST_KEYWORDS = ['lost', 'missing', 'kho gaya', 'kho gayi', 'kho di', 'gum', 'gum ho gaya', 'bhul gaya', 'chhut gaya', 'nahi mil raha', 'can\'t find', 'cannot find', 'left behind', 'misplaced'];
+const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paaya', 'dekha', 'someone left', 'lying', 'unclaimed'];
+const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya', 'guide', 'madad', 'sahayata', 'explain'];
+const IDENTITY_KEYWORDS = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer', 'coder'];
+const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste', 'namaskar', 'good morning', 'good evening', 'good afternoon'];
+const CLAIM_KEYWORDS = ['claim', 'mine', 'mera', 'meri', 'belong', 'owner', 'return'];
 
-BEHAVIOR:
+// Category keywords mapping
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  'electronics': ['phone', 'mobile', 'laptop', 'charger', 'earphone', 'headphone', 'airpod', 'tablet', 'ipad', 'camera', 'watch', 'smartwatch', 'powerbank', 'cable', 'adapter'],
+  'wallet': ['wallet', 'purse', 'money', 'cash', 'card', 'credit card', 'debit card', 'batua'],
+  'keys': ['key', 'keys', 'keychain', 'car key', 'bike key', 'room key', 'chabi', 'chaabi'],
+  'bag': ['bag', 'backpack', 'handbag', 'suitcase', 'luggage', 'pouch', 'sling', 'tote', 'laptop bag'],
+  'documents': ['document', 'id', 'id card', 'aadhar', 'aadhaar', 'pan', 'passport', 'license', 'certificate', 'marksheet'],
+  'accessories': ['glasses', 'sunglasses', 'watch', 'ring', 'chain', 'bracelet', 'earring', 'jewelry', 'jewellery', 'belt', 'umbrella', 'cap', 'hat'],
+  'clothing': ['jacket', 'coat', 'sweater', 'hoodie', 'shirt', 'jeans', 'shoes', 'sandal', 'scarf'],
+  'bottle': ['bottle', 'water bottle', 'flask', 'sipper', 'tumbler'],
+  'other': []
+};
 
-1. INTENT DETECTION
-Classify message as: LOST_ITEM, FOUND_ITEM, or GENERAL_QUERY
-- LOST_ITEM → Search FOUND items
-- FOUND_ITEM → Search LOST items
+// Location keywords (common campus/city locations)
+const LOCATION_KEYWORDS = [
+  'library', 'canteen', 'cafeteria', 'classroom', 'lab', 'laboratory', 'hostel', 'mess', 'ground', 'playground',
+  'parking', 'bus stop', 'gate', 'entrance', 'exit', 'corridor', 'hallway', 'washroom', 'bathroom',
+  'auditorium', 'seminar hall', 'gym', 'sports complex', 'admin', 'office', 'department',
+  'block', 'building', 'floor', 'room', 'near', 'behind', 'front', 'beside', 'opposite'
+];
 
-2. INFO CHECK (Need 2-3 of these before searching):
-- Item type (wallet, phone, keys, etc.)
-- Location
-- Date/time
-- Description (color, brand)
-
-If missing info, ask 1-2 quick questions max.
-
-3. SEARCH & RESPOND
-- Use semantic matching (synonyms, nearby locations)
-- Show max 3 relevant matches
-- If no match: suggest posting item or expanding search
-
-4. RESPONSE FORMAT (keep brief):
-📦 [Item] | 📍 [Location] | 🎯 [Match %]
-👉 [Quick action suggestion]
-
-Remember: SHORT replies, user's language, be helpful!`;
-
-
-
-// Structured conversation flow types
-interface ConversationContext {
-  intent: 'search' | 'post_lost' | 'post_found' | 'refine' | 'help' | 'claim' | 'unknown';
-  missingFields: string[];
-  clarifyingQuestions: string[];
-  matches: MatchResult[];
-  recommendedAction: string;
-}
-
-interface MatchResult {
-  item: any;
+// Extract intent using ONLY keyword matching (NO AI)
+function detectIntentByRules(message: string): {
+  intent: 'search' | 'post_lost' | 'post_found' | 'help' | 'identity' | 'greeting' | 'claim' | 'unknown';
   confidence: number;
-  reasoning: string;
-  rank: number;
-}
-
-// Intent detection
-async function detectIntent(userMessage: string, conversationHistory: any[] = []): Promise<{
-  intent: 'search' | 'post_lost' | 'post_found' | 'refine' | 'help' | 'claim' | 'unknown';
-  extractedInfo: {
-    category?: string;
-    location?: string;
-    date?: string;
-    description?: string;
-    itemType?: 'lost' | 'found';
-  };
-  confidence: number;
-}> {
-  const historyContext = conversationHistory.length > 0 
-    ? `\nConversation history:\n${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}\n`
-    : '';
-
-  const prompt = `Analyze this user message for a Lost & Found system:
-${historyContext}
-Current message: "${userMessage}"
-
-CRITICAL: First check if this is an identity question about who made/built/trained the assistant.
-If yes, set INTENT to "identity_question".
-
-Then determine:
-1. INTENT: What does the user want to do?
-   - identity_question: Asking about who made/created/trained the assistant
-   - search: Looking for a lost item (they LOST something)
-   - post_lost: Wants to report something they lost
-   - post_found: Wants to report something they found (they FOUND something)
-   - refine: Providing more details about a previous query
-   - help: General questions about the system
-   - claim: Wants to claim an item
-   - unknown: Cannot determine intent - MUST ask clarifying question
-
-2. ITEM_CONTEXT: Based on intent, what should we search for?
-   - If user LOST something → search FOUND items
-   - If user FOUND something → search LOST items
-
-3. EXTRACTED INFO: What details did they provide?
-   - category (e.g., electronics, wallet, keys, bag, clothing, documents, jewelry, phone, laptop, other)
-   - location (where the item was lost/found - building, area, landmark)
-   - date (when it was lost/found - specific date or relative like "yesterday", "last week")
-   - description (physical details, color, brand, size, material, unique marks)
-   - itemType (lost or found - from USER's perspective)
-
-4. INFO_SCORE: How many of the 4 fields above have meaningful values? (0-4)
-
-Respond in this exact format:
-INTENT: [intent]
-CONFIDENCE: [0-100]
-SEARCH_CONTEXT: [lost/found - what to search in database]
-CATEGORY: [category or NONE]
-LOCATION: [location or NONE]
-DATE: [date or NONE]
-DESCRIPTION: [description or NONE]
-ITEM_TYPE: [lost/found or NONE]
-INFO_SCORE: [0-4]`;
-
-  const response = await callAI(prompt, 300, true);
-  
-  const intentMatch = response.match(/INTENT:\s*(\w+)/i);
-  const confidenceMatch = response.match(/CONFIDENCE:\s*(\d+)/i);
-  const categoryMatch = response.match(/CATEGORY:\s*(.+?)(?:\n|$)/i);
-  const locationMatch = response.match(/LOCATION:\s*(.+?)(?:\n|$)/i);
-  const dateMatch = response.match(/DATE:\s*(.+?)(?:\n|$)/i);
-  const descriptionMatch = response.match(/DESCRIPTION:\s*(.+?)(?:\n|$)/i);
-  const itemTypeMatch = response.match(/ITEM_TYPE:\s*(.+?)(?:\n|$)/i);
-
-  const extractValue = (match: RegExpMatchArray | null): string | undefined => {
-    const val = match?.[1]?.trim();
-    return val && val.toUpperCase() !== 'NONE' ? val : undefined;
-  };
-
-  return {
-    intent: (intentMatch?.[1]?.toLowerCase() || 'unknown') as any,
-    extractedInfo: {
-      category: extractValue(categoryMatch),
-      location: extractValue(locationMatch),
-      date: extractValue(dateMatch),
-      description: extractValue(descriptionMatch),
-      itemType: extractValue(itemTypeMatch)?.toLowerCase() as 'lost' | 'found' | undefined,
-    },
-    confidence: parseInt(confidenceMatch?.[1] || '50'),
-  };
-}
-
-// Data completeness check - STRICT: Need at least 2-3 fields before searching
-function checkDataCompleteness(extractedInfo: any, intent: string): {
-  isComplete: boolean;
-  infoScore: number;
-  missingFields: string[];
-  criticalMissing: string[];
-  canSearch: boolean;
+  matchedKeywords: string[];
 } {
-  const allFields = ['category', 'location', 'date', 'description'];
+  const lowerMsg = message.toLowerCase();
+  const matchedKeywords: string[] = [];
   
-  const missingFields: string[] = [];
-  const criticalMissing: string[] = [];
-  let infoScore = 0;
-
-  // Count how many fields we have
-  for (const field of allFields) {
-    if (extractedInfo[field] && extractedInfo[field].length > 0) {
-      infoScore++;
-    } else {
-      missingFields.push(field);
+  // Check identity first
+  for (const kw of IDENTITY_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      return { intent: 'identity', confidence: 100, matchedKeywords: [kw] };
     }
   }
-
-  // Category is always critical for search
-  if (!extractedInfo.category) {
-    criticalMissing.push('category');
+  
+  // Check greetings
+  for (const kw of GREETING_KEYWORDS) {
+    if (lowerMsg.startsWith(kw) || lowerMsg === kw) {
+      return { intent: 'greeting', confidence: 90, matchedKeywords: [kw] };
+    }
   }
-
-  // For posting, we need more info
-  if (intent === 'post_lost' || intent === 'post_found') {
-    if (!extractedInfo.description) criticalMissing.push('description');
-    if (!extractedInfo.location) criticalMissing.push('location');
+  
+  // Check claim intent
+  for (const kw of CLAIM_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      matchedKeywords.push(kw);
+    }
   }
-
-  // STRICT RULE: Need at least 2 fields to perform a search
-  const canSearch = infoScore >= 2;
-  const isComplete = criticalMissing.length === 0 && infoScore >= 2;
-
-  return {
-    isComplete,
-    infoScore,
-    missingFields,
-    criticalMissing,
-    canSearch,
-  };
+  if (matchedKeywords.length > 0) {
+    return { intent: 'claim', confidence: 70, matchedKeywords };
+  }
+  
+  // Check lost intent
+  let lostScore = 0;
+  for (const kw of LOST_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      lostScore++;
+      matchedKeywords.push(kw);
+    }
+  }
+  
+  // Check found intent
+  let foundScore = 0;
+  for (const kw of FOUND_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      foundScore++;
+      matchedKeywords.push(kw);
+    }
+  }
+  
+  // Determine intent based on scores
+  if (lostScore > foundScore && lostScore > 0) {
+    return { intent: 'search', confidence: Math.min(lostScore * 30 + 40, 95), matchedKeywords };
+  }
+  if (foundScore > lostScore && foundScore > 0) {
+    return { intent: 'post_found', confidence: Math.min(foundScore * 30 + 40, 95), matchedKeywords };
+  }
+  
+  // Check help intent
+  for (const kw of HELP_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      return { intent: 'help', confidence: 70, matchedKeywords: [kw] };
+    }
+  }
+  
+  // If no clear intent but has category keywords, assume search
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) {
+        return { intent: 'search', confidence: 60, matchedKeywords: [kw] };
+      }
+    }
+  }
+  
+  return { intent: 'unknown', confidence: 0, matchedKeywords: [] };
 }
 
-// Generate clarifying questions - STRICT: Max 2 questions per response
-async function generateClarifyingQuestions(
-  userMessage: string,
-  intent: string,
-  missingFields: string[],
-  criticalMissing: string[],
-  infoScore: number
-): Promise<string[]> {
-  // If we have enough info (2+ fields), don't ask more questions
-  if (infoScore >= 2 && criticalMissing.length === 0) {
-    return [];
+// Extract item details using ONLY keyword matching (NO AI)
+function extractInfoByRules(message: string): {
+  category?: string;
+  location?: string;
+  description?: string;
+  color?: string;
+  brand?: string;
+  infoScore: number;
+} {
+  const lowerMsg = message.toLowerCase();
+  const result: any = { infoScore: 0 };
+  
+  // Extract category
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) {
+        result.category = category;
+        result.infoScore++;
+        break;
+      }
+    }
+    if (result.category) break;
   }
-
-  const prompt = `You are a friendly Lost & Found assistant. The user said: "${userMessage}"
-Their intent: ${intent}
-
-Information we're missing: ${[...criticalMissing, ...missingFields].join(', ') || 'None'}
-Fields we already have: ${4 - missingFields.length - criticalMissing.length} out of 4
-
-RULES:
-- Generate EXACTLY 1-2 conversational, friendly questions to gather missing info
-- Be empathetic and helpful, not robotic
-- Focus on the most important missing fields first (category > location > date > description)
-- Combine related questions when possible
-- Use natural language, like talking to a friend
-
-Example good questions:
-- "What kind of item did you lose? And roughly where do you think you lost it?"
-- "Could you describe the item a bit more? Any specific color, brand, or unique features?"
-
-Respond with ONLY the questions (max 2), one per line.`;
-
-  const response = await callAI(prompt, 150, true);
-  return response.split('\n').filter(q => q.trim().length > 0 && q.trim().length > 10).slice(0, 2);
+  
+  // Extract location
+  for (const loc of LOCATION_KEYWORDS) {
+    if (lowerMsg.includes(loc)) {
+      // Find the surrounding context for location
+      const regex = new RegExp(`(\\w+\\s+)?${loc}(\\s+\\w+)?`, 'i');
+      const match = message.match(regex);
+      if (match) {
+        result.location = match[0].trim();
+        result.infoScore++;
+        break;
+      }
+    }
+  }
+  
+  // Extract colors
+  const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'orange', 'purple', 'gold', 'silver'];
+  for (const color of colors) {
+    if (lowerMsg.includes(color)) {
+      result.color = color;
+      result.infoScore++;
+      break;
+    }
+  }
+  
+  // Extract brands
+  const brands = ['apple', 'samsung', 'xiaomi', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'sony', 'hp', 'dell', 'lenovo', 'asus', 'acer', 'nike', 'adidas', 'puma', 'boat', 'jbl'];
+  for (const brand of brands) {
+    if (lowerMsg.includes(brand)) {
+      result.brand = brand;
+      result.infoScore++;
+      break;
+    }
+  }
+  
+  // Build description from extracted info
+  const descParts: string[] = [];
+  if (result.color) descParts.push(result.color);
+  if (result.brand) descParts.push(result.brand);
+  if (result.category) descParts.push(result.category);
+  if (descParts.length > 0) {
+    result.description = descParts.join(' ');
+  }
+  
+  return result;
 }
+
+// ============= STATIC RESPONSES (NO AI) =============
+
+const STATIC_RESPONSES = {
+  identity: {
+    en: "I was created and trained by Rehan bhai! 🙏\n\nI'm here to help you find lost items. Have you lost something or found something?",
+    hi: "Mujhe Rehan bhai ne banaya hai and train kiya hai! 🙏\n\nMain aapki Lost & Found items dhundne mein madad karne ke liye yahan hoon. Kya aap kuch kho diye hain ya kuch mila hai?"
+  },
+  greeting: {
+    en: "Hello! 👋 I'm FindIt AI, your Lost & Found assistant.\n\nHow can I help you today?\n🔴 Report a lost item\n🟢 Report a found item\n🔍 Search for items",
+    hi: "Namaste! 👋 Main FindIt AI hoon, aapka Lost & Found assistant.\n\nAaj main aapki kaise madad kar sakta hoon?\n🔴 Kuch kho diya - report karein\n🟢 Kuch mila - report karein\n🔍 Items search karein"
+  },
+  help: {
+    en: "I can help you with:\n🔴 **Lost something?** - Describe it and I'll search found items\n🟢 **Found something?** - Report it so the owner can find it\n🔍 **Search** - Browse all items by category/location\n\nJust tell me what you need!",
+    hi: "Main aapki madad kar sakta hoon:\n🔴 **Kuch kho gaya?** - Batao kya kho gaya, main dhundhta hoon\n🟢 **Kuch mila?** - Report karo taaki owner mil sake\n🔍 **Search** - Category/location se items dekho\n\nBas batao kya chahiye!"
+  },
+  needMoreInfo: {
+    en: "I need a bit more info to search:\n• What item? (phone, wallet, bag, etc.)\n• Where did you lose it? (library, canteen, etc.)\n• Any details? (color, brand)\n\nTell me more! 🔍",
+    hi: "Thoda aur detail chahiye search ke liye:\n• Kya item hai? (phone, wallet, bag, etc.)\n• Kahan kho gaya? (library, canteen, etc.)\n• Koi detail? (color, brand)\n\nBatao! 🔍"
+  },
+  noResults: {
+    en: "No matching items found yet. 😔\n\n**Suggestions:**\n• Post your lost item so others can help\n• Try different keywords\n• Check back later - new items are added daily!",
+    hi: "Abhi koi matching item nahi mila. 😔\n\n**Suggestions:**\n• Apna lost item post karo taaki log help kar sakein\n• Different keywords try karo\n• Baad mein check karo - naye items daily add hote hain!"
+  },
+  resultsFound: {
+    en: "Found some potential matches! 🎯\n\nCheck these items:",
+    hi: "Kuch matches mil gaye! 🎯\n\nYe items dekho:"
+  },
+  claim: {
+    en: "To claim an item, click on it to view details and submit a claim with verification answers. The item owner will review your claim.",
+    hi: "Item claim karne ke liye, us par click karo aur verification answers ke saath claim submit karo. Item owner review karega."
+  },
+  error: {
+    en: "I'm having trouble processing your request. Please try again or use the navigation menu to explore the site.",
+    hi: "Mujhe kuch problem ho rahi hai. Please dobara try karo ya navigation menu use karo."
+  }
+};
+
+// Detect language (simple approach)
+function detectLanguage(message: string): 'hi' | 'en' {
+  const hindiChars = message.match(/[\u0900-\u097F]/g);
+  const hindiWords = ['kya', 'kahan', 'kaise', 'mera', 'meri', 'hai', 'hain', 'nahi', 'toh', 'aur', 'se', 'mein', 'ko', 'gaya', 'gayi', 'ho', 'raha', 'rahi', 'kar', 'karo'];
+  const lowerMsg = message.toLowerCase();
+  
+  let hindiScore = hindiChars ? hindiChars.length : 0;
+  for (const word of hindiWords) {
+    if (lowerMsg.includes(word)) hindiScore += 2;
+  }
+  
+  return hindiScore > 3 ? 'hi' : 'en';
+}
+
+// ============= DATABASE SEARCH (NO AI) =============
 
 // Item synonyms for better matching
 const ITEM_SYNONYMS: Record<string, string[]> = {
   phone: ['mobile', 'smartphone', 'iphone', 'android', 'cell', 'cellphone', 'handset'],
-  wallet: ['purse', 'billfold', 'pocketbook', 'card holder', 'money clip'],
+  wallet: ['purse', 'billfold', 'pocketbook', 'card holder', 'money clip', 'batua'],
   bag: ['backpack', 'handbag', 'satchel', 'tote', 'rucksack', 'pouch', 'sling bag'],
   laptop: ['notebook', 'macbook', 'chromebook', 'computer'],
-  keys: ['keychain', 'key ring', 'car keys', 'house keys'],
+  keys: ['keychain', 'key ring', 'car keys', 'house keys', 'chabi'],
   earphones: ['earbuds', 'headphones', 'airpods', 'headset'],
-  glasses: ['spectacles', 'eyeglasses', 'sunglasses', 'shades'],
-  watch: ['wristwatch', 'smartwatch', 'timepiece'],
+  glasses: ['spectacles', 'eyeglasses', 'sunglasses', 'shades', 'chasma'],
+  watch: ['wristwatch', 'smartwatch', 'timepiece', 'ghadi'],
   card: ['id card', 'identity card', 'credit card', 'debit card', 'aadhar', 'pan card'],
-  bottle: ['water bottle', 'flask', 'tumbler'],
-  umbrella: ['parasol', 'brolly'],
+  bottle: ['water bottle', 'flask', 'tumbler', 'sipper'],
+  umbrella: ['parasol', 'brolly', 'chhatri'],
   charger: ['adapter', 'power bank', 'charging cable'],
-  electronics: ['phone', 'laptop', 'tablet', 'camera', 'earphones', 'charger', 'smartwatch'],
-  documents: ['id card', 'passport', 'license', 'certificate', 'paper'],
-  accessories: ['watch', 'jewelry', 'glasses', 'belt', 'tie'],
 };
 
 // Get all synonyms for a term
@@ -272,32 +280,27 @@ function getSynonyms(term: string): string[] {
   return Array.from(synonyms);
 }
 
-// Search database for matches - DATABASE FIRST approach
-async function searchForMatches(
+// Database-first search with NO AI
+async function searchDatabase(
   supabase: any,
-  extractedInfo: any,
-  intent: string,
-  forceSearch: boolean = false
+  extractedInfo: { category?: string; location?: string; description?: string; color?: string; brand?: string },
+  searchType: 'lost' | 'found' | 'both' = 'both'
 ): Promise<any[]> {
-  console.log('=== DATABASE SEARCH START ===');
+  console.log('=== DATABASE SEARCH (NO AI) ===');
   console.log('Search params:', JSON.stringify(extractedInfo));
   
-  // Determine what type of items to search for
-  let searchType = 'found'; // Default: if user lost something, search found items
-  if (intent === 'post_found' || extractedInfo.itemType === 'found') {
-    searchType = 'lost'; // If user found something, search lost items
-  }
-  
-  // Also search all items if no clear intent
-  const searchBothTypes = intent === 'search' || intent === 'unknown' || forceSearch;
-
-  // Build search terms from description and category
+  // Build search terms from all extracted info
   const searchTerms: string[] = [];
   
   if (extractedInfo.category) {
     searchTerms.push(...getSynonyms(extractedInfo.category));
   }
-  
+  if (extractedInfo.color) {
+    searchTerms.push(extractedInfo.color);
+  }
+  if (extractedInfo.brand) {
+    searchTerms.push(extractedInfo.brand);
+  }
   if (extractedInfo.description) {
     const words = extractedInfo.description.toLowerCase().split(/\s+/);
     words.forEach((word: string) => {
@@ -307,10 +310,9 @@ async function searchForMatches(
     });
   }
 
-  console.log('Search terms:', searchTerms);
-  console.log('Search type:', searchBothTypes ? 'both' : searchType);
+  console.log('Search terms:', [...new Set(searchTerms)]);
 
-  // Perform broad search first, then filter
+  // Perform broad search first
   let query = supabase
     .from('items')
     .select('*')
@@ -318,8 +320,8 @@ async function searchForMatches(
     .order('created_at', { ascending: false })
     .limit(50);
 
-  // Only filter by type if we have clear intent
-  if (!searchBothTypes) {
+  // Filter by type if specified
+  if (searchType !== 'both') {
     query = query.eq('item_type', searchType);
   }
 
@@ -330,11 +332,12 @@ async function searchForMatches(
     return [];
   }
 
-  console.log('Total items fetched:', allItems?.length || 0);
-
   if (!allItems || allItems.length === 0) {
+    console.log('No items in database');
     return [];
   }
+
+  console.log('Total items fetched:', allItems.length);
 
   // Score and filter items based on relevance
   const scoredItems = allItems.map((item: any) => {
@@ -350,534 +353,317 @@ async function searchForMatches(
     for (const term of searchTerms) {
       if (itemTitle.includes(term)) {
         relevanceScore += 30;
-        matchReasons.push(`Title contains "${term}"`);
+        matchReasons.push(`Title: "${term}"`);
       }
       if (itemDesc.includes(term)) {
         relevanceScore += 20;
-        matchReasons.push(`Description contains "${term}"`);
+        matchReasons.push(`Desc: "${term}"`);
       }
       if (itemCategory.includes(term)) {
         relevanceScore += 25;
-        matchReasons.push(`Category matches "${term}"`);
+        matchReasons.push(`Category: "${term}"`);
       }
     }
     
-    // Location matching (case-insensitive, partial)
+    // Location matching
     if (extractedInfo.location) {
       const userLoc = extractedInfo.location.toLowerCase();
       const locWords = userLoc.split(/\s+/).filter((w: string) => w.length > 2);
       
       for (const word of locWords) {
         if (itemLocation.includes(word)) {
-          relevanceScore += 20;
-          matchReasons.push(`Location matches "${word}"`);
+          relevanceScore += 25;
+          matchReasons.push(`Location: "${word}"`);
         }
       }
-    }
-    
-    // Date proximity scoring
-    if (extractedInfo.date && item.date_lost_found) {
-      try {
-        const userDate = new Date(extractedInfo.date);
-        const itemDate = new Date(item.date_lost_found);
-        const daysDiff = Math.abs((userDate.getTime() - itemDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff <= 1) relevanceScore += 15;
-        else if (daysDiff <= 3) relevanceScore += 10;
-        else if (daysDiff <= 7) relevanceScore += 5;
-      } catch (e) {}
     }
     
     return { ...item, relevanceScore, matchReasons };
   });
 
-  // Filter items with relevance > 0, or return top items if no matches
+  // Filter items with relevance > 0
   let relevantItems = scoredItems.filter((item: any) => item.relevanceScore > 0);
   
-  // If no relevant items found but we have search terms, still return some items
-  if (relevantItems.length === 0 && searchTerms.length > 0) {
-    // Return items from the same category at least
-    if (extractedInfo.category) {
-      relevantItems = scoredItems.filter((item: any) => 
-        item.category?.toLowerCase().includes(extractedInfo.category.toLowerCase())
-      );
-    }
-  }
-  
-  // If still nothing, return latest items for user to browse
+  // If no relevant items, return empty (don't show random items)
   if (relevantItems.length === 0) {
-    relevantItems = scoredItems.slice(0, 10);
+    console.log('No relevant items found');
+    return [];
   }
 
   // Sort by relevance score
   relevantItems.sort((a: any, b: any) => b.relevanceScore - a.relevanceScore);
   
   console.log('Relevant items found:', relevantItems.length);
-  console.log('Top matches:', relevantItems.slice(0, 5).map((i: any) => ({
-    title: i.title,
-    score: i.relevanceScore,
-    reasons: i.matchReasons
-  })));
-  console.log('=== DATABASE SEARCH END ===');
 
-  return relevantItems.slice(0, 20);
+  return relevantItems.slice(0, 10);
 }
 
-// Calculate confidence scores using LOGICAL scoring (no ML needed)
-function calculateLogicalConfidence(
-  extractedInfo: any,
-  item: any
-): { score: number; breakdown: { category: number; location: number; date: number; description: number; identifiers: number }; reasons: string[] } {
-  let score = 0;
-  const reasons: string[] = [];
-  const breakdown = { category: 0, location: 0, date: 0, description: 0, identifiers: 0 };
-
-  // +40% → Same category
-  if (extractedInfo.category && item.category) {
-    const userCat = extractedInfo.category.toLowerCase();
-    const itemCat = item.category.toLowerCase();
-    if (userCat === itemCat || itemCat.includes(userCat) || userCat.includes(itemCat)) {
-      breakdown.category = 40;
-      score += 40;
-      reasons.push(`Same category (${item.category})`);
-    } else {
-      breakdown.category = 0;
-      reasons.push(`Different category`);
-    }
+// Format search results for display (NO AI)
+function formatResults(items: any[], lang: 'hi' | 'en'): string {
+  if (items.length === 0) {
+    return STATIC_RESPONSES.noResults[lang];
   }
-
-  // +25% → Same or nearby location
-  if (extractedInfo.location && item.location) {
-    const userLoc = extractedInfo.location.toLowerCase();
-    const itemLoc = item.location.toLowerCase();
-    // Check for common location keywords
-    const locationWords = userLoc.split(/\s+/).filter((w: string) => w.length > 2);
-    const matchingWords = locationWords.filter((w: string) => itemLoc.includes(w));
-    
-    if (userLoc === itemLoc || matchingWords.length >= 2) {
-      breakdown.location = 25;
-      score += 25;
-      reasons.push(`Location match`);
-    } else if (matchingWords.length >= 1) {
-      breakdown.location = 15;
-      score += 15;
-      reasons.push(`Nearby location`);
-    }
-  }
-
-  // +20% → Date within 3 days
-  if (extractedInfo.date && item.date_lost_found) {
-    const userDate = new Date(extractedInfo.date);
-    const itemDate = new Date(item.date_lost_found);
-    const daysDiff = Math.abs((userDate.getTime() - itemDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (daysDiff <= 1) {
-      breakdown.date = 20;
-      score += 20;
-      reasons.push(`Found within 1 day`);
-    } else if (daysDiff <= 3) {
-      breakdown.date = 15;
-      score += 15;
-      reasons.push(`Found within 3 days`);
-    } else if (daysDiff <= 7) {
-      breakdown.date = 10;
-      score += 10;
-      reasons.push(`Found within a week`);
-    }
-  } else {
-    // Give partial credit if date not specified
-    breakdown.date = 5;
-    score += 5;
-  }
-
-  // +10% → Description similarity
-  if (extractedInfo.description && item.description) {
-    const userDesc = extractedInfo.description.toLowerCase();
-    const itemDesc = item.description.toLowerCase();
-    const descWords = userDesc.split(/\s+/).filter((w: string) => w.length > 3);
-    const matchingDesc = descWords.filter((w: string) => itemDesc.includes(w));
-    
-    if (matchingDesc.length >= 3) {
-      breakdown.description = 10;
-      score += 10;
-      reasons.push(`Description matches`);
-    } else if (matchingDesc.length >= 1) {
-      breakdown.description = 5;
-      score += 5;
-      reasons.push(`Partial description match`);
-    }
-  }
-
-  // +5% → Unique identifiers (color, brand)
-  const identifiers = ['black', 'white', 'red', 'blue', 'green', 'gold', 'silver', 'brown', 
-    'apple', 'samsung', 'nike', 'adidas', 'leather', 'metal', 'plastic'];
   
-  if (extractedInfo.description && item.description) {
-    const userDesc = extractedInfo.description.toLowerCase();
-    const itemDesc = item.description.toLowerCase();
-    
-    for (const id of identifiers) {
-      if (userDesc.includes(id) && itemDesc.includes(id)) {
-        breakdown.identifiers = 5;
-        score += 5;
-        reasons.push(`Matching identifier: ${id}`);
-        break;
-      }
-    }
-  }
-
-  return { score: Math.min(score, 100), breakdown, reasons };
-}
-
-// Score matches with logical confidence
-async function scoreMatches(
-  userMessage: string,
-  extractedInfo: any,
-  items: any[]
-): Promise<MatchResult[]> {
-  if (items.length === 0) return [];
-
-  const results: MatchResult[] = [];
-
-  for (const item of items) {
-    const { score, breakdown, reasons } = calculateLogicalConfidence(extractedInfo, item);
-    
-    // Generate reasoning text
-    const reasoningText = `🧠 Match Confidence: ${score}%\n` +
-      `• Category: +${breakdown.category}%\n` +
-      `• Location: +${breakdown.location}%\n` +
-      `• Date: +${breakdown.date}%\n` +
-      `• Description: +${breakdown.description}%\n` +
-      `• Identifiers: +${breakdown.identifiers}%\n\n` +
-      `Reason: ${reasons.join(', ')}`;
-
-    results.push({
-      item,
-      confidence: score,
-      reasoning: reasoningText,
-      rank: 0,
-    });
-  }
-
-  // Sort by confidence and assign ranks
-  results.sort((a, b) => b.confidence - a.confidence);
-  results.forEach((r, i) => r.rank = i + 1);
-
-  return results;
-}
-
-// Format database results for AI context
-function formatDatabaseResults(matches: MatchResult[]): string {
-  if (matches.length === 0) {
-    return 'DATABASE QUERY RETURNED: 0 items found matching the search criteria.';
-  }
-
-  let formatted = `DATABASE QUERY RETURNED: ${matches.length} items found.\n\n`;
-  formatted += 'ACTUAL DATABASE RESULTS (you MUST reference these):\n';
-  formatted += '─'.repeat(50) + '\n';
-
-  matches.slice(0, 10).forEach((match, index) => {
-    const item = match.item;
-    formatted += `\n${index + 1}. ${item.title}\n`;
-    formatted += `   📍 Location: ${item.location || 'Not specified'}\n`;
-    formatted += `   📅 Date: ${item.date_lost_found || 'Not specified'}\n`;
-    formatted += `   🏷️ Status: ${item.item_type === 'lost' ? 'Lost' : 'Found'}\n`;
-    formatted += `   📝 Description: ${(item.description || '').substring(0, 150)}${item.description?.length > 150 ? '...' : ''}\n`;
-    formatted += `   🎯 Match Confidence: ${match.confidence}%\n`;
-    formatted += `   💡 Reason: ${match.reasoning?.split('\n')[0] || 'Matches search criteria'}\n`;
+  let response = STATIC_RESPONSES.resultsFound[lang] + '\n\n';
+  
+  items.slice(0, 5).forEach((item, i) => {
+    const emoji = item.item_type === 'lost' ? '🔴' : '🟢';
+    const confidence = Math.min(item.relevanceScore, 100);
+    response += `${i + 1}. ${emoji} **${item.title}**\n`;
+    response += `   📍 ${item.location || 'Location not specified'}\n`;
+    response += `   🎯 Match: ${confidence}%\n\n`;
   });
-
-  formatted += '\n' + '─'.repeat(50);
-  return formatted;
-}
-
-// Generate response with recommendations
-async function generateInvestigatorResponse(
-  userMessage: string,
-  intent: string,
-  extractedInfo: any,
-  clarifyingQuestions: string[],
-  matches: MatchResult[],
-  isComplete: boolean,
-  duplicateWarning?: string,
-  totalDbResults?: number
-): Promise<{
-  response: string;
-  recommendedAction: string;
-  topMatches: MatchResult[];
-}> {
-  const topMatches = matches.filter(m => m.confidence >= 20).slice(0, 10);
-  const hasGoodMatches = topMatches.some(m => m.confidence >= 50);
-  const hasAnyMatches = topMatches.length > 0;
-
-  // Format actual database results for the AI
-  const dbResultsFormatted = formatDatabaseResults(topMatches);
-
-  const prompt = `User: "${userMessage}"
-Intent: ${intent} | Info: ${extractedInfo.category || '?'}, ${extractedInfo.location || '?'}
-
-${topMatches.length > 0 ? `MATCHES FOUND (show top 3 max):
-${topMatches.slice(0, 3).map((m, i) => `${i+1}. ${m.item.title} | ${m.item.location} | ${m.confidence}%`).join('\n')}` : 'NO MATCHES FOUND'}
-
-RULES:
-- Reply in USER'S LANGUAGE (Hindi→Hindi, English→English)
-- MAX 2-3 lines intro + matches list
-- If matches: show them briefly with 📦📍🎯
-- If no matches: suggest posting item
-- End with one quick action suggestion
-${duplicateWarning ? `\n⚠️ ${duplicateWarning}` : ''}`;
-
-  const response = await callAI(prompt, 300, true);
-
-  let recommendedAction = 'continue_search';
-  if (hasGoodMatches) {
-    recommendedAction = 'review_matches';
-  } else if (hasAnyMatches) {
-    recommendedAction = 'refine_search';
-  } else if (totalDbResults === 0) {
-    recommendedAction = 'post_item';
-  } else {
-    recommendedAction = 'check_categories';
-  }
-
-  return {
-    response,
-    recommendedAction,
-    topMatches,
-  };
-}
-
-// Check for duplicate posts
-async function checkForDuplicates(
-  supabase: any,
-  extractedInfo: any,
-  intent: string
-): Promise<string | null> {
-  if (intent !== 'post_lost' && intent !== 'post_found') {
-    return null;
-  }
-
-  const itemType = intent === 'post_lost' ? 'lost' : 'found';
   
-  // Look for similar items posted in last 24 hours
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  if (items.length > 5) {
+    response += lang === 'hi' 
+      ? `_...aur ${items.length - 5} items. Browse page par dekho!_`
+      : `_...and ${items.length - 5} more items. Check the Browse page!_`;
+  }
   
-  let query = supabase
-    .from('items')
-    .select('id, title, description, category, location')
-    .eq('item_type', itemType)
-    .eq('status', 'active')
-    .gte('created_at', oneDayAgo)
-    .limit(10);
-
-  if (extractedInfo.category) {
-    query = query.ilike('category', `%${extractedInfo.category}%`);
-  }
-
-  const { data: recentItems, error } = await query;
-  
-  if (error || !recentItems || recentItems.length === 0) {
-    return null;
-  }
-
-  // Check for high similarity
-  for (const item of recentItems) {
-    const { score } = calculateLogicalConfidence(extractedInfo, item);
-    if (score >= 70) {
-      return `⚠️ Similar ${itemType} item already exists: "${item.title}". Would you like to link to it instead of creating a new post?`;
-    }
-  }
-
-  return null;
+  return response;
 }
 
-// Generate friendly response when more info is needed (NO SEARCH YET)
-async function generateNeedMoreInfoResponse(
-  userMessage: string,
-  intent: string,
-  infoScore: number,
-  clarifyingQuestions: string[]
-): Promise<string> {
-  const prompt = `User said: "${userMessage}"
-Need more info (${infoScore}/4 fields). Ask: ${clarifyingQuestions.join(' | ')}
+// ============= MAIN CHAT HANDLER (DATABASE-FIRST, AI-LAST) =============
 
-RULES:
-- Reply in SAME LANGUAGE as user (Hindi→Hindi, English→English)
-- MAX 2 lines + 1-2 questions
-- Be friendly but brief
-
-Example: "Kya kho gaya aur kahan? Thoda detail dedo toh dhundne mein help karunga!"`;
-
-  return await callAI(prompt, 150, true);
-}
-
-// Generate help/guidance response for general queries
-async function generateHelpResponse(userMessage: string): Promise<string> {
-  const prompt = `User asked: "${userMessage}"
-
-Reply in their language. Keep it 2-3 lines max.
-Options: 🔴 Lost something | 🟢 Found something | 🔍 Search items
-
-Example: "Main help kar sakta hoon! Kya aap kuch dhundh rahe ho ya kuch mila hai?"`;
-
-  return await callAI(prompt, 100, true);
-}
-
-// Main chat handler with full conversation flow - INTELLIGENT CONVERSATIONAL APPROACH
 async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = []
 ): Promise<{
   response: string;
-  context: ConversationContext;
+  context: {
+    intent: string;
+    missingFields: string[];
+    clarifyingQuestions: string[];
+    matches: any[];
+    recommendedAction: string;
+    aiUsed: boolean;
+  };
 }> {
-  console.log('=== INTELLIGENT INVESTIGATOR FLOW START ===');
+  console.log('=== DATABASE-FIRST CHAT HANDLER ===');
   console.log('User message:', userMessage);
+  console.log('AI calls so far this session:', aiCallCount);
 
-  // Step 0: Check for identity questions FIRST
-  const lowerMessage = userMessage.toLowerCase();
-  const identityKeywords = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer'];
-  const isIdentityQuestion = identityKeywords.some(kw => lowerMessage.includes(kw));
-  
-  if (isIdentityQuestion) {
-    console.log('Identity question detected - responding directly');
+  const lang = detectLanguage(userMessage);
+  console.log('Detected language:', lang);
+
+  // Step 1: RULE-BASED intent detection (NO AI)
+  const { intent, confidence, matchedKeywords } = detectIntentByRules(userMessage);
+  console.log('Rule-based intent:', intent, 'Confidence:', confidence, 'Keywords:', matchedKeywords);
+
+  // Handle identity questions immediately (NO AI)
+  if (intent === 'identity') {
     return {
-      response: "Mujhe Rehan bhai ne banaya hai and train kiya hai! 🙏\n\nMain aapki Lost & Found items dhundne mein madad karne ke liye yahan hoon. Kya aap kuch kho diye hain ya kuch mila hai?",
+      response: STATIC_RESPONSES.identity[lang],
+      context: {
+        intent: 'identity',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'continue',
+        aiUsed: false,
+      },
+    };
+  }
+
+  // Handle greetings immediately (NO AI)
+  if (intent === 'greeting') {
+    return {
+      response: STATIC_RESPONSES.greeting[lang],
+      context: {
+        intent: 'greeting',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'await_input',
+        aiUsed: false,
+      },
+    };
+  }
+
+  // Handle help requests (NO AI)
+  if (intent === 'help') {
+    return {
+      response: STATIC_RESPONSES.help[lang],
       context: {
         intent: 'help',
         missingFields: [],
         clarifyingQuestions: [],
         matches: [],
-        recommendedAction: 'continue_conversation',
+        recommendedAction: 'await_input',
+        aiUsed: false,
       },
     };
   }
 
-  // Step 1: Intent Detection and Info Extraction
-  console.log('Step 1: Detecting intent...');
-  const { intent, extractedInfo, confidence: intentConfidence } = await detectIntent(userMessage, conversationHistory);
-  console.log('Intent:', intent, 'Confidence:', intentConfidence);
+  // Handle claim requests (NO AI)
+  if (intent === 'claim') {
+    return {
+      response: STATIC_RESPONSES.claim[lang],
+      context: {
+        intent: 'claim',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'show_claims',
+        aiUsed: false,
+      },
+    };
+  }
+
+  // Step 2: RULE-BASED info extraction (NO AI)
+  const extractedInfo = extractInfoByRules(userMessage);
   console.log('Extracted info:', extractedInfo);
 
-  // Step 2: Data Completeness Check - STRICT: Need 2+ fields before searching
-  console.log('Step 2: Checking data completeness (STRICT)...');
-  const { isComplete, infoScore, missingFields, criticalMissing, canSearch } = checkDataCompleteness(extractedInfo, intent);
-  console.log('Info score:', infoScore, '/4, Can search:', canSearch, 'Missing:', [...criticalMissing, ...missingFields]);
-
-  // Step 3: If intent is unclear or info insufficient, ask clarifying questions FIRST (don't search yet)
-  if (intent === 'unknown' || (intent !== 'help' && !canSearch)) {
-    console.log('Step 3: Insufficient info - generating clarifying questions...');
-    const clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing, infoScore);
+  // If we have at least some info, search database immediately
+  if (extractedInfo.infoScore >= 1 || intent === 'search' || intent === 'post_found') {
+    console.log('Sufficient info - searching database directly');
     
-    // Generate a friendly response asking for more info
-    const needsMoreInfoResponse = await generateNeedMoreInfoResponse(userMessage, intent, infoScore, clarifyingQuestions);
+    // Determine search type: if user lost something, search found items
+    const searchType = intent === 'search' ? 'found' : (intent === 'post_found' ? 'lost' : 'both');
     
-    console.log('=== FLOW END (Need more info) ===');
+    const results = await searchDatabase(supabase, extractedInfo, searchType);
+    
+    // Format results (NO AI)
+    const response = formatResults(results, lang);
+    
     return {
-      response: needsMoreInfoResponse,
+      response,
       context: {
         intent,
-        missingFields: [...criticalMissing, ...missingFields],
-        clarifyingQuestions,
-        matches: [],
-        recommendedAction: 'provide_more_info',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: results.map(item => ({
+          item,
+          confidence: item.relevanceScore,
+          reasoning: item.matchReasons?.join(', ') || 'Matched by keywords',
+          rank: 0,
+        })),
+        recommendedAction: results.length > 0 ? 'review_matches' : 'post_item',
+        aiUsed: false,
       },
     };
   }
 
-  // Step 4: Handle help/general queries
-  if (intent === 'help') {
-    console.log('Step 4: Help intent - providing guidance...');
-    const helpResponse = await generateHelpResponse(userMessage);
+  // Step 3: If intent is unknown and no info, ask for more details (NO AI)
+  if (intent === 'unknown' && extractedInfo.infoScore === 0) {
     return {
-      response: helpResponse,
+      response: STATIC_RESPONSES.needMoreInfo[lang],
       context: {
-        intent: 'help',
+        intent: 'unknown',
+        missingFields: ['category', 'location', 'description'],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'provide_info',
+        aiUsed: false,
+      },
+    };
+  }
+
+  // Step 4: ONLY use AI if absolutely necessary (ambiguous or complex query)
+  // This is the LAST RESORT
+  console.log('=== AI FALLBACK (Last Resort) ===');
+  
+  try {
+    aiCallCount++;
+    console.log('AI call count:', aiCallCount);
+    
+    const aiResponse = await callAIMinimal(userMessage, lang);
+    
+    return {
+      response: aiResponse,
+      context: {
+        intent: 'unknown',
         missingFields: [],
         clarifyingQuestions: [],
         matches: [],
-        recommendedAction: 'continue_conversation',
+        recommendedAction: 'continue',
+        aiUsed: true,
+      },
+    };
+  } catch (error) {
+    console.error('AI fallback failed:', error);
+    // If AI fails, use static response
+    return {
+      response: STATIC_RESPONSES.needMoreInfo[lang],
+      context: {
+        intent: 'unknown',
+        missingFields: ['category', 'location', 'description'],
+        clarifyingQuestions: [],
+        matches: [],
+        recommendedAction: 'provide_info',
+        aiUsed: false,
       },
     };
   }
-
-  // Step 5: NOW search database (only after we have enough info)
-  console.log('Step 5: SEARCHING DATABASE (info score >= 2)...');
-  const items = await searchForMatches(supabase, extractedInfo, intent, false);
-  console.log('Database returned:', items.length, 'items');
-
-  // Step 6: Score all matches using logical confidence
-  let matches: MatchResult[] = [];
-  if (items.length > 0) {
-    console.log('Step 6: Scoring matches with logical confidence...');
-    matches = await scoreMatches(userMessage, extractedInfo, items);
-    console.log('Scored matches:', matches.slice(0, 5).map(m => ({ 
-      title: m.item.title, 
-      confidence: m.confidence,
-      location: m.item.location 
-    })));
-  }
-
-  // Step 7: Check for duplicates if posting
-  let duplicateWarning: string | null = null;
-  if (intent === 'post_lost' || intent === 'post_found') {
-    console.log('Step 7: Checking for duplicates...');
-    duplicateWarning = await checkForDuplicates(supabase, extractedInfo, intent);
-    if (duplicateWarning) {
-      console.log('Duplicate warning:', duplicateWarning);
-    }
-  }
-
-  // Step 8: Generate additional clarifying questions if no good matches
-  let clarifyingQuestions: string[] = [];
-  const hasGoodMatches = matches.some(m => m.confidence >= 50);
-  if (!hasGoodMatches && matches.length < 3) {
-    console.log('Step 8: No good matches - generating refinement questions...');
-    clarifyingQuestions = await generateClarifyingQuestions(userMessage, intent, missingFields, criticalMissing, infoScore);
-    console.log('Questions:', clarifyingQuestions);
-  }
-
-  // Step 9: Generate Response with Database Results
-  console.log('Step 9: Generating response with database results...');
-  const { response, recommendedAction, topMatches } = await generateInvestigatorResponse(
-    userMessage,
-    intent,
-    extractedInfo,
-    clarifyingQuestions,
-    matches,
-    isComplete,
-    duplicateWarning || undefined,
-    items.length
-  );
-
-  console.log('=== INTELLIGENT INVESTIGATOR FLOW END ===');
-  console.log('Total matches found:', matches.length);
-  console.log('Recommended action:', recommendedAction);
-
-  return {
-    response,
-    context: {
-      intent,
-      missingFields: [...criticalMissing, ...missingFields],
-      clarifyingQuestions,
-      matches: topMatches,
-      recommendedAction,
-    },
-  };
 }
 
-async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = false): Promise<string> {
+// ============= MINIMAL AI CALL (ONLY WHEN NECESSARY) =============
+
+async function callAIMinimal(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
+  console.log('Calling AI (minimal) for message:', userMessage.substring(0, 50));
+  
+  if (!LOVABLE_API_KEY) {
+    throw new Error('AI not configured');
+  }
+  
+  const systemPrompt = `You are FindIt AI, a Lost & Found assistant. 
+RULES:
+- Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
+- MAX 2-3 sentences
+- Ask what item they lost/found and where
+- Be friendly but brief
+- DO NOT give long explanations`;
+
+  const response = await fetch(LOVABLE_AI_API, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: 100,
+      stream: false,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AI API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  
+  if (result.choices && result.choices[0]?.message?.content) {
+    return result.choices[0].message.content.trim();
+  }
+  
+  throw new Error('Unexpected AI response format');
+}
+
+// ============= FULL AI CALL (For specific features that NEED AI) =============
+
+async function callAI(prompt: string, maxTokens = 500, useSystemPrompt = false): Promise<string> {
   console.log('Calling AI with prompt:', prompt.substring(0, 100) + '...');
   
   if (!LOVABLE_API_KEY) {
     throw new Error('LOVABLE_API_KEY is not configured');
   }
   
+  aiCallCount++;
+  console.log('AI call count:', aiCallCount);
+  
   const messages: { role: string; content: string }[] = [];
   
-  if (useInvestigatorMode) {
-    messages.push({ role: 'system', content: INVESTIGATOR_SYSTEM_PROMPT });
+  if (useSystemPrompt) {
+    messages.push({ 
+      role: 'system', 
+      content: 'You are a helpful Lost & Found assistant. Be brief and direct.' 
+    });
   }
   
   messages.push({ role: 'user', content: prompt });
@@ -901,10 +687,10 @@ async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = fal
     console.error('AI API error:', response.status, error);
     
     if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again in a moment.');
+      throw new Error('Rate limit exceeded');
     }
     if (response.status === 402) {
-      throw new Error('AI usage limit reached. Please try again later.');
+      throw new Error('Usage limit reached');
     }
     
     throw new Error(`AI API error: ${error}`);
@@ -913,7 +699,6 @@ async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = fal
   const result = await response.json();
   console.log('AI response:', JSON.stringify(result).substring(0, 200));
   
-  // OpenAI-compatible format
   if (result.choices && result.choices[0]?.message?.content) {
     return result.choices[0].message.content.trim();
   }
@@ -921,238 +706,218 @@ async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = fal
   throw new Error('Unexpected response format from AI');
 }
 
-// Image tagging - simplified using text description via Mistral
+// ============= OTHER FUNCTIONS (Keep AI usage minimal) =============
+
+// Image tagging - simplified, minimal AI
 async function analyzeImage(imageUrl: string): Promise<{ tags: string[], objects: string[] }> {
-  console.log('Analyzing image:', imageUrl);
+  console.log('Analyzing image (minimal AI):', imageUrl);
   
-  // For now, we'll generate generic tags based on the URL/context
-  // Image models may have availability issues, so we use a text-based approach
-  const tagsPrompt = `Based on this image URL for a lost and found item: "${imageUrl}"
-
-Generate 5-10 generic but helpful tags for a lost and found database. Consider common lost items like phones, wallets, keys, bags, electronics, clothing, etc.
-
-Return ONLY a comma-separated list of tags, nothing else.`;
-
   try {
-    const tagsResponse = await callAI(tagsPrompt, 100);
-    const tags = tagsResponse.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
+    const prompt = `List 5 relevant tags for a lost/found item image. Return ONLY comma-separated tags.`;
+    const response = await callAI(prompt, 50);
+    const tags = response.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
     return { tags, objects: [] };
   } catch (error) {
-    console.error('Tag generation failed:', error);
-    return { tags: ['item', 'lost', 'found'], objects: [] };
+    console.error('Image analysis failed:', error);
+    return { tags: ['item'], objects: [] };
   }
 }
 
-// Auto-generate title and description
+// Auto-generate title and description (minimal AI)
 async function generateTitleDescription(context: { tags: string[], objects: string[], category: string, location: string }): Promise<{ title: string, description: string }> {
-  const prompt = `<s>[INST] Generate a concise title and description for a lost/found item posting.
-
-Context:
-- Tags: ${context.tags.join(', ')}
-- Objects detected: ${context.objects.join(', ')}
-- Category: ${context.category}
-- Location: ${context.location}
-
-Respond in this exact format:
-TITLE: [a short descriptive title, max 60 chars]
-DESCRIPTION: [a brief description, 1-2 sentences] [/INST]`;
-
-  const response = await callAI(prompt, 150);
+  // Try to generate without AI first
+  const parts: string[] = [];
+  if (context.category) parts.push(context.category);
+  if (context.location) parts.push(`at ${context.location}`);
   
-  const titleMatch = response.match(/TITLE:\s*(.+?)(?:\n|DESCRIPTION:)/i);
-  const descMatch = response.match(/DESCRIPTION:\s*(.+)/i);
+  const title = parts.length > 0 ? `${parts.join(' ')} item` : 'Item Found/Lost';
+  const description = `A ${context.category || 'item'} was reported ${context.location ? 'near ' + context.location : ''}.`;
   
-  return {
-    title: titleMatch?.[1]?.trim() || 'Item Found/Lost',
-    description: descMatch?.[1]?.trim() || 'Please provide more details about this item.',
-  };
+  return { title, description };
 }
 
-// Calculate match score between two items - uses investigator mode
-async function calculateMatchScore(lostItem: any, foundItem: any): Promise<{ score: number, reasoning: string, textSimilarity: number, locationProximity: number }> {
-  const prompt = `Compare these two items and determine if they might be a match. Think step-by-step about category, location proximity, date, description, and uniqueness.
-
-LOST ITEM:
-- Title: ${lostItem.title}
-- Description: ${lostItem.description}
-- Category: ${lostItem.category}
-- Location: ${lostItem.location}
-- Date Lost: ${lostItem.date_lost_found}
-
-FOUND ITEM:
-- Title: ${foundItem.title}
-- Description: ${foundItem.description}
-- Category: ${foundItem.category}
-- Location: ${foundItem.location}
-- Date Found: ${foundItem.date_lost_found}
-
-Analyze using logic, not just keywords. Consider:
-- Are the categories compatible?
-- How close are the locations on a college campus?
-- Does the timeline make sense (found after lost)?
-- Do the descriptions describe similar unique features?
-
-Respond in this exact format:
-SCORE: [0-100 Match Confidence percentage]
-TEXT_SIMILARITY: [0-100]
-LOCATION_PROXIMITY: [0-100]
-REASONING: [Clear explanation of WHY this is a strong or weak match in simple language]`;
-
-  const response = await callAI(prompt, 300, true);
+// Calculate match score - RULE-BASED (NO AI)
+function calculateMatchScore(lostItem: any, foundItem: any): { score: number, reasoning: string, textSimilarity: number, locationProximity: number } {
+  let score = 0;
+  const reasons: string[] = [];
   
-  const scoreMatch = response.match(/SCORE:\s*(\d+)/i);
-  const textMatch = response.match(/TEXT_SIMILARITY:\s*(\d+)/i);
-  const locationMatch = response.match(/LOCATION_PROXIMITY:\s*(\d+)/i);
-  const reasoningMatch = response.match(/REASONING:\s*(.+)/is);
-  
-  return {
-    score: parseInt(scoreMatch?.[1] || '0'),
-    textSimilarity: parseInt(textMatch?.[1] || '0'),
-    locationProximity: parseInt(locationMatch?.[1] || '0'),
-    reasoning: reasoningMatch?.[1]?.trim() || 'Unable to determine match.',
-  };
-}
-
-// Semantic search
-async function semanticSearch(query: string, items: any[]): Promise<any[]> {
-  const prompt = `<s>[INST] Given this search query: "${query}"
-
-Rate each item's relevance (0-100) and return the IDs of the most relevant items in order.
-
-Items:
-${items.slice(0, 20).map((item, i) => `${i + 1}. ID: ${item.id} | Title: ${item.title} | Description: ${item.description?.substring(0, 100) || ''}`).join('\n')}
-
-Return ONLY a comma-separated list of item IDs in order of relevance (most relevant first), nothing else. [/INST]`;
-
-  const response = await callAI(prompt, 200);
-  const ids = response.split(',').map(id => id.trim()).filter(id => id);
-  
-  // Reorder items based on AI ranking
-  const rankedItems: any[] = [];
-  for (const id of ids) {
-    const item = items.find(i => i.id === id);
-    if (item) rankedItems.push(item);
-  }
-  
-  // Add remaining items
-  for (const item of items) {
-    if (!rankedItems.find(r => r.id === item.id)) {
-      rankedItems.push(item);
+  // Category match: +40%
+  if (lostItem.category && foundItem.category) {
+    if (lostItem.category.toLowerCase() === foundItem.category.toLowerCase()) {
+      score += 40;
+      reasons.push('Same category');
     }
   }
   
-  return rankedItems;
+  // Location match: +25%
+  if (lostItem.location && foundItem.location) {
+    const lostLoc = lostItem.location.toLowerCase();
+    const foundLoc = foundItem.location.toLowerCase();
+    const words = lostLoc.split(/\s+/).filter((w: string) => w.length > 2);
+    const matches = words.filter((w: string) => foundLoc.includes(w));
+    if (matches.length > 0) {
+      score += Math.min(matches.length * 10, 25);
+      reasons.push('Similar location');
+    }
+  }
+  
+  // Date proximity: +15%
+  if (lostItem.date_lost_found && foundItem.date_lost_found) {
+    const lostDate = new Date(lostItem.date_lost_found);
+    const foundDate = new Date(foundItem.date_lost_found);
+    const daysDiff = Math.abs((lostDate.getTime() - foundDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff <= 3) {
+      score += 15;
+      reasons.push('Close dates');
+    } else if (daysDiff <= 7) {
+      score += 10;
+      reasons.push('Within a week');
+    }
+  }
+  
+  // Description similarity: +20%
+  if (lostItem.description && foundItem.description) {
+    const lostDesc = lostItem.description.toLowerCase();
+    const foundDesc = foundItem.description.toLowerCase();
+    const words = lostDesc.split(/\s+/).filter((w: string) => w.length > 3);
+    const matches = words.filter((w: string) => foundDesc.includes(w));
+    if (matches.length >= 3) {
+      score += 20;
+      reasons.push('Similar description');
+    } else if (matches.length >= 1) {
+      score += 10;
+      reasons.push('Partial description match');
+    }
+  }
+  
+  return {
+    score: Math.min(score, 100),
+    reasoning: reasons.join(', ') || 'Low similarity',
+    textSimilarity: score,
+    locationProximity: score > 25 ? 80 : 50,
+  };
 }
 
-// Smart autocomplete
+// Smart autocomplete - RULE-BASED (minimal AI)
 async function getAutocomplete(partialQuery: string, context: string): Promise<string[]> {
-  const prompt = `<s>[INST] Generate 5 search autocomplete suggestions for a lost and found website.
+  const query = partialQuery.toLowerCase();
+  const suggestions: string[] = [];
+  
+  // Category-based suggestions
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (kw.startsWith(query)) {
+        suggestions.push(`Lost ${kw}`);
+        suggestions.push(`Found ${kw}`);
+      }
+    }
+  }
+  
+  // Location-based suggestions
+  for (const loc of LOCATION_KEYWORDS) {
+    if (loc.startsWith(query)) {
+      suggestions.push(`Item near ${loc}`);
+    }
+  }
+  
+  // If no rule-based suggestions, use AI as fallback (but minimal)
+  if (suggestions.length === 0 && query.length > 2) {
+    try {
+      const prompt = `<s>[INST] Generate 5 search autocomplete suggestions for a lost and found website.
 
 Partial query: "${partialQuery}"
 Context: ${context}
 
 Return ONLY a comma-separated list of 5 complete search suggestions, nothing else. [/INST]`;
 
-  const response = await callAI(prompt, 100);
-  return response.split(',').map(s => s.trim()).filter(s => s.length > 0).slice(0, 5);
+      const response = await callAI(prompt, 100);
+      return response.split(',').map(s => s.trim()).filter(s => s.length > 0).slice(0, 5);
+    } catch (error) {
+      console.error('Autocomplete AI failed:', error);
+    }
+  }
+  
+  return suggestions.slice(0, 5);
 }
 
-// Duplicate detection
-async function detectDuplicates(newItem: any, existingItems: any[]): Promise<any[]> {
+// Duplicate detection - RULE-BASED (NO AI)
+function detectDuplicates(newItem: any, existingItems: any[]): any[] {
   if (existingItems.length === 0) return [];
   
-  const prompt = `<s>[INST] Check if this new item might be a duplicate of any existing items:
-
-NEW ITEM:
-- Title: ${newItem.title}
-- Description: ${newItem.description}
-- Category: ${newItem.category}
-- Location: ${newItem.location}
-
-EXISTING ITEMS:
-${existingItems.slice(0, 10).map((item, i) => `${i + 1}. ID: ${item.id} | Title: ${item.title} | Category: ${item.category}`).join('\n')}
-
-Return ONLY the IDs of potential duplicates as a comma-separated list, or "NONE" if no duplicates. [/INST]`;
-
-  const response = await callAI(prompt, 100);
+  const duplicates: any[] = [];
   
-  if (response.toUpperCase().includes('NONE')) return [];
+  for (const item of existingItems) {
+    const { score } = calculateMatchScore(newItem, item);
+    if (score >= 70) {
+      duplicates.push({ ...item, similarityScore: score });
+    }
+  }
   
-  const ids = response.split(',').map(id => id.trim()).filter(id => id);
-  return existingItems.filter(item => ids.includes(item.id));
+  return duplicates;
 }
 
-// Intent clarification - uses investigator mode
-async function clarifyIntent(userQuery: string): Promise<{ intent: string, suggestions: string[], clarification: string }> {
-  const prompt = `Analyze this user query for a lost and found website:
-
-Query: "${userQuery}"
-
-As the Lost & Found Investigator, determine:
-1. The user's intent (lost_item, found_item, search, claim, question)
-2. If the query is unclear, ask clarifying questions to better help them
-3. Provide helpful, actionable suggestions for next steps
-
-Think step-by-step about what the user really needs, then respond in this exact format:
-INTENT: [intent type]
-CLARIFICATION: [insightful question to ask user if query is unclear, or "CLEAR" if you understand their need well]
-SUGGESTIONS: [comma-separated list of specific, helpful next steps]`;
-
-  const response = await callAI(prompt, 300, true);
+// Intent clarification - RULE-BASED (NO AI)
+function clarifyIntent(userQuery: string): { intent: string, suggestions: string[], clarification: string } {
+  const { intent, confidence, matchedKeywords } = detectIntentByRules(userQuery);
   
-  const intentMatch = response.match(/INTENT:\s*(.+?)(?:\n|CLARIFICATION:)/i);
-  const clarificationMatch = response.match(/CLARIFICATION:\s*(.+?)(?:\n|SUGGESTIONS:)/i);
-  const suggestionsMatch = response.match(/SUGGESTIONS:\s*(.+)/i);
+  let suggestions: string[] = [];
+  let clarification = 'CLEAR';
   
-  return {
-    intent: intentMatch?.[1]?.trim() || 'unknown',
-    clarification: clarificationMatch?.[1]?.trim() || 'CLEAR',
-    suggestions: suggestionsMatch?.[1]?.split(',').map(s => s.trim()).filter(s => s) || [],
+  if (intent === 'unknown' || confidence < 50) {
+    clarification = 'Are you looking for a lost item or did you find something?';
+    suggestions = ['Search for lost item', 'Report found item', 'Browse all items'];
+  } else if (intent === 'search') {
+    suggestions = ['Provide item details', 'Specify location', 'Add description'];
+  } else if (intent === 'post_found') {
+    suggestions = ['Upload photo', 'Add location', 'Describe the item'];
+  }
+  
+  return { intent, suggestions, clarification };
+}
+
+// Suggest missing info - RULE-BASED (NO AI)
+function suggestMissingInfo(item: any): string[] {
+  const missing: string[] = [];
+  
+  if (!item.title) missing.push('Add a descriptive title');
+  if (!item.description) missing.push('Add a detailed description');
+  if (!item.category) missing.push('Select a category');
+  if (!item.location) missing.push('Specify the location');
+  if (!item.date_lost_found) missing.push('Add the date');
+  if (!item.photos || item.photos.length === 0) missing.push('Upload a photo');
+  
+  return missing;
+}
+
+// Generate notification - TEMPLATE-BASED (NO AI)
+function generateNotification(type: string, context: any): { title: string, message: string } {
+  const templates: Record<string, { title: string, message: string }> = {
+    potential_match: {
+      title: '🎯 Potential Match Found!',
+      message: `A ${context.matchTitle || 'similar item'} might match your ${context.itemTitle || 'item'}!`,
+    },
+    new_claim: {
+      title: '📋 New Claim Received',
+      message: `Someone has claimed your ${context.itemTitle || 'item'}. Review the claim now.`,
+    },
+    claim_approved: {
+      title: '✅ Claim Approved',
+      message: `Your claim for ${context.itemTitle || 'the item'} has been approved!`,
+    },
+    claim_rejected: {
+      title: '❌ Claim Rejected',
+      message: `Your claim for ${context.itemTitle || 'the item'} was not approved.`,
+    },
+    default: {
+      title: '🔔 Notification',
+      message: 'You have a new notification.',
+    },
   };
+  
+  return templates[type] || templates.default;
 }
 
-// Suggest missing info
-async function suggestMissingInfo(item: any): Promise<string[]> {
-  const prompt = `<s>[INST] Review this lost/found item posting and suggest what additional information would be helpful:
-
-Item:
-- Title: ${item.title || 'Not provided'}
-- Description: ${item.description || 'Not provided'}
-- Category: ${item.category || 'Not provided'}
-- Location: ${item.location || 'Not provided'}
-- Date: ${item.date_lost_found || 'Not provided'}
-- Photos: ${item.photos?.length ? 'Yes' : 'No'}
-
-Return ONLY a comma-separated list of missing or helpful information to add, or "COMPLETE" if the posting is comprehensive. [/INST]`;
-
-  const response = await callAI(prompt, 150);
-  
-  if (response.toUpperCase().includes('COMPLETE')) return [];
-  
-  return response.split(',').map(s => s.trim()).filter(s => s.length > 0);
-}
-
-// Generate notification message
-async function generateNotification(type: string, context: any): Promise<{ title: string, message: string }> {
-  const prompt = `<s>[INST] Generate a notification for a lost and found app.
-
-Type: ${type}
-Context: ${JSON.stringify(context)}
-
-Respond in this exact format:
-TITLE: [short notification title]
-MESSAGE: [brief, helpful notification message] [/INST]`;
-
-  const response = await callAI(prompt, 100);
-  
-  const titleMatch = response.match(/TITLE:\s*(.+?)(?:\n|MESSAGE:)/i);
-  const messageMatch = response.match(/MESSAGE:\s*(.+)/i);
-  
-  return {
-    title: titleMatch?.[1]?.trim() || 'Notification',
-    message: messageMatch?.[1]?.trim() || 'You have a new notification.',
-  };
-}
+// ============= MAIN SERVER =============
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -1177,11 +942,13 @@ serve(async (req) => {
         break;
 
       case 'calculate_match_score':
-        result = await calculateMatchScore(params.lostItem, params.foundItem);
+        result = calculateMatchScore(params.lostItem, params.foundItem);
         break;
 
       case 'semantic_search':
-        result = await semanticSearch(params.query, params.items);
+        // Use database search instead of AI semantic search
+        const searchResults = await searchDatabase(supabase, { description: params.query }, 'both');
+        result = searchResults;
         break;
 
       case 'autocomplete':
@@ -1189,38 +956,31 @@ serve(async (req) => {
         break;
 
       case 'detect_duplicates':
-        result = await detectDuplicates(params.newItem, params.existingItems);
+        result = detectDuplicates(params.newItem, params.existingItems);
         break;
 
       case 'clarify_intent':
-        result = await clarifyIntent(params.query);
+        result = clarifyIntent(params.query);
         break;
 
       case 'suggest_missing_info':
-        result = await suggestMissingInfo(params.item);
+        result = suggestMissingInfo(params.item);
         break;
 
       case 'generate_notification':
-        result = await generateNotification(params.type, params.context);
+        result = generateNotification(params.type, params.context);
         break;
 
       case 'process_new_item':
-        // Comprehensive processing for new items
+        // Simplified processing with minimal AI
         const { item } = params;
         const processResult: any = {};
 
-        // 1. Analyze image if available
-        if (item.photos && item.photos.length > 0) {
-          const imageAnalysis = await analyzeImage(item.photos[0]);
-          processResult.tags = imageAnalysis.tags;
-          processResult.objects = imageAnalysis.objects;
-        }
-
-        // 2. Generate auto title/description if missing
+        // 1. Generate title/description without AI
         if (!item.title || !item.description) {
           const generated = await generateTitleDescription({
-            tags: processResult.tags || [],
-            objects: processResult.objects || [],
+            tags: [],
+            objects: [],
             category: item.category,
             location: item.location,
           });
@@ -1228,19 +988,19 @@ serve(async (req) => {
           processResult.autoDescription = generated.description;
         }
 
-        // 3. Check for duplicates
+        // 2. Check for duplicates (rule-based)
         const { data: existingItems } = await supabase
           .from('items')
-          .select('id, title, description, category, location')
+          .select('id, title, description, category, location, date_lost_found')
           .eq('item_type', item.item_type)
           .eq('category', item.category)
           .limit(20);
 
         if (existingItems) {
-          processResult.duplicates = await detectDuplicates(item, existingItems);
+          processResult.duplicates = detectDuplicates(item, existingItems);
         }
 
-        // 4. Find potential matches
+        // 3. Find potential matches (rule-based)
         const oppositeType = item.item_type === 'lost' ? 'found' : 'lost';
         const { data: potentialMatches } = await supabase
           .from('items')
@@ -1253,11 +1013,11 @@ serve(async (req) => {
         if (potentialMatches && potentialMatches.length > 0) {
           processResult.matches = [];
           for (const match of potentialMatches.slice(0, 5)) {
-            const matchScore = await calculateMatchScore(
+            const matchScore = calculateMatchScore(
               item.item_type === 'lost' ? item : match,
               item.item_type === 'lost' ? match : item
             );
-            if (matchScore.score >= 50) {
+            if (matchScore.score >= 40) {
               processResult.matches.push({
                 item: match,
                 ...matchScore,
@@ -1267,44 +1027,27 @@ serve(async (req) => {
           processResult.matches.sort((a: any, b: any) => b.score - a.score);
         }
 
-        // 5. Suggest missing info
-        processResult.missingInfo = await suggestMissingInfo(item);
+        // 4. Suggest missing info (rule-based)
+        processResult.missingInfo = suggestMissingInfo(item);
 
         result = processResult;
         break;
 
       case 'webhook_new_item':
-        // Webhook handler for new items - runs in background
+        // Webhook handler - minimal AI usage
         const webhookItem = params.item;
         console.log('Processing webhook for new item:', webhookItem.id);
 
-        // Process item and save AI tags
-        let aiTags: any = { tags: [], objects: [] };
-        if (webhookItem.photos && webhookItem.photos.length > 0) {
-          try {
-            aiTags = await analyzeImage(webhookItem.photos[0]);
-          } catch (e) {
-            console.error('Image analysis failed:', e);
-          }
-        }
-
-        const autoContent = await generateTitleDescription({
-          tags: aiTags.tags,
-          objects: aiTags.objects,
-          category: webhookItem.category,
-          location: webhookItem.location,
-        });
-
-        // Save AI tags to database
+        // Save basic tags without AI
         await supabase.from('ai_tags').upsert({
           item_id: webhookItem.id,
-          tags: aiTags.tags,
-          objects_detected: aiTags.objects,
-          auto_title: autoContent.title,
-          auto_description: autoContent.description,
+          tags: [webhookItem.category || 'item'],
+          objects_detected: [],
+          auto_title: webhookItem.title,
+          auto_description: webhookItem.description,
         }, { onConflict: 'item_id' });
 
-        // Find and save matches
+        // Find and save matches (rule-based)
         const matchType = webhookItem.item_type === 'lost' ? 'found' : 'lost';
         const { data: matchCandidates } = await supabase
           .from('items')
@@ -1316,50 +1059,46 @@ serve(async (req) => {
 
         if (matchCandidates) {
           for (const candidate of matchCandidates) {
-            try {
-              const matchResult = await calculateMatchScore(
-                webhookItem.item_type === 'lost' ? webhookItem : candidate,
-                webhookItem.item_type === 'lost' ? candidate : webhookItem
-              );
+            const matchResult = calculateMatchScore(
+              webhookItem.item_type === 'lost' ? webhookItem : candidate,
+              webhookItem.item_type === 'lost' ? candidate : webhookItem
+            );
 
-              if (matchResult.score >= 40) {
-                await supabase.from('ai_match_suggestions').upsert({
-                  lost_item_id: webhookItem.item_type === 'lost' ? webhookItem.id : candidate.id,
-                  found_item_id: webhookItem.item_type === 'lost' ? candidate.id : webhookItem.id,
-                  ai_score: matchResult.score,
-                  text_similarity: matchResult.textSimilarity,
-                  location_proximity: matchResult.locationProximity,
-                  reasoning: matchResult.reasoning,
-                }, { onConflict: 'lost_item_id,found_item_id' });
+            if (matchResult.score >= 40) {
+              await supabase.from('ai_match_suggestions').upsert({
+                lost_item_id: webhookItem.item_type === 'lost' ? webhookItem.id : candidate.id,
+                found_item_id: webhookItem.item_type === 'lost' ? candidate.id : webhookItem.id,
+                ai_score: matchResult.score,
+                text_similarity: matchResult.textSimilarity,
+                location_proximity: matchResult.locationProximity,
+                reasoning: matchResult.reasoning,
+              }, { onConflict: 'lost_item_id,found_item_id' });
 
-                // Create notification for match
-                const notification = await generateNotification('potential_match', {
-                  itemTitle: webhookItem.title,
-                  matchTitle: candidate.title,
-                  score: matchResult.score,
-                });
+              // Create notification (template-based, no AI)
+              const notification = generateNotification('potential_match', {
+                itemTitle: webhookItem.title,
+                matchTitle: candidate.title,
+                score: matchResult.score,
+              });
 
-                await supabase.from('ai_notifications').insert({
-                  user_id: webhookItem.user_id,
-                  item_id: webhookItem.id,
-                  notification_type: 'potential_match',
-                  title: notification.title,
-                  message: notification.message,
-                  metadata: { match_item_id: candidate.id, score: matchResult.score },
-                });
+              await supabase.from('ai_notifications').insert({
+                user_id: webhookItem.user_id,
+                item_id: webhookItem.id,
+                notification_type: 'potential_match',
+                title: notification.title,
+                message: notification.message,
+                metadata: { match_item_id: candidate.id, score: matchResult.score },
+              });
 
-                // Also notify the other item's owner
-                await supabase.from('ai_notifications').insert({
-                  user_id: candidate.user_id,
-                  item_id: candidate.id,
-                  notification_type: 'potential_match',
-                  title: notification.title,
-                  message: notification.message,
-                  metadata: { match_item_id: webhookItem.id, score: matchResult.score },
-                });
-              }
-            } catch (e) {
-              console.error('Match processing error:', e);
+              // Also notify the other item's owner
+              await supabase.from('ai_notifications').insert({
+                user_id: candidate.user_id,
+                item_id: candidate.id,
+                notification_type: 'potential_match',
+                title: notification.title,
+                message: notification.message,
+                metadata: { match_item_id: webhookItem.id, score: matchResult.score },
+              });
             }
           }
         }
@@ -1368,7 +1107,7 @@ serve(async (req) => {
         break;
 
       case 'chat':
-        // Full investigator conversation flow
+        // Full database-first conversation flow
         result = await handleChat(supabase, params.message, params.history || []);
         break;
 
