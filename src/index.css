@@ -269,6 +269,42 @@
   }
 
   /* ============================================
+     PILL TABS
+     ============================================ */
+  
+  .pill-tabs {
+    @apply inline-flex items-center gap-2 p-1.5 rounded-full;
+    background: hsl(var(--muted) / 0.6);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+  
+  .pill-tab {
+    @apply relative px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer;
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .pill-tab:hover:not(.pill-tab-active) {
+    color: hsl(var(--foreground));
+    background: hsl(var(--background) / 0.5);
+  }
+  
+  .pill-tab-active {
+    @apply text-white font-semibold;
+    background: hsl(var(--primary));
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.35);
+  }
+  
+  .pill-tab-lost.pill-tab-active {
+    background: hsl(var(--lost));
+    box-shadow: 0 2px 8px hsl(var(--lost) / 0.35);
+  }
+  
+  .pill-tab-found.pill-tab-active {
+    background: hsl(var(--found));
+    box-shadow: 0 2px 8px hsl(var(--found) / 0.35);
+  }
+
+  /* ============================================
      PRESSABLE BUTTON (3D EFFECT)
      ============================================ */
   
