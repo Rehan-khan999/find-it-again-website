@@ -17,6 +17,94 @@ const AI_MODEL = 'google/gemini-2.5-flash';
 // Track AI usage for monitoring
 let aiCallCount = 0;
 
+// ============= SESSION CONTEXT STORAGE =============
+// In-memory cache for session context (per request, stored in frontend via response)
+interface SessionContext {
+  intent?: string;
+  category?: string;
+  location?: string;
+  date?: string;
+  description?: string;
+  color?: string;
+  brand?: string;
+  itemType?: 'lost' | 'found';
+  infoScore: number;
+  conversationTurn: number;
+}
+
+// ============= AUTO POST TEMPLATES (NO AI) =============
+const POST_TEMPLATES = {
+  lost: {
+    en: (ctx: SessionContext) => ({
+      title: `Lost ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'Item'}`,
+      description: `I lost my ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'item'}${ctx.location ? ' near ' + ctx.location : ''}${ctx.date ? ' on ' + ctx.date : ''}. ${ctx.description || 'Please contact if found.'}`,
+    }),
+    hi: (ctx: SessionContext) => ({
+      title: `खोया: ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'}`,
+      description: `मेरा ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'} खो गया${ctx.location ? ' ' + ctx.location + ' के पास' : ''}${ctx.date ? ' ' + ctx.date + ' को' : ''}। ${ctx.description || 'कृपया मिलने पर संपर्क करें।'}`,
+    }),
+  },
+  found: {
+    en: (ctx: SessionContext) => ({
+      title: `Found ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'Item'}`,
+      description: `I found a ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'item'}${ctx.location ? ' near ' + ctx.location : ''}${ctx.date ? ' on ' + ctx.date : ''}. ${ctx.description || 'Owner can claim with proper identification.'}`,
+    }),
+    hi: (ctx: SessionContext) => ({
+      title: `मिला: ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'}`,
+      description: `मुझे एक ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'} मिला${ctx.location ? ' ' + ctx.location + ' के पास' : ''}${ctx.date ? ' ' + ctx.date + ' को' : ''}। ${ctx.description || 'मालिक पहचान के साथ दावा कर सकते हैं।'}`,
+    }),
+  },
+};
+
+// Generate auto post preview (NO AI)
+function generateAutoPost(ctx: SessionContext, lang: 'hi' | 'en'): {
+  title: string;
+  description: string;
+  category: string;
+  location: string;
+  itemType: 'lost' | 'found';
+  canGenerate: boolean;
+  missingFields: string[];
+} {
+  const missingFields: string[] = [];
+  
+  // Check required fields
+  if (!ctx.category) missingFields.push('category');
+  if (!ctx.location) missingFields.push('location');
+  
+  // Determine item type from intent
+  const itemType: 'lost' | 'found' = ctx.intent === 'post_found' ? 'found' : 'lost';
+  
+  // Can generate if we have at least category
+  const canGenerate = !!ctx.category && ctx.infoScore >= 2;
+  
+  if (!canGenerate) {
+    return {
+      title: '',
+      description: '',
+      category: ctx.category || '',
+      location: ctx.location || '',
+      itemType,
+      canGenerate: false,
+      missingFields,
+    };
+  }
+  
+  // Generate using template
+  const template = POST_TEMPLATES[itemType][lang];
+  const { title, description } = template(ctx);
+  
+  return {
+    title,
+    description,
+    category: ctx.category || 'other',
+    location: ctx.location || '',
+    itemType,
+    canGenerate: true,
+    missingFields,
+  };
+}
+
 // ============= RULE-BASED INTENT DETECTION (NO AI) =============
 
 // Keywords for intent detection
@@ -26,6 +114,8 @@ const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya', 'guide', 'madad', 
 const IDENTITY_KEYWORDS = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer', 'coder'];
 const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste', 'namaskar', 'good morning', 'good evening', 'good afternoon'];
 const CLAIM_KEYWORDS = ['claim', 'mine', 'mera', 'meri', 'belong', 'owner', 'return'];
+const CONFIRM_KEYWORDS = ['yes', 'ok', 'okay', 'confirm', 'post', 'submit', 'haan', 'ha', 'theek', 'kar do', 'kardo', 'post karo', 'save'];
+const CANCEL_KEYWORDS = ['no', 'nahi', 'cancel', 'nope', 'edit', 'change', 'modify', 'badlo'];
 
 // Category keywords mapping
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
@@ -47,6 +137,20 @@ const LOCATION_KEYWORDS = [
   'auditorium', 'seminar hall', 'gym', 'sports complex', 'admin', 'office', 'department',
   'block', 'building', 'floor', 'room', 'near', 'behind', 'front', 'beside', 'opposite'
 ];
+
+// Check if user is confirming or canceling
+function checkConfirmation(message: string): 'confirm' | 'cancel' | null {
+  const lowerMsg = message.toLowerCase();
+  
+  for (const kw of CONFIRM_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return 'confirm';
+  }
+  for (const kw of CANCEL_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return 'cancel';
+  }
+  
+  return null;
+}
 
 // Extract intent using ONLY keyword matching (NO AI)
 function detectIntentByRules(message: string): {
@@ -425,11 +529,7 @@ function formatResults(items: any[], lang: 'hi' | 'en'): string {
 
 // ============= MAIN CHAT HANDLER (DATABASE-FIRST, AI-LAST) =============
 
-async function handleChat(
-  supabase: any,
-  userMessage: string,
-  conversationHistory: any[] = []
-): Promise<{
+interface ChatResponse {
   response: string;
   context: {
     intent: string;
@@ -438,18 +538,92 @@ async function handleChat(
     matches: any[];
     recommendedAction: string;
     aiUsed: boolean;
+    sessionContext?: SessionContext;
+    autoPost?: {
+      title: string;
+      description: string;
+      category: string;
+      location: string;
+      itemType: 'lost' | 'found';
+      canGenerate: boolean;
+      missingFields: string[];
+    };
   };
-}> {
+}
+
+async function handleChat(
+  supabase: any,
+  userMessage: string,
+  conversationHistory: any[] = [],
+  existingSessionContext?: SessionContext
+): Promise<ChatResponse> {
   console.log('=== DATABASE-FIRST CHAT HANDLER ===');
   console.log('User message:', userMessage);
   console.log('AI calls so far this session:', aiCallCount);
+  console.log('Existing session context:', existingSessionContext);
 
   const lang = detectLanguage(userMessage);
   console.log('Detected language:', lang);
 
+  // Initialize or merge session context
+  let sessionContext: SessionContext = existingSessionContext || {
+    infoScore: 0,
+    conversationTurn: 0,
+  };
+  sessionContext.conversationTurn++;
+
+  // Step 0: Check for confirmation/cancellation if we have a pending auto post
+  if (sessionContext.infoScore >= 2 && sessionContext.category) {
+    const confirmation = checkConfirmation(userMessage);
+    
+    if (confirmation === 'confirm') {
+      // User confirmed - return action to create post
+      const autoPost = generateAutoPost(sessionContext, lang);
+      return {
+        response: lang === 'hi' 
+          ? `✅ Bahut badhiya! Aapka post ready hai. Ab "Post ${autoPost.itemType === 'lost' ? 'Lost' : 'Found'}" page par jaake submit kar sakte ho.\n\n📝 Title: ${autoPost.title}`
+          : `✅ Great! Your post is ready. You can now go to "Post ${autoPost.itemType === 'lost' ? 'Lost' : 'Found'}" page to submit it.\n\n📝 Title: ${autoPost.title}`,
+        context: {
+          intent: sessionContext.intent || 'search',
+          missingFields: [],
+          clarifyingQuestions: [],
+          matches: [],
+          recommendedAction: 'navigate_to_post',
+          aiUsed: false,
+          sessionContext,
+          autoPost,
+        },
+      };
+    }
+    
+    if (confirmation === 'cancel') {
+      // User wants to edit - reset and ask for details
+      sessionContext = { infoScore: 0, conversationTurn: 1 };
+      return {
+        response: lang === 'hi'
+          ? "Theek hai, phir se batao - kya kho gaya ya mila?"
+          : "Alright, let's start over - what did you lose or find?",
+        context: {
+          intent: 'unknown',
+          missingFields: ['category', 'location', 'description'],
+          clarifyingQuestions: [],
+          matches: [],
+          recommendedAction: 'provide_info',
+          aiUsed: false,
+          sessionContext,
+        },
+      };
+    }
+  }
+
   // Step 1: RULE-BASED intent detection (NO AI)
   const { intent, confidence, matchedKeywords } = detectIntentByRules(userMessage);
   console.log('Rule-based intent:', intent, 'Confidence:', confidence, 'Keywords:', matchedKeywords);
+
+  // Update session context with detected intent
+  if (intent !== 'unknown') {
+    sessionContext.intent = intent;
+  }
 
   // Handle identity questions immediately (NO AI)
   if (intent === 'identity') {
@@ -462,6 +636,7 @@ async function handleChat(
         matches: [],
         recommendedAction: 'continue',
         aiUsed: false,
+        sessionContext,
       },
     };
   }
@@ -477,6 +652,7 @@ async function handleChat(
         matches: [],
         recommendedAction: 'await_input',
         aiUsed: false,
+        sessionContext,
       },
     };
   }
@@ -492,6 +668,7 @@ async function handleChat(
         matches: [],
         recommendedAction: 'await_input',
         aiUsed: false,
+        sessionContext,
       },
     };
   }
@@ -507,25 +684,64 @@ async function handleChat(
         matches: [],
         recommendedAction: 'show_claims',
         aiUsed: false,
+        sessionContext,
       },
     };
   }
 
-  // Step 2: RULE-BASED info extraction (NO AI)
+  // Step 2: RULE-BASED info extraction (NO AI) - merge with session context
   const extractedInfo = extractInfoByRules(userMessage);
   console.log('Extracted info:', extractedInfo);
 
+  // Merge new info with session context (accumulate details)
+  if (extractedInfo.category) sessionContext.category = extractedInfo.category;
+  if (extractedInfo.location) sessionContext.location = extractedInfo.location;
+  if (extractedInfo.color) sessionContext.color = extractedInfo.color;
+  if (extractedInfo.brand) sessionContext.brand = extractedInfo.brand;
+  if (extractedInfo.description) sessionContext.description = extractedInfo.description;
+  
+  // Calculate cumulative info score
+  let cumulativeScore = 0;
+  if (sessionContext.category) cumulativeScore++;
+  if (sessionContext.location) cumulativeScore++;
+  if (sessionContext.color) cumulativeScore++;
+  if (sessionContext.brand) cumulativeScore++;
+  sessionContext.infoScore = cumulativeScore;
+
+  console.log('Updated session context:', sessionContext);
+
   // If we have at least some info, search database immediately
-  if (extractedInfo.infoScore >= 1 || intent === 'search' || intent === 'post_found') {
+  if (sessionContext.infoScore >= 1 || intent === 'search' || intent === 'post_found') {
     console.log('Sufficient info - searching database directly');
     
     // Determine search type: if user lost something, search found items
     const searchType = intent === 'search' ? 'found' : (intent === 'post_found' ? 'lost' : 'both');
     
-    const results = await searchDatabase(supabase, extractedInfo, searchType);
+    const results = await searchDatabase(supabase, {
+      category: sessionContext.category,
+      location: sessionContext.location,
+      color: sessionContext.color,
+      brand: sessionContext.brand,
+      description: sessionContext.description,
+    }, searchType);
     
     // Format results (NO AI)
-    const response = formatResults(results, lang);
+    let response = formatResults(results, lang);
+    
+    // If no results and we have enough info, offer to generate a post
+    let autoPost = undefined;
+    let recommendedAction = results.length > 0 ? 'review_matches' : 'post_item';
+    
+    if (results.length === 0 && sessionContext.infoScore >= 2) {
+      autoPost = generateAutoPost(sessionContext, lang);
+      
+      if (autoPost.canGenerate) {
+        response += '\n\n' + (lang === 'hi' 
+          ? `📝 **Auto Post Preview:**\n**Title:** ${autoPost.title}\n**Description:** ${autoPost.description}\n\n_"Yes" bolo confirm karne ke liye ya "No" bolo edit karne ke liye._`
+          : `📝 **Auto Post Preview:**\n**Title:** ${autoPost.title}\n**Description:** ${autoPost.description}\n\n_Say "Yes" to confirm or "No" to edit._`);
+        recommendedAction = 'confirm_auto_post';
+      }
+    }
     
     return {
       response,
@@ -533,20 +749,22 @@ async function handleChat(
         intent,
         missingFields: [],
         clarifyingQuestions: [],
-        matches: results.map(item => ({
+        matches: results.map((item, index) => ({
           item,
           confidence: item.relevanceScore,
           reasoning: item.matchReasons?.join(', ') || 'Matched by keywords',
-          rank: 0,
+          rank: index + 1,
         })),
-        recommendedAction: results.length > 0 ? 'review_matches' : 'post_item',
+        recommendedAction,
         aiUsed: false,
+        sessionContext,
+        autoPost,
       },
     };
   }
 
   // Step 3: If intent is unknown and no info, ask for more details (NO AI)
-  if (intent === 'unknown' && extractedInfo.infoScore === 0) {
+  if (intent === 'unknown' && sessionContext.infoScore === 0) {
     return {
       response: STATIC_RESPONSES.needMoreInfo[lang],
       context: {
@@ -556,6 +774,7 @@ async function handleChat(
         matches: [],
         recommendedAction: 'provide_info',
         aiUsed: false,
+        sessionContext,
       },
     };
   }
@@ -579,6 +798,7 @@ async function handleChat(
         matches: [],
         recommendedAction: 'continue',
         aiUsed: true,
+        sessionContext,
       },
     };
   } catch (error) {
@@ -593,6 +813,7 @@ async function handleChat(
         matches: [],
         recommendedAction: 'provide_info',
         aiUsed: false,
+        sessionContext,
       },
     };
   }
@@ -1107,8 +1328,8 @@ serve(async (req) => {
         break;
 
       case 'chat':
-        // Full database-first conversation flow
-        result = await handleChat(supabase, params.message, params.history || []);
+        // Full database-first conversation flow with session context
+        result = await handleChat(supabase, params.message, params.history || [], params.sessionContext);
         break;
 
       default:

@@ -4,9 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, AlertCircle, ArrowRight } from "lucide-react";
+import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, AlertCircle, ArrowRight, Check, Edit } from "lucide-react";
 import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
-import { chat, getAutocomplete, ChatMessage, MatchResult } from "@/services/aiAssistant";
+import { chat, getAutocomplete, ChatMessage, MatchResult, SessionContext, AutoPost } from "@/services/aiAssistant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
@@ -18,29 +18,39 @@ const MEMORY_KEYS = {
   lastSearchLocation: 'ai_last_search_location',
   lastSearchDate: 'ai_last_search_date',
   conversationHistory: 'ai_conversation_history',
+  sessionContext: 'ai_session_context',
 };
 
 // Helper to get session memory
 const getSessionMemory = () => {
   try {
+    const storedContext = sessionStorage.getItem(MEMORY_KEYS.sessionContext);
     return {
       lastCategory: sessionStorage.getItem(MEMORY_KEYS.lastSearchCategory),
       lastLocation: sessionStorage.getItem(MEMORY_KEYS.lastSearchLocation),
       lastDate: sessionStorage.getItem(MEMORY_KEYS.lastSearchDate),
       history: JSON.parse(sessionStorage.getItem(MEMORY_KEYS.conversationHistory) || '[]'),
+      sessionContext: storedContext ? JSON.parse(storedContext) as SessionContext : undefined,
     };
   } catch {
-    return { lastCategory: null, lastLocation: null, lastDate: null, history: [] };
+    return { lastCategory: null, lastLocation: null, lastDate: null, history: [], sessionContext: undefined };
   }
 };
 
 // Helper to save session memory
-const saveSessionMemory = (category?: string, location?: string, date?: string, history?: ChatMessage[]) => {
+const saveSessionMemory = (
+  category?: string, 
+  location?: string, 
+  date?: string, 
+  history?: ChatMessage[],
+  sessionContext?: SessionContext
+) => {
   try {
     if (category) sessionStorage.setItem(MEMORY_KEYS.lastSearchCategory, category);
     if (location) sessionStorage.setItem(MEMORY_KEYS.lastSearchLocation, location);
     if (date) sessionStorage.setItem(MEMORY_KEYS.lastSearchDate, date);
     if (history) sessionStorage.setItem(MEMORY_KEYS.conversationHistory, JSON.stringify(history.slice(-10)));
+    if (sessionContext) sessionStorage.setItem(MEMORY_KEYS.sessionContext, JSON.stringify(sessionContext));
   } catch {
     // Silently fail if storage is full
   }
@@ -59,6 +69,8 @@ interface Message {
   matches?: MatchResult[];
   recommendedAction?: string;
   intent?: string;
+  autoPost?: AutoPost;
+  aiUsed?: boolean;
 }
 
 export const AIAssistant = () => {
@@ -68,6 +80,7 @@ export const AIAssistant = () => {
   const sessionMemory = getSessionMemory();
   const { switchTab } = useAITabController();
   const location = useLocation();
+  const [sessionContext, setSessionContext] = useState<SessionContext | undefined>(sessionMemory.sessionContext);
   
   // Generate welcome message with memory context
   const getWelcomeMessage = () => {
@@ -159,8 +172,8 @@ export const AIAssistant = () => {
     setConversationHistory(newHistory);
 
     try {
-      // Use the new structured chat flow
-      const { data, error } = await chat(userMessage, newHistory);
+      // Use the new structured chat flow with session context
+      const { data, error } = await chat(userMessage, newHistory, sessionContext);
 
       if (error) {
         throw new Error(error);
@@ -168,6 +181,11 @@ export const AIAssistant = () => {
 
       if (data) {
         const { response, context } = data;
+
+        // Update session context from backend
+        if (context.sessionContext) {
+          setSessionContext(context.sessionContext);
+        }
 
         // Save intent for reference
         if (context.intent) {
@@ -177,17 +195,10 @@ export const AIAssistant = () => {
         // Switch tabs based on detected intent (only on Browse page)
         if (location.pathname === '/browse' && context.intent) {
           if (context.intent === 'search' || context.intent === 'post_lost') {
-            // User lost something - switch to Lost tab, AI searched Found items
             switchTab(context.intent);
           } else if (context.intent === 'post_found') {
-            // User found something - switch to Found tab, AI searched Lost items
             switchTab(context.intent);
           }
-        }
-
-        // If not on browse page but intent is clear, navigate there
-        if (location.pathname !== '/browse' && context.matches && context.matches.length > 0) {
-          // Show a button to navigate to browse with context
         }
 
         // Update conversation history with assistant response
@@ -197,26 +208,24 @@ export const AIAssistant = () => {
         ];
         setConversationHistory(updatedHistory);
         
-        // Save to session memory
-        if (context.matches && context.matches.length > 0) {
-          const firstMatch = context.matches[0];
-          saveSessionMemory(
-            firstMatch.item?.category,
-            firstMatch.item?.location,
-            firstMatch.item?.date_lost_found,
-            updatedHistory
-          );
-        } else {
-          saveSessionMemory(undefined, undefined, undefined, updatedHistory);
-        }
+        // Save to session memory including session context
+        saveSessionMemory(
+          context.sessionContext?.category,
+          context.sessionContext?.location,
+          undefined,
+          updatedHistory,
+          context.sessionContext
+        );
 
-        // Create message with matches and context
+        // Create message with matches, context, and auto post
         const newMessage: Message = {
           role: "assistant",
           content: response,
           matches: context.matches,
           recommendedAction: context.recommendedAction,
           intent: context.intent,
+          autoPost: context.autoPost,
+          aiUsed: context.aiUsed,
         };
 
         setMessages((prev) => [...prev, newMessage]);
@@ -238,6 +247,7 @@ export const AIAssistant = () => {
   // Handle clearing conversation and memory
   const handleClearConversation = () => {
     clearSessionMemory();
+    setSessionContext(undefined);
     setMessages([{
       role: "assistant",
       content: "👋 Hi! I'm your Lost & Found assistant.\n\nI can help you:\n• 🔴 Find your **lost items**\n• 🟢 Report **found items**\n• 🔍 Search with **smart matching**\n\nTell me what happened - did you lose something or find something?",
