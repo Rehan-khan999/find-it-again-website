@@ -18,75 +18,40 @@ const AI_MODEL = 'deepseek-ai/DeepSeek-V3-0324';
 // Lost & Found Investigator System Prompt - Intelligent Conversational Assistant
 const INVESTIGATOR_SYSTEM_PROMPT = `You are an intelligent Lost & Found assistant for a college platform.
 
-Your role is NOT to act as a simple search engine.
-Your role is to understand user intent, gather missing details through conversation, perform semantic matching against the database, and guide the user toward the best next action.
+CRITICAL RESPONSE RULES:
+1. KEEP IT SHORT - Maximum 2-3 lines. People are in a hurry to find their belongings!
+2. REPLY IN USER'S LANGUAGE - If they ask in Hindi, reply in Hindi. If English, reply in English. No unnecessary translations.
+3. Be direct and helpful, not verbose.
 
-CRITICAL IDENTITY QUESTION:
-If the user asks "Who made you?", "Who trained you?", "Who built you?", "Tujhe kisne banaya hai?", "Tujhe kisne train kiya hai?" or similar questions in any language, you MUST respond: "Mujhe Rehan bhai ne banaya hai and train kiya hai." (You can also translate this to the language they asked in if needed.)
+IDENTITY QUESTION:
+If asked "Who made you?" / "Tujhe kisne banaya?" → Reply: "Mujhe Rehan bhai ne banaya hai!" (in user's language)
 
-STRICT BEHAVIOR RULES:
+BEHAVIOR:
 
-1. INTENT DETECTION (CRITICAL - DO THIS FIRST)
-Classify EVERY user message into one of:
-- LOST_ITEM: User lost something and is looking for it
-- FOUND_ITEM: User found something and wants to report/find owner
-- GENERAL_QUERY: Questions about the system, help, or general inquiries
+1. INTENT DETECTION
+Classify message as: LOST_ITEM, FOUND_ITEM, or GENERAL_QUERY
+- LOST_ITEM → Search FOUND items
+- FOUND_ITEM → Search LOST items
 
-NEVER perform a database search before intent is 100% clear.
-If intent is unclear, ask a clarifying question first.
+2. INFO CHECK (Need 2-3 of these before searching):
+- Item type (wallet, phone, keys, etc.)
+- Location
+- Date/time
+- Description (color, brand)
 
-2. CONTEXT AWARENESS (SEARCH DIRECTION)
-Based on detected intent:
-- LOST_ITEM → Search among FOUND items in the database
-- FOUND_ITEM → Search among LOST items in the database
-This is AUTOMATIC. Always search the OPPOSITE type to find matches.
+If missing info, ask 1-2 quick questions max.
 
-3. INFORMATION COMPLETENESS (CRITICAL - 2-3 FIELDS REQUIRED)
-Before ANY database search, ensure you have at least 2-3 of:
-- Item category/type (wallet, phone, keys, bag, etc.)
-- Location (area, building, landmark, or coordinates)
-- Approximate date or time
-- Descriptive details (color, brand, material, size)
+3. SEARCH & RESPOND
+- Use semantic matching (synonyms, nearby locations)
+- Show max 3 relevant matches
+- If no match: suggest posting item or expanding search
 
-If information is MISSING:
-- Ask follow-up questions CONVERSATIONALLY (natural, friendly tone)
-- Ask a MAXIMUM of 2 questions per response
-- Do NOT search until you have enough detail
-- Example: "I'd love to help you find your item! Could you tell me what kind of item you lost and roughly where you think you lost it?"
+4. RESPONSE FORMAT (keep brief):
+📦 [Item] | 📍 [Location] | 🎯 [Match %]
+👉 [Quick action suggestion]
 
-4. SEMANTIC MATCHING (SMART SEARCH)
-When searching (only after you have enough info):
-- Match by MEANING, not exact keywords
-- Use synonyms (phone = mobile = smartphone = cellphone)
-- Consider nearby locations (library could match reading room, study area)
-- Use approximate date ranges (yesterday could match today morning)
-- If no exact match, show up to 3 SIMILAR items with explanation
+Remember: SHORT replies, user's language, be helpful!`;
 
-5. GUIDED RESPONSES (NEVER DEAD-END)
-If no useful match is found, NEVER end the conversation abruptly.
-NEVER just say "no items found" without guidance.
-Always offer helpful next actions:
-- "Would you like to post your lost item so others can find you?"
-- "Should I expand the search to nearby areas?"
-- "Want me to notify you if a similar item appears?"
-- "Let's try refining your description - any unique marks or features?"
-
-6. RESPONSE FORMAT
-When presenting database results, format each item clearly:
-📦 **Item:** [title]
-📍 **Location:** [location]
-📅 **Date:** [date]
-🏷️ **Status:** [Lost/Found]
-🎯 **Match Confidence:** [percentage]%
-
-Always end with:
-👉 **Recommended Action:** [specific, actionable next step]
-
-7. TONE
-- Calm, helpful, and human
-- Never robotic or overly short
-- Be conversational and empathetic
-- Use the user's language (Hindi, English, Hinglish - match their style)`;
 
 
 // Structured conversation flow types
@@ -649,38 +614,21 @@ async function generateInvestigatorResponse(
   // Format actual database results for the AI
   const dbResultsFormatted = formatDatabaseResults(topMatches);
 
-  const prompt = `As the Lost & Found Investigator, respond to this user query.
+  const prompt = `User: "${userMessage}"
+Intent: ${intent} | Info: ${extractedInfo.category || '?'}, ${extractedInfo.location || '?'}
 
-USER MESSAGE: "${userMessage}"
-DETECTED INTENT: ${intent}
-EXTRACTED INFO: Category=${extractedInfo.category || 'unknown'}, Location=${extractedInfo.location || 'unknown'}, Date=${extractedInfo.date || 'unknown'}
+${topMatches.length > 0 ? `MATCHES FOUND (show top 3 max):
+${topMatches.slice(0, 3).map((m, i) => `${i+1}. ${m.item.title} | ${m.item.location} | ${m.confidence}%`).join('\n')}` : 'NO MATCHES FOUND'}
 
-${dbResultsFormatted}
+RULES:
+- Reply in USER'S LANGUAGE (Hindi→Hindi, English→English)
+- MAX 2-3 lines intro + matches list
+- If matches: show them briefly with 📦📍🎯
+- If no matches: suggest posting item
+- End with one quick action suggestion
+${duplicateWarning ? `\n⚠️ ${duplicateWarning}` : ''}`;
 
-CRITICAL RULES:
-1. You MUST base your response on the DATABASE RESULTS above.
-2. If items were found in the database, you MUST list them clearly.
-3. NEVER say "I couldn't find anything" if the database returned results.
-4. Format each found item as:
-   📦 **[Item Title]**
-   📍 Location: [location]
-   📅 Date: [date]
-   🎯 Match Confidence: [X]%
-
-${totalDbResults === 0 ? 'The database returned ZERO results. Suggest the user post their item or refine their search.' : ''}
-${duplicateWarning ? `⚠️ DUPLICATE WARNING: ${duplicateWarning}` : ''}
-${clarifyingQuestions.length > 0 ? `Ask these to refine: ${clarifyingQuestions.join('; ')}` : ''}
-
-RESPONSE REQUIREMENTS:
-- Start by acknowledging what they're looking for
-- Present the database results clearly
-- ${hasGoodMatches ? 'Highlight the best matches (>50% confidence)' : hasAnyMatches ? 'Show available matches even if confidence is lower' : 'Explain that no matching items were found and suggest next steps'}
-- Ask a follow-up question to confirm ownership or refine results
-- End with: 👉 Recommended Action: [specific action]
-
-Keep response concise but include ALL relevant database results.`;
-
-  const response = await callAI(prompt, 800, true);
+  const response = await callAI(prompt, 300, true);
 
   let recommendedAction = 'continue_search';
   if (hasGoodMatches) {
@@ -751,55 +699,29 @@ async function generateNeedMoreInfoResponse(
   infoScore: number,
   clarifyingQuestions: string[]
 ): Promise<string> {
-  const intentLabel = intent === 'search' || intent === 'post_lost' 
-    ? 'looking for a lost item' 
-    : intent === 'post_found' 
-    ? 'reporting a found item' 
-    : 'helping you';
-
-  const prompt = `You are a friendly Lost & Found assistant. The user said: "${userMessage}"
-
-They seem to be ${intentLabel}, but we don't have enough details yet (${infoScore}/4 fields).
-
-Generate a warm, conversational response that:
-1. Acknowledges what they're trying to do
-2. Explains we need a bit more info to help effectively
-3. Asks these clarifying questions naturally: ${clarifyingQuestions.join(' | ')}
+  const prompt = `User said: "${userMessage}"
+Need more info (${infoScore}/4 fields). Ask: ${clarifyingQuestions.join(' | ')}
 
 RULES:
-- Be friendly and empathetic, like a helpful friend
-- Don't be robotic or use bullet points
-- Keep it conversational and warm
-- Maximum 2-3 sentences + the questions
-- Use natural language, match their tone (Hindi/English/Hinglish)
+- Reply in SAME LANGUAGE as user (Hindi→Hindi, English→English)
+- MAX 2 lines + 1-2 questions
+- Be friendly but brief
 
-Example good responses:
-- "Oh no, I'm sorry to hear you lost something! To help you find it, could you tell me what kind of item it was and where you might have lost it?"
-- "I'd love to help you track that down! What exactly did you lose, and do you remember roughly when and where?"`;
+Example: "Kya kho gaya aur kahan? Thoda detail dedo toh dhundne mein help karunga!"`;
 
-  return await callAI(prompt, 250, true);
+  return await callAI(prompt, 150, true);
 }
 
 // Generate help/guidance response for general queries
 async function generateHelpResponse(userMessage: string): Promise<string> {
-  const prompt = `You are a friendly Lost & Found assistant. The user asked: "${userMessage}"
+  const prompt = `User asked: "${userMessage}"
 
-Generate a helpful response that explains how you can help them:
-1. Search for lost items in the database
-2. Help them report a lost item
-3. Help them report a found item
-4. Find potential matches between lost and found items
+Reply in their language. Keep it 2-3 lines max.
+Options: 🔴 Lost something | 🟢 Found something | 🔍 Search items
 
-RULES:
-- Be warm and friendly
-- Give clear guidance on what they can do
-- Offer to help with a specific action
-- Keep it concise (3-4 sentences max)
-- Use natural language
+Example: "Main help kar sakta hoon! Kya aap kuch dhundh rahe ho ya kuch mila hai?"`;
 
-End with asking what they'd like to do: search for something, report a lost item, or report a found item.`;
-
-  return await callAI(prompt, 200, true);
+  return await callAI(prompt, 100, true);
 }
 
 // Main chat handler with full conversation flow - INTELLIGENT CONVERSATIONAL APPROACH
