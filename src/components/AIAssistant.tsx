@@ -4,12 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye } from "lucide-react";
+import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, AlertCircle, ArrowRight } from "lucide-react";
 import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
 import { chat, getAutocomplete, ChatMessage, MatchResult } from "@/services/aiAssistant";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
+import { useAITabController, setLastIntent } from "@/hooks/useAITabControl";
 
 // Session memory keys
 const MEMORY_KEYS = {
@@ -65,6 +66,8 @@ export const AIAssistant = () => {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const sessionMemory = getSessionMemory();
+  const { switchTab } = useAITabController();
+  const location = useLocation();
   
   // Generate welcome message with memory context
   const getWelcomeMessage = () => {
@@ -72,7 +75,7 @@ export const AIAssistant = () => {
     if (lastCategory && lastLocation) {
       return `🔍 Welcome back! Last time you searched for a **${lastCategory}** near **${lastLocation}**.\n\nWould you like me to check for new updates, or start a fresh search?`;
     }
-    return "🔍 Hi! I'm your Lost & Found Investigator. I can help you search for lost items, report found items, and find potential matches using smart analysis. What can I help you with today?";
+    return "👋 Hi! I'm your Lost & Found assistant.\n\nI can help you:\n• 🔴 Find your **lost items**\n• 🟢 Report **found items**\n• 🔍 Search with **smart matching**\n\nTell me what happened - did you lose something or find something?";
   };
   
   const [messages, setMessages] = useState<Message[]>([
@@ -165,6 +168,27 @@ export const AIAssistant = () => {
       if (data) {
         const { response, context } = data;
 
+        // Save intent for reference
+        if (context.intent) {
+          setLastIntent(context.intent);
+        }
+
+        // Switch tabs based on detected intent (only on Browse page)
+        if (location.pathname === '/browse' && context.intent) {
+          if (context.intent === 'search' || context.intent === 'post_lost') {
+            // User lost something - switch to Lost tab, AI searched Found items
+            switchTab(context.intent);
+          } else if (context.intent === 'post_found') {
+            // User found something - switch to Found tab, AI searched Lost items
+            switchTab(context.intent);
+          }
+        }
+
+        // If not on browse page but intent is clear, navigate there
+        if (location.pathname !== '/browse' && context.matches && context.matches.length > 0) {
+          // Show a button to navigate to browse with context
+        }
+
         // Update conversation history with assistant response
         const updatedHistory: ChatMessage[] = [
           ...newHistory,
@@ -215,25 +239,41 @@ export const AIAssistant = () => {
     clearSessionMemory();
     setMessages([{
       role: "assistant",
-      content: "🔍 Hi! I'm your Lost & Found Investigator. I can help you search for lost items, report found items, and find potential matches using smart analysis. What can I help you with today?",
+      content: "👋 Hi! I'm your Lost & Found assistant.\n\nI can help you:\n• 🔴 Find your **lost items**\n• 🟢 Report **found items**\n• 🔍 Search with **smart matching**\n\nTell me what happened - did you lose something or find something?",
     }]);
     setConversationHistory([]);
     toast.success("Conversation cleared");
   };
 
-  const handleActionClick = (action: string) => {
+  const handleActionClick = (action: string, intent?: string) => {
     switch (action) {
       case "post_item":
-        navigate("/post-lost");
+        if (intent === 'post_found') {
+          navigate("/post-found");
+          toast.success("Taking you to report a found item");
+        } else {
+          navigate("/post-lost");
+          toast.success("Taking you to report a lost item");
+        }
         setIsOpen(false);
-        toast.success("Taking you to post a lost item");
         break;
       case "review_matches":
         navigate("/matches");
         setIsOpen(false);
         break;
+      case "browse_items":
+        navigate("/browse");
+        setIsOpen(false);
+        break;
       case "provide_more_info":
-        // Just focus input
+        // Just focus input - user needs to provide more details
+        break;
+      case "expand_search":
+        // Suggest broadening search
+        handleSend("Can you expand the search to nearby areas?");
+        break;
+      case "get_notified":
+        toast.success("You'll be notified when matching items are posted");
         break;
       default:
         break;
@@ -251,18 +291,28 @@ export const AIAssistant = () => {
     return "bg-red-500/10 text-red-600 border-red-500/30";
   };
 
-  const getActionLabel = (action: string) => {
+  const getActionLabel = (action: string, intent?: string) => {
     switch (action) {
       case "post_item":
-        return "📝 Post Your Item";
+        return intent === 'post_found' ? "📝 Report Found Item" : "📝 Report Lost Item";
       case "review_matches":
         return "👀 Review Matches";
       case "provide_more_info":
-        return "💬 Provide More Details";
+        return "💬 Tell Me More";
       case "continue_search":
         return "🔍 Continue Searching";
+      case "browse_items":
+        return "📋 Browse All Items";
+      case "expand_search":
+        return "🔄 Expand Search Area";
+      case "get_notified":
+        return "🔔 Notify Me Later";
+      case "refine_search":
+        return "✏️ Refine Details";
+      case "continue_conversation":
+        return null; // Don't show button
       default:
-        return action;
+        return null;
     }
   };
 
@@ -398,16 +448,39 @@ export const AIAssistant = () => {
                 )}
 
                 {/* Recommended Action Button */}
-                {message.recommendedAction && message.recommendedAction !== "continue_search" && (
-                  <div className="mt-3">
+                {message.recommendedAction && getActionLabel(message.recommendedAction, message.intent) && (
+                  <div className="mt-3 space-y-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full justify-center"
-                      onClick={() => handleActionClick(message.recommendedAction!)}
+                      className="w-full justify-center gap-2 hover:bg-primary hover:text-primary-foreground"
+                      onClick={() => handleActionClick(message.recommendedAction!, message.intent)}
                     >
-                      {getActionLabel(message.recommendedAction)}
+                      {getActionLabel(message.recommendedAction, message.intent)}
+                      <ArrowRight className="h-3 w-3" />
                     </Button>
+                    
+                    {/* Secondary actions when no matches found */}
+                    {message.recommendedAction === 'post_item' && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-xs h-7"
+                          onClick={() => handleActionClick('expand_search', message.intent)}
+                        >
+                          🔄 Expand Search
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-xs h-7"
+                          onClick={() => handleActionClick('get_notified', message.intent)}
+                        >
+                          🔔 Notify Me
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -447,29 +520,32 @@ export const AIAssistant = () => {
           </div>
         )}
 
-        {/* Quick action buttons */}
-        <div className="mb-2 flex gap-1">
+        {/* Quick action buttons - intent starters */}
+        <div className="mb-2 flex gap-1 flex-wrap">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-xs h-7"
-            onClick={() => handleSend("I lost something")}
+            className="text-xs h-7 border-orange-300 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+            onClick={() => handleSend("I lost something and need help finding it")}
           >
-            🔴 Lost Item
+            🔴 I Lost Something
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-7 border-green-300 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20"
+            onClick={() => handleSend("I found something and want to find the owner")}
+          >
+            🟢 I Found Something
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className="text-xs h-7"
-            onClick={() => handleSend("I found something")}
-          >
-            🟢 Found Item
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => navigate("/browse")}
+            onClick={() => {
+              navigate("/browse");
+              setIsOpen(false);
+            }}
           >
             📋 Browse
           </Button>

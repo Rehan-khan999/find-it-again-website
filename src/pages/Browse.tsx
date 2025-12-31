@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle, Sparkles, Info, AlertTriangle, CheckCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAITabListener } from "@/hooks/useAITabControl";
 
 interface Item {
   id: string;
@@ -67,6 +68,17 @@ const Browse = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [userVerifications, setUserVerifications] = useState<UserVerification>({});
+
+  // Listen for AI-triggered tab switches
+  const handleAITabSwitch = useCallback((tab: ItemTab) => {
+    setActiveTab(tab);
+    toast({
+      title: `Switched to ${tab === 'lost' ? 'Lost' : 'Found'} Items`,
+      description: `AI assistant is searching for matching ${tab === 'lost' ? 'found' : 'lost'} items.`,
+    });
+  }, [toast]);
+
+  useAITabListener(handleAITabSwitch);
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
