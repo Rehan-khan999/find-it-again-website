@@ -6,14 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const HF_TOKEN = Deno.env.get('HF_TOKEN');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// HuggingFace chat completions endpoint (OpenAI-compatible)
-const HF_CHAT_API = 'https://router.huggingface.co/v1/chat/completions';
-// Using DeepSeek which is available on HuggingFace router
-const AI_MODEL = 'deepseek-ai/DeepSeek-V3-0324';
+// Lovable AI Gateway (OpenAI-compatible)
+const LOVABLE_AI_API = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const AI_MODEL = 'google/gemini-2.5-flash';
 
 // Lost & Found Investigator System Prompt - Intelligent Conversational Assistant
 const INVESTIGATOR_SYSTEM_PROMPT = `You are an intelligent Lost & Found assistant for a college platform.
@@ -871,6 +870,10 @@ async function handleChat(
 async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = false): Promise<string> {
   console.log('Calling AI with prompt:', prompt.substring(0, 100) + '...');
   
+  if (!LOVABLE_API_KEY) {
+    throw new Error('LOVABLE_API_KEY is not configured');
+  }
+  
   const messages: { role: string; content: string }[] = [];
   
   if (useInvestigatorMode) {
@@ -879,24 +882,31 @@ async function callAI(prompt: string, maxTokens = 500, useInvestigatorMode = fal
   
   messages.push({ role: 'user', content: prompt });
   
-  const response = await fetch(HF_CHAT_API, {
+  const response = await fetch(LOVABLE_AI_API, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${HF_TOKEN}`,
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       model: AI_MODEL,
       messages,
       max_tokens: maxTokens,
-      temperature: 0.7,
       stream: false,
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('AI API error:', error);
+    console.error('AI API error:', response.status, error);
+    
+    if (response.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again in a moment.');
+    }
+    if (response.status === 402) {
+      throw new Error('AI usage limit reached. Please try again later.');
+    }
+    
     throw new Error(`AI API error: ${error}`);
   }
 
