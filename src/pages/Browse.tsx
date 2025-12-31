@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle, Sparkles, Info } from "lucide-react";
+import { Search, Filter, MapPin, Calendar, Tag, Eye, Map, MessageCircle, Sparkles, Info, AlertTriangle, CheckCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -52,10 +51,12 @@ interface UserVerification {
   [userId: string]: boolean;
 }
 
+type ItemTab = 'lost' | 'found';
+
 const Browse = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedType, setSelectedType] = useState("all");
+  const [activeTab, setActiveTab] = useState<ItemTab>("lost");
   const [selectedStatus, setSelectedStatus] = useState("active");
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -83,17 +84,17 @@ const Browse = () => {
 
   // Fetch items and published guest submissions
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['items', searchTerm, selectedCategory, selectedType, selectedStatus],
+    queryKey: ['items', searchTerm, selectedCategory, activeTab, selectedStatus],
     queryFn: async () => {
-      // Base items
+      // Base items - filter by active tab (lost/found)
       let itemsQuery = (supabase as any)
         .from('items')
         .select('*')
         .eq('status', selectedStatus)
+        .eq('item_type', activeTab)
         .order('created_at', { ascending: false });
 
       if (selectedCategory !== 'all') itemsQuery = itemsQuery.eq('category', selectedCategory);
-      if (selectedType !== 'all') itemsQuery = itemsQuery.eq('item_type', selectedType);
       if (searchTerm) itemsQuery = itemsQuery.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`);
 
       const [{ data: coreItems, error: itemsErr }, { data: guestItems, error: guestErr }] = await Promise.all([
@@ -300,7 +301,7 @@ const Browse = () => {
                 className="btn-pressable flex-1"
               >
                 <MessageCircle className="w-4 h-4 mr-1.5" />
-                {t('buttons.contact')}
+                {isLost ? 'Contact Finder' : 'Claim Item'}
               </Button>
             )}
             <Button 
@@ -330,7 +331,7 @@ const Browse = () => {
     <div className="min-h-screen bg-background page-enter">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
             <span className="text-gradient">Browse</span>{' '}
             <span className="text-foreground">Lost & Found</span>
@@ -338,10 +339,30 @@ const Browse = () => {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{t('labels.helpReunite')}</p>
         </div>
 
+        {/* Pill Tabs for Lost/Found */}
+        <div className="flex justify-center mb-8">
+          <div className="pill-tabs">
+            <button
+              onClick={() => setActiveTab('lost')}
+              className={`pill-tab pill-tab-lost ${activeTab === 'lost' ? 'pill-tab-active' : ''}`}
+            >
+              <AlertTriangle className="w-4 h-4 mr-2 inline-block" />
+              Lost Items
+            </button>
+            <button
+              onClick={() => setActiveTab('found')}
+              className={`pill-tab pill-tab-found ${activeTab === 'found' ? 'pill-tab-active' : ''}`}
+            >
+              <CheckCircle className="w-4 h-4 mr-2 inline-block" />
+              Found Items
+            </button>
+          </div>
+        </div>
+
         {/* Search and Filters */}
         <Card className="mb-8 card-float">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
@@ -351,17 +372,6 @@ const Browse = () => {
                   className="pl-10 input-refined"
                 />
               </div>
-              
-              <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="input-refined">
-                  <SelectValue placeholder={t('labels.itemType')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('labels.allTypes')}</SelectItem>
-                  <SelectItem value="lost">{t('labels.lostItems')}</SelectItem>
-                  <SelectItem value="found">{t('labels.foundItems')}</SelectItem>
-                </SelectContent>
-              </Select>
 
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="input-refined">
@@ -391,7 +401,7 @@ const Browse = () => {
             </div>
             
             {/* Demo Mode Toggle */}
-            <div className="flex items-center justify-between pt-4 border-t border-border/50">
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">
               <div className="flex items-center gap-3">
                 <Switch 
                   id="demo-mode" 
@@ -444,14 +454,13 @@ const Browse = () => {
               <>
                 <div className="flex items-center justify-between mb-6 animate-fade-in">
                   <p className="text-muted-foreground font-cyber">
-                    {t('labels.found')} <span className="text-neon font-bold">{items.length}</span> item{items.length !== 1 ? 's' : ''}
+                    {t('labels.found')} <span className="text-neon font-bold">{items.length}</span> {activeTab} item{items.length !== 1 ? 's' : ''}
                   </p>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Filter className="w-4 h-4 text-primary" />
                       <span className="text-sm text-muted-foreground font-cyber">
-                        {selectedType !== 'all' && `${selectedType} items`}
-                        {selectedCategory !== 'all' && ` in ${selectedCategory}`}
+                        {selectedCategory !== 'all' && `in ${selectedCategory}`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
