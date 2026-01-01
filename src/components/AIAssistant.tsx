@@ -4,9 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, ArrowRight, Navigation } from "lucide-react";
+import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, ArrowRight, Navigation, Camera, ImageIcon } from "lucide-react";
 import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
-import { chat, getAutocomplete, ChatMessage, MatchResult, SessionContext, AutoPost } from "@/services/aiAssistant";
+import { chat, getAutocomplete, ChatMessage, MatchResult, SessionContext, AutoPost, fileToBase64 } from "@/services/aiAssistant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
@@ -74,6 +74,7 @@ interface Message {
   autoPost?: AutoPost;
   aiUsed?: boolean;
   needsLocation?: boolean;
+  imageUrl?: string; // For displaying uploaded images
 }
 
 export const AIAssistant = () => {
@@ -105,8 +106,10 @@ export const AIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [autocomplete, setAutocomplete] = useState<string[]>([]);
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>(sessionMemory.history);
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   // Handle viewing item details in dialog
@@ -159,25 +162,35 @@ export const AIAssistant = () => {
     return () => clearTimeout(debounce);
   }, [input]);
 
-  const handleSend = async (message?: string) => {
+  const handleSend = async (message?: string, imageBase64?: string, imagePreview?: string) => {
     const userMessage = message || input;
-    if (!userMessage.trim()) return;
+    if (!userMessage.trim() && !imageBase64) return;
 
     setInput("");
     setAutocomplete([]);
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    
+    // Add user message with optional image preview
+    const userMsg: Message = { 
+      role: "user", 
+      content: userMessage || "Analyze this image",
+      imageUrl: imagePreview
+    };
+    setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
+
+    // Clear pending image
+    setPendingImage(null);
 
     // Update conversation history
     const newHistory: ChatMessage[] = [
       ...conversationHistory,
-      { role: "user", content: userMessage },
+      { role: "user", content: userMessage || "Image uploaded for analysis" },
     ];
     setConversationHistory(newHistory);
 
     try {
-      // Use the new structured chat flow with session context
-      const { data, error } = await chat(userMessage, newHistory, sessionContext);
+      // Use the chat function with optional image
+      const { data, error } = await chat(userMessage || "Analyze this image", newHistory, sessionContext, imageBase64);
 
       if (error) {
         throw new Error(error);
@@ -247,6 +260,55 @@ export const AIAssistant = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    // Create preview URL
+    const preview = URL.createObjectURL(file);
+    setPendingImage({ file, preview });
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Send image with optional message
+  const handleSendWithImage = async () => {
+    if (!pendingImage) return;
+
+    try {
+      const base64 = await fileToBase64(pendingImage.file);
+      await handleSend(input || "", base64, pendingImage.preview);
+    } catch (error) {
+      console.error("Error processing image:", error);
+      toast.error("Failed to process image");
+      setPendingImage(null);
+    }
+  };
+
+  // Cancel pending image
+  const handleCancelImage = () => {
+    if (pendingImage?.preview) {
+      URL.revokeObjectURL(pendingImage.preview);
+    }
+    setPendingImage(null);
   };
   
   // Handle clearing conversation and memory
@@ -417,6 +479,16 @@ export const AIAssistant = () => {
                     : "bg-muted"
                 }`}
               >
+                {/* Display uploaded image */}
+                {message.imageUrl && (
+                  <div className="mb-2">
+                    <img 
+                      src={message.imageUrl} 
+                      alt="Uploaded" 
+                      className="max-w-full h-auto rounded-md max-h-32 object-cover"
+                    />
+                  </div>
+                )}
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
 
                 {/* Match Results with Confidence Scores */}
@@ -553,6 +625,25 @@ export const AIAssistant = () => {
       </ScrollArea>
 
       <CardContent className="p-3 border-t">
+        {/* Pending image preview */}
+        {pendingImage && (
+          <div className="mb-2 relative inline-block">
+            <img 
+              src={pendingImage.preview} 
+              alt="Upload preview" 
+              className="h-20 w-20 object-cover rounded-lg border"
+            />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute -top-2 -right-2 h-5 w-5 rounded-full"
+              onClick={handleCancelImage}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+
         {/* Autocomplete suggestions */}
         {autocomplete.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
@@ -603,22 +694,51 @@ export const AIAssistant = () => {
           </Button>
         </div>
 
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImageUpload}
+          accept="image/*"
+          className="hidden"
+        />
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleSend();
+            if (pendingImage) {
+              handleSendWithImage();
+            } else {
+              handleSend();
+            }
           }}
           className="flex gap-2"
         >
+          {/* Image upload button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            title="Upload image for analysis"
+          >
+            <Camera className="h-4 w-4" />
+          </Button>
+          
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Describe what you're looking for..."
+            placeholder={pendingImage ? "Add description (optional)..." : "Describe what you're looking for..."}
             className="flex-1"
             disabled={isLoading}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+          <Button 
+            type="submit" 
+            size="icon" 
+            disabled={isLoading || (!input.trim() && !pendingImage)}
+          >
             <Send className="h-4 w-4" />
           </Button>
         </form>
