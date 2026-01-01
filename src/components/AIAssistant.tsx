@@ -4,15 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, ArrowRight, Navigation, Camera, ImageIcon } from "lucide-react";
+import { Loader2, Send, X, MapPin, Calendar, Tag, RotateCcw, Eye, Camera } from "lucide-react";
 import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
 import { chat, getAutocomplete, ChatMessage, MatchResult, SessionContext, AutoPost, fileToBase64 } from "@/services/aiAssistant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { useAITabController, setLastIntent } from "@/hooks/useAITabControl";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { GoogleMap } from "./GoogleMap";
 
 // Session memory keys
 const MEMORY_KEYS = {
@@ -81,7 +79,6 @@ export const AIAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
-  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const sessionMemory = getSessionMemory();
   const { switchTab } = useAITabController();
   const location = useLocation();
@@ -323,13 +320,6 @@ export const AIAssistant = () => {
     toast.success("Conversation cleared");
   };
 
-  // Handle location selection from map
-  const handleLocationSelect = (loc: { lat: number; lng: number; address: string }) => {
-    setIsLocationDialogOpen(false);
-    // Send the location as a message
-    handleSend(loc.address);
-    toast.success(`Location set: ${loc.address}`);
-  };
 
   const handleActionClick = (action: string, intent?: string) => {
     switch (action) {
@@ -352,8 +342,9 @@ export const AIAssistant = () => {
         setIsOpen(false);
         break;
       case "provide_location":
-        // Open location dialog
-        setIsLocationDialogOpen(true);
+        // Location input via chat text
+        toast.info("Please type the location in chat");
+        inputRef.current?.focus();
         break;
       case "provide_more_info":
       case "refine_search":
@@ -556,57 +547,7 @@ export const AIAssistant = () => {
                   </div>
                 )}
 
-                {/* Add Location Button - shown when location is needed */}
-                {message.needsLocation && (
-                  <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-center gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                      onClick={() => setIsLocationDialogOpen(true)}
-                    >
-                      <Navigation className="h-3 w-3" />
-                      Add Location
-                    </Button>
-                  </div>
-                )}
-
-                {/* Recommended Action Button */}
-                {message.recommendedAction && getActionLabel(message.recommendedAction, message.intent) && (
-                  <div className="mt-3 space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-center gap-2 hover:bg-primary hover:text-primary-foreground"
-                      onClick={() => handleActionClick(message.recommendedAction!, message.intent)}
-                    >
-                      {getActionLabel(message.recommendedAction, message.intent)}
-                      <ArrowRight className="h-3 w-3" />
-                    </Button>
-                    
-                    {/* Secondary actions when no matches found */}
-                    {message.recommendedAction === 'post_item' && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 text-xs h-7"
-                          onClick={() => handleActionClick('expand_search', message.intent)}
-                        >
-                          Expand Search
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 text-xs h-7"
-                          onClick={() => handleActionClick('get_notified', message.intent)}
-                        >
-                          Notify Me
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* All action buttons removed - chat text only */}
               </div>
             </div>
           ))}
@@ -663,36 +604,7 @@ export const AIAssistant = () => {
           </div>
         )}
 
-        {/* Quick action buttons - intent starters */}
-        <div className="mb-2 flex gap-1 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7 border-orange-300 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
-            onClick={() => handleSend("I lost something and need help finding it")}
-          >
-            🔴 I Lost Something
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7 border-green-300 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20"
-            onClick={() => handleSend("I found something and want to find the owner")}
-          >
-            🟢 I Found Something
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => {
-              navigate("/browse");
-              setIsOpen(false);
-            }}
-          >
-            📋 Browse
-          </Button>
-        </div>
+        {/* Quick action buttons removed - chat text + image upload only */}
 
         {/* Hidden file input */}
         <input
@@ -754,27 +666,7 @@ export const AIAssistant = () => {
         }}
       />
 
-      {/* Location Picker Dialog */}
-      <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Navigation className="h-5 w-5" />
-              Select Location
-            </DialogTitle>
-          </DialogHeader>
-          <div className="h-[400px] w-full">
-            <GoogleMap 
-              center={{ lat: 19.076, lng: 72.8777 }} // Default to Mumbai
-              onLocationSelect={handleLocationSelect}
-              className="h-full w-full rounded-lg"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground text-center">
-            Click on the map or search for a location
-          </p>
-        </DialogContent>
-      </Dialog>
+      {/* Location dialog removed - text-based location input only */}
     </Card>
   );
 };
