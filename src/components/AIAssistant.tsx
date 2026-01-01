@@ -82,13 +82,13 @@ export const AIAssistant = () => {
   const location = useLocation();
   const [sessionContext, setSessionContext] = useState<SessionContext | undefined>(sessionMemory.sessionContext);
   
-  // Generate welcome message with memory context
+  // Generate welcome message - investigator style, no fluff
   const getWelcomeMessage = () => {
     const { lastCategory, lastLocation } = sessionMemory;
     if (lastCategory && lastLocation) {
-      return `🔍 Welcome back! Last time you searched for a **${lastCategory}** near **${lastLocation}**.\n\nWould you like me to check for new updates, or start a fresh search?`;
+      return `Welcome back. Last search: **${lastCategory}** near **${lastLocation}**.\n\nContinue or start fresh?`;
     }
-    return "👋 Hi! I'm your Lost & Found assistant.\n\nI can help you:\n• 🔴 Find your **lost items**\n• 🟢 Report **found items**\n• 🔍 Search with **smart matching**\n\nTell me what happened - did you lose something or find something?";
+    return "I'm your Lost & Found investigator.\n\nTell me what happened - lost your phone? Found a wallet? Just describe it naturally.";
   };
   
   const [messages, setMessages] = useState<Message[]>([
@@ -250,7 +250,7 @@ export const AIAssistant = () => {
     setSessionContext(undefined);
     setMessages([{
       role: "assistant",
-      content: "👋 Hi! I'm your Lost & Found assistant.\n\nI can help you:\n• 🔴 Find your **lost items**\n• 🟢 Report **found items**\n• 🔍 Search with **smart matching**\n\nTell me what happened - did you lose something or find something?",
+      content: "I'm your Lost & Found investigator.\n\nTell me what happened - lost your phone? Found a wallet? Just describe it naturally.",
     }]);
     setConversationHistory([]);
     toast.success("Conversation cleared");
@@ -310,22 +310,28 @@ export const AIAssistant = () => {
   const getActionLabel = (action: string, intent?: string) => {
     switch (action) {
       case "post_item":
-        return intent === 'post_found' ? "📝 Report Found Item" : "📝 Report Lost Item";
+        return intent === 'post_found' ? "Report Found Item" : "Report Lost Item";
       case "review_matches":
-        return "👀 Review Matches";
+        return "Review Matches";
       case "provide_more_info":
-        return "💬 Tell Me More";
+        return "Tell Me More";
+      case "provide_location":
+        return "Add Location";
       case "continue_search":
-        return "🔍 Continue Searching";
+        return "Continue Searching";
       case "browse_items":
-        return "📋 Browse All Items";
+        return "Browse All Items";
       case "expand_search":
-        return "🔄 Expand Search Area";
+        return "Expand Search Area";
       case "get_notified":
-        return "🔔 Notify Me Later";
+        return "Notify Me Later";
       case "refine_search":
-        return "✏️ Refine Details";
+        return "Refine Details";
+      case "navigate_to_post":
+        return intent === 'post_found' ? "Go to Post Found" : "Go to Post Lost";
       case "continue_conversation":
+      case "continue":
+      case "await_input":
         return null; // Don't show button
       default:
         return null;

@@ -98,48 +98,56 @@ function generateAutoPost(ctx: SessionContext, lang: 'hi' | 'en'): {
   };
 }
 
-// ============= RULE-BASED INTENT DETECTION (NO AI) =============
+// ============= INTELLIGENT INVESTIGATOR RULES =============
 
-const LOST_KEYWORDS = ['lost', 'missing', 'kho gaya', 'kho gayi', 'kho di', 'gum', 'gum ho gaya', 'bhul gaya', 'chhut gaya', 'nahi mil raha', 'can\'t find', 'cannot find', 'left behind', 'misplaced'];
-const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paaya', 'dekha', 'someone left', 'lying', 'unclaimed'];
-const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya', 'guide', 'madad', 'sahayata', 'explain'];
-const IDENTITY_KEYWORDS = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer', 'coder'];
+// Intent keywords - detect from natural language immediately
+const LOST_KEYWORDS = ['lost', 'missing', 'kho gaya', 'kho gayi', 'kho di', 'gum', 'gum ho gaya', 'bhul gaya', 'chhut gaya', 'nahi mil raha', 'can\'t find', 'cannot find', 'left behind', 'misplaced', 'kho', 'mera', 'meri', 'apna', 'apni', 'lose', 'losing'];
+const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paaya', 'dekha', 'someone left', 'lying', 'unclaimed', 'picked up', 'discovered'];
+const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya karna', 'guide', 'madad', 'sahayata', 'explain', 'kya hai'];
+const IDENTITY_KEYWORDS = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer', 'coder', 'rehan'];
 const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste', 'namaskar', 'good morning', 'good evening', 'good afternoon'];
-const CLAIM_KEYWORDS = ['claim', 'mine', 'mera', 'meri', 'belong', 'owner', 'return'];
-const CONFIRM_KEYWORDS = ['yes', 'ok', 'okay', 'confirm', 'post', 'submit', 'haan', 'ha', 'theek', 'kar do', 'kardo', 'post karo', 'save'];
-const CANCEL_KEYWORDS = ['no', 'nahi', 'cancel', 'nope', 'edit', 'change', 'modify', 'badlo'];
-const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'football', 'politics', 'joke', 'story', 'poem', 'recipe', 'game'];
+const CLAIM_KEYWORDS = ['claim', 'mine', 'mera hai', 'meri hai', 'belong', 'owner', 'return', 'wapas'];
+const CONFIRM_KEYWORDS = ['yes', 'ok', 'okay', 'confirm', 'post', 'submit', 'haan', 'ha', 'theek', 'kar do', 'kardo', 'post karo', 'save', 'done'];
+const CANCEL_KEYWORDS = ['no', 'nahi', 'cancel', 'nope', 'edit', 'change', 'modify', 'badlo', 'ruko', 'nahi chahiye'];
+const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'football', 'politics', 'joke', 'story', 'poem', 'recipe', 'game', 'temperature', 'stock'];
+const BROWSE_KEYWORDS = ['browse', 'show', 'list', 'dekho', 'dikhao', 'all items', 'sab', 'everything', 'recent'];
 
+// Enhanced category keywords for better extraction
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'electronics': ['phone', 'mobile', 'laptop', 'charger', 'earphone', 'headphone', 'airpod', 'tablet', 'ipad', 'camera', 'watch', 'smartwatch', 'powerbank', 'cable', 'adapter'],
-  'wallet': ['wallet', 'purse', 'money', 'cash', 'card', 'credit card', 'debit card', 'batua'],
-  'keys': ['key', 'keys', 'keychain', 'car key', 'bike key', 'room key', 'chabi', 'chaabi'],
-  'bag': ['bag', 'backpack', 'handbag', 'suitcase', 'luggage', 'pouch', 'sling', 'tote', 'laptop bag'],
-  'documents': ['document', 'id', 'id card', 'aadhar', 'aadhaar', 'pan', 'passport', 'license', 'certificate', 'marksheet'],
-  'accessories': ['glasses', 'sunglasses', 'watch', 'ring', 'chain', 'bracelet', 'earring', 'jewelry', 'jewellery', 'belt', 'umbrella', 'cap', 'hat'],
-  'clothing': ['jacket', 'coat', 'sweater', 'hoodie', 'shirt', 'jeans', 'shoes', 'sandal', 'scarf'],
-  'bottle': ['bottle', 'water bottle', 'flask', 'sipper', 'tumbler'],
+  'electronics': ['phone', 'mobile', 'laptop', 'charger', 'earphone', 'headphone', 'airpod', 'airpods', 'tablet', 'ipad', 'camera', 'watch', 'smartwatch', 'powerbank', 'cable', 'adapter', 'speaker', 'bluetooth', 'pendrive', 'usb', 'mouse', 'keyboard'],
+  'wallet': ['wallet', 'purse', 'money', 'cash', 'card', 'credit card', 'debit card', 'batua', 'pocketbook', 'billfold'],
+  'keys': ['key', 'keys', 'keychain', 'car key', 'bike key', 'room key', 'chabi', 'chaabi', 'lock'],
+  'bag': ['bag', 'backpack', 'handbag', 'suitcase', 'luggage', 'pouch', 'sling', 'tote', 'laptop bag', 'school bag', 'office bag', 'duffle'],
+  'documents': ['document', 'id', 'id card', 'aadhar', 'aadhaar', 'pan', 'passport', 'license', 'certificate', 'marksheet', 'degree', 'admit card', 'hall ticket'],
+  'accessories': ['glasses', 'sunglasses', 'watch', 'ring', 'chain', 'bracelet', 'earring', 'jewelry', 'jewellery', 'belt', 'umbrella', 'cap', 'hat', 'scarf', 'tie', 'necklace'],
+  'clothing': ['jacket', 'coat', 'sweater', 'hoodie', 'shirt', 'jeans', 'shoes', 'sandal', 'scarf', 'tshirt', 't-shirt', 'blazer', 'suit'],
+  'bottle': ['bottle', 'water bottle', 'flask', 'sipper', 'tumbler', 'thermos'],
   'other': []
 };
 
+// Location keywords for extraction
 const LOCATION_KEYWORDS = [
-  'library', 'canteen', 'cafeteria', 'classroom', 'lab', 'laboratory', 'hostel', 'mess', 'ground', 'playground',
-  'parking', 'bus stop', 'gate', 'entrance', 'exit', 'corridor', 'hallway', 'washroom', 'bathroom',
-  'auditorium', 'seminar hall', 'gym', 'sports complex', 'admin', 'office', 'department',
-  'block', 'building', 'floor', 'room', 'near', 'behind', 'front', 'beside', 'opposite',
-  'malad', 'andheri', 'bandra', 'dadar', 'mumbai', 'delhi', 'station', 'mall', 'market', 'park'
+  // Campus locations
+  'library', 'canteen', 'cafeteria', 'classroom', 'class', 'lab', 'laboratory', 'hostel', 'mess', 'ground', 'playground',
+  'parking', 'bus stop', 'gate', 'entrance', 'exit', 'corridor', 'hallway', 'washroom', 'bathroom', 'toilet',
+  'auditorium', 'seminar hall', 'gym', 'sports complex', 'admin', 'office', 'department', 'reception',
+  'block', 'building', 'floor', 'room', 'near', 'behind', 'front', 'beside', 'opposite', 'staircase', 'lift', 'elevator',
+  // City locations
+  'malad', 'andheri', 'bandra', 'dadar', 'mumbai', 'delhi', 'station', 'mall', 'market', 'park', 'garden',
+  'road', 'street', 'lane', 'nagar', 'colony', 'sector', 'phase', 'east', 'west', 'north', 'south',
+  'metro', 'railway', 'airport', 'bus stand', 'terminal', 'platform', 'shop', 'store', 'restaurant', 'hotel', 'cafe',
+  // Hindi locations
+  'ghar', 'dukaan', 'bazaar', 'mandir', 'masjid', 'church', 'gurudwara', 'hospital', 'clinic'
 ];
 
 function checkConfirmation(message: string): 'confirm' | 'cancel' | null {
   const lowerMsg = message.toLowerCase();
-  
   for (const kw of CONFIRM_KEYWORDS) {
     if (lowerMsg.includes(kw)) return 'confirm';
   }
   for (const kw of CANCEL_KEYWORDS) {
     if (lowerMsg.includes(kw)) return 'cancel';
   }
-  
   return null;
 }
 
@@ -151,30 +159,52 @@ function isOffTopic(message: string): boolean {
   return false;
 }
 
-function detectIntentByRules(message: string): {
-  intent: 'search' | 'post_lost' | 'post_found' | 'help' | 'identity' | 'greeting' | 'claim' | 'off_topic' | 'unknown';
+// Intelligent intent detection - understand what user wants immediately
+function detectIntentByRules(message: string, sessionContext?: SessionContext): {
+  intent: 'search' | 'post_lost' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'claim' | 'off_topic' | 'location_update' | 'unknown';
   confidence: number;
   matchedKeywords: string[];
 } {
-  const lowerMsg = message.toLowerCase();
+  const lowerMsg = message.toLowerCase().trim();
   const matchedKeywords: string[] = [];
+  const words = lowerMsg.split(/\s+/);
+  
+  // Check if this is just a location update (context-aware)
+  if (sessionContext?.intent && sessionContext.category && !sessionContext.location) {
+    const isJustLocation = LOCATION_KEYWORDS.some(loc => lowerMsg.includes(loc)) && 
+                          words.length <= 4 &&
+                          !LOST_KEYWORDS.some(kw => lowerMsg.includes(kw)) &&
+                          !FOUND_KEYWORDS.some(kw => lowerMsg.includes(kw));
+    if (isJustLocation) {
+      return { intent: 'location_update', confidence: 90, matchedKeywords: [] };
+    }
+  }
   
   // Check off-topic first
   if (isOffTopic(message)) {
     return { intent: 'off_topic', confidence: 90, matchedKeywords: [] };
   }
   
-  // Check identity first
+  // Check identity
   for (const kw of IDENTITY_KEYWORDS) {
     if (lowerMsg.includes(kw)) {
       return { intent: 'identity', confidence: 100, matchedKeywords: [kw] };
     }
   }
   
-  // Check greetings
-  for (const kw of GREETING_KEYWORDS) {
-    if (lowerMsg.startsWith(kw) || lowerMsg === kw) {
-      return { intent: 'greeting', confidence: 90, matchedKeywords: [kw] };
+  // Check greetings (only if message is short)
+  if (words.length <= 3) {
+    for (const kw of GREETING_KEYWORDS) {
+      if (lowerMsg.startsWith(kw) || lowerMsg === kw) {
+        return { intent: 'greeting', confidence: 90, matchedKeywords: [kw] };
+      }
+    }
+  }
+  
+  // Check browse intent
+  for (const kw of BROWSE_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      return { intent: 'browse', confidence: 80, matchedKeywords: [kw] };
     }
   }
   
@@ -184,33 +214,54 @@ function detectIntentByRules(message: string): {
       matchedKeywords.push(kw);
     }
   }
-  if (matchedKeywords.length > 0) {
+  if (matchedKeywords.length > 0 && words.length < 5) {
     return { intent: 'claim', confidence: 70, matchedKeywords };
   }
   
-  // Check lost intent
+  // Check lost vs found intent
   let lostScore = 0;
+  let foundScore = 0;
+  
   for (const kw of LOST_KEYWORDS) {
     if (lowerMsg.includes(kw)) {
-      lostScore++;
+      lostScore += 2;
       matchedKeywords.push(kw);
     }
   }
   
-  // Check found intent
-  let foundScore = 0;
   for (const kw of FOUND_KEYWORDS) {
     if (lowerMsg.includes(kw)) {
-      foundScore++;
+      foundScore += 2;
       matchedKeywords.push(kw);
     }
+  }
+  
+  // If message mentions an item category, boost confidence
+  let hasCategory = false;
+  for (const keywords of Object.values(CATEGORY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) {
+        hasCategory = true;
+        break;
+      }
+    }
+    if (hasCategory) break;
+  }
+  
+  if (hasCategory) {
+    lostScore += 1;
   }
   
   if (lostScore > foundScore && lostScore > 0) {
-    return { intent: 'search', confidence: Math.min(lostScore * 30 + 40, 95), matchedKeywords };
+    return { intent: 'search', confidence: Math.min(lostScore * 20 + 40, 95), matchedKeywords };
   }
   if (foundScore > lostScore && foundScore > 0) {
-    return { intent: 'post_found', confidence: Math.min(foundScore * 30 + 40, 95), matchedKeywords };
+    return { intent: 'post_found', confidence: Math.min(foundScore * 20 + 40, 95), matchedKeywords };
+  }
+  
+  // If has category keywords but no explicit lost/found, assume search (most common)
+  if (hasCategory) {
+    return { intent: 'search', confidence: 60, matchedKeywords: [] };
   }
   
   // Check help intent
@@ -220,18 +271,10 @@ function detectIntentByRules(message: string): {
     }
   }
   
-  // If no clear intent but has category keywords, assume search
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (lowerMsg.includes(kw)) {
-        return { intent: 'search', confidence: 60, matchedKeywords: [kw] };
-      }
-    }
-  }
-  
   return { intent: 'unknown', confidence: 0, matchedKeywords: [] };
 }
 
+// Enhanced entity extraction - extract as much as possible immediately
 function extractInfoByRules(message: string): {
   category?: string;
   location?: string;
@@ -239,16 +282,21 @@ function extractInfoByRules(message: string): {
   color?: string;
   brand?: string;
   date?: string;
+  itemName?: string;
   infoScore: number;
 } {
   const lowerMsg = message.toLowerCase();
   const result: any = { infoScore: 0 };
+  
+  // Extract specific item name for better matching
+  let foundItemKeyword = '';
   
   // Extract category
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     for (const kw of keywords) {
       if (lowerMsg.includes(kw)) {
         result.category = category;
+        foundItemKeyword = kw;
         result.infoScore++;
         break;
       }
@@ -256,21 +304,32 @@ function extractInfoByRules(message: string): {
     if (result.category) break;
   }
   
-  // Extract location
+  // Store the specific item name (e.g., "phone" not just "electronics")
+  if (foundItemKeyword) {
+    result.itemName = foundItemKeyword;
+  }
+  
+  // Extract location - more aggressive matching
   for (const loc of LOCATION_KEYWORDS) {
     if (lowerMsg.includes(loc)) {
-      const regex = new RegExp(`(\\w+\\s+)?${loc}(\\s+\\w+)?`, 'i');
+      // Try to capture surrounding context for better location
+      const regex = new RegExp(`([\\w\\s]{0,15})?${loc}([\\w\\s]{0,15})?`, 'i');
       const match = message.match(regex);
       if (match) {
-        result.location = match[0].trim();
+        // Clean up the match
+        let location = match[0].trim();
+        // Remove common words that aren't part of location
+        location = location.replace(/^(in|at|near|beside|behind|front|opposite)\s+/i, '');
+        location = location.replace(/\s+(lost|found|mila|kho|gaya|gayi|hai)$/i, '');
+        result.location = location.trim();
         result.infoScore++;
         break;
       }
     }
   }
   
-  // Extract colors
-  const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'orange', 'purple', 'gold', 'silver'];
+  // Extract colors (including Hindi colors)
+  const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'orange', 'purple', 'gold', 'silver', 'kala', 'safed', 'lal', 'neela', 'hara', 'peela'];
   for (const color of colors) {
     if (lowerMsg.includes(color)) {
       result.color = color;
@@ -279,8 +338,8 @@ function extractInfoByRules(message: string): {
     }
   }
   
-  // Extract brands
-  const brands = ['apple', 'samsung', 'xiaomi', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'sony', 'hp', 'dell', 'lenovo', 'asus', 'acer', 'nike', 'adidas', 'puma', 'boat', 'jbl', 'iphone', 'macbook'];
+  // Extract brands (more extensive list)
+  const brands = ['apple', 'samsung', 'xiaomi', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'sony', 'hp', 'dell', 'lenovo', 'asus', 'acer', 'nike', 'adidas', 'puma', 'boat', 'jbl', 'iphone', 'macbook', 'mi', 'poco', 'motorola', 'lg', 'huawei', 'google', 'pixel', 'nothing', 'iqoo', 'fossil', 'titan', 'fastrack', 'casio', 'rolex', 'tommy', 'levis', 'zara', 'h&m'];
   for (const brand of brands) {
     if (lowerMsg.includes(brand)) {
       result.brand = brand;
@@ -289,28 +348,32 @@ function extractInfoByRules(message: string): {
     }
   }
   
-  // Extract date patterns
+  // Extract date patterns (more patterns)
   const datePatterns = [
-    /yesterday/i,
-    /today/i,
-    /last\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
-    /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/,
-    /\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i,
+    { pattern: /yesterday/i, value: 'yesterday' },
+    { pattern: /today/i, value: 'today' },
+    { pattern: /kal/i, value: 'yesterday' },
+    { pattern: /aaj/i, value: 'today' },
+    { pattern: /abhi/i, value: 'today' },
+    { pattern: /last\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i, value: null },
+    { pattern: /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/, value: null },
+    { pattern: /\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i, value: null },
   ];
-  for (const pattern of datePatterns) {
+  for (const { pattern, value } of datePatterns) {
     const match = message.match(pattern);
     if (match) {
-      result.date = match[0];
+      result.date = value || match[0];
       result.infoScore++;
       break;
     }
   }
   
-  // Build description
+  // Build description from extracted info
   const descParts: string[] = [];
   if (result.color) descParts.push(result.color);
   if (result.brand) descParts.push(result.brand);
-  if (result.category) descParts.push(result.category);
+  if (result.itemName) descParts.push(result.itemName);
+  else if (result.category) descParts.push(result.category);
   if (descParts.length > 0) {
     result.description = descParts.join(' ');
   }
@@ -318,50 +381,62 @@ function extractInfoByRules(message: string): {
   return result;
 }
 
-// ============= STATIC RESPONSES (NO AI) =============
+// ============= INVESTIGATOR STATIC RESPONSES (NO AI) =============
 
 const STATIC_RESPONSES = {
   identity: {
-    en: "I was created and trained by Rehan bhai!\n\nI'm here to help you find lost items or report found items. How can I assist you?",
-    hi: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nMain aapki Lost & Found items mein madad karne ke liye yahan hoon. Kaise madad kar sakta hoon?"
+    en: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nI'm your Lost & Found investigator. Tell me what you lost or found.",
+    hi: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nMain aapka Lost & Found investigator hoon. Batao kya kho gaya ya mila?"
   },
   greeting: {
-    en: "Hello! I'm FindIt AI, your Lost & Found assistant.\n\nHow can I help you today?\n- Report a lost item\n- Report a found item\n- Search for items",
-    hi: "Namaste! Main FindIt AI hoon, aapka Lost & Found assistant.\n\nAaj main aapki kaise madad kar sakta hoon?\n- Kuch kho diya - report karein\n- Kuch mila - report karein\n- Items search karein"
+    en: "I'm your Lost & Found investigator. Tell me what happened - what did you lose or find?",
+    hi: "Main aapka Lost & Found investigator hoon. Batao kya hua - kya kho gaya ya mila?"
   },
   help: {
-    en: "I can help you with:\n- Lost something? Describe it and I'll search found items\n- Found something? Report it so the owner can find it\n- Search: Browse all items by category or location\n\nWhat would you like to do?",
-    hi: "Main aapki madad kar sakta hoon:\n- Kuch kho gaya? Batao kya kho gaya, main dhundhta hoon\n- Kuch mila? Report karo taaki owner mil sake\n- Search: Category ya location se items dekho\n\nKya karna chahte ho?"
+    en: "Just tell me naturally:\n- 'Lost my phone in library'\n- 'Found a wallet near canteen'\n\nI'll search the database immediately.",
+    hi: "Bas naturally batao:\n- 'Mera phone library mein kho gaya'\n- 'Canteen ke paas wallet mila'\n\nMain turant database search karunga."
   },
   needMoreInfo: {
-    en: "I need more details to search effectively:\n- What item? (phone, wallet, bag, etc.)\n- Where did you lose it?\n- Any details? (color, brand)",
-    hi: "Thoda aur detail chahiye search ke liye:\n- Kya item hai? (phone, wallet, bag, etc.)\n- Kahan kho gaya?\n- Koi detail? (color, brand)"
+    en: "What item? Tell me - phone, wallet, bag, keys, etc.",
+    hi: "Kya item hai? Batao - phone, wallet, bag, keys, etc."
   },
   noResults: {
-    en: "No matching items found in the database.\n\nSuggestions:\n- Post your lost item so others can help\n- Try different keywords\n- Check back later",
-    hi: "Database mein koi matching item nahi mila.\n\nSuggestions:\n- Apna lost item post karo\n- Different keywords try karo\n- Baad mein check karo"
+    en: "No matching items in database yet.",
+    hi: "Database mein abhi koi match nahi mila."
   },
   resultsFound: {
-    en: "Found potential matches:",
-    hi: "Kuch matches mil gaye:"
+    en: "Found these items:",
+    hi: "Ye items mile:"
   },
   claim: {
-    en: "To claim an item, click on it to view details and submit a claim with verification answers.",
-    hi: "Item claim karne ke liye, us par click karo aur verification answers ke saath claim submit karo."
+    en: "Click on any item to view details and submit a claim.",
+    hi: "Kisi bhi item par click karo details dekhne aur claim karne ke liye."
   },
   offTopic: {
-    en: "I can only assist with Lost & Found tasks. Please ask about lost or found items.",
-    hi: "Main sirf Lost & Found ke liye hoon. Kripya lost ya found items ke baare mein puchiye."
+    en: "I only handle Lost & Found. What did you lose or find?",
+    hi: "Main sirf Lost & Found ke liye hoon. Kya kho gaya ya mila?"
   },
   dbError: {
-    en: "Database temporarily unavailable. Please try again in a moment.",
-    hi: "Database abhi available nahi hai. Thodi der baad try karein."
+    en: "Database temporarily unavailable. Please try again.",
+    hi: "Database abhi available nahi hai. Thodi der baad try karo."
+  },
+  askLocation: {
+    en: "Where did you lose/find it?",
+    hi: "Kahan kho gaya/mila tha?"
+  },
+  isThisYours: {
+    en: "Is any of these yours?",
+    hi: "Kya inme se koi tumhara hai?"
+  },
+  noneMatch: {
+    en: "If none match, I can help you post your lost item so others can find it.",
+    hi: "Agar koi match nahi, toh main tumhara lost item post karne mein help kar sakta hoon."
   }
 };
 
 function detectLanguage(message: string): 'hi' | 'en' {
   const hindiChars = message.match(/[\u0900-\u097F]/g);
-  const hindiWords = ['kya', 'kahan', 'kaise', 'mera', 'meri', 'hai', 'hain', 'nahi', 'toh', 'aur', 'se', 'mein', 'ko', 'gaya', 'gayi', 'ho', 'raha', 'rahi', 'kar', 'karo'];
+  const hindiWords = ['kya', 'kahan', 'kaise', 'mera', 'meri', 'hai', 'hain', 'nahi', 'toh', 'aur', 'se', 'mein', 'ko', 'gaya', 'gayi', 'ho', 'raha', 'rahi', 'kar', 'karo', 'tha', 'thi', 'hoon', 'yahan', 'wahan'];
   const lowerMsg = message.toLowerCase();
   
   let hindiScore = hindiChars ? hindiChars.length : 0;
@@ -523,26 +598,38 @@ async function searchDatabase(
   }
 }
 
-function formatResults(items: any[], lang: 'hi' | 'en'): string {
+// Investigator-style results formatting - direct and informative
+function formatResults(items: any[], lang: 'hi' | 'en', sessionContext?: SessionContext): string {
   if (items.length === 0) {
+    // Smart follow-up based on what's missing
+    if (sessionContext?.category && !sessionContext?.location) {
+      return lang === 'hi' 
+        ? `${sessionContext.category} ke liye koi match nahi mila. Kahan ${sessionContext.intent === 'post_found' ? 'mila' : 'kho gaya'} tha?`
+        : `No ${sessionContext.category} found. Where did you ${sessionContext.intent === 'post_found' ? 'find' : 'lose'} it?`;
+    }
     return STATIC_RESPONSES.noResults[lang];
   }
   
+  // Direct results - no fluff
   let response = STATIC_RESPONSES.resultsFound[lang] + '\n\n';
   
   items.slice(0, 5).forEach((item, i) => {
-    const emoji = item.item_type === 'lost' ? '[LOST]' : '[FOUND]';
-    const confidence = Math.min(item.relevanceScore, 100);
-    response += `${i + 1}. ${emoji} ${item.title}\n`;
-    response += `   Location: ${item.location || 'Not specified'}\n`;
-    response += `   Date: ${item.date_lost_found || 'Not specified'}\n`;
-    response += `   Match: ${confidence}%\n\n`;
+    const typeLabel = item.item_type === 'lost' ? '[LOST]' : '[FOUND]';
+    const confidence = Math.min(item.relevanceScore || 50, 100);
+    
+    response += `${i + 1}. ${typeLabel} ${item.title}\n`;
+    response += `   📍 ${item.location || 'Location not specified'}\n`;
+    response += `   📅 ${item.date_lost_found || 'Date not specified'}\n`;
+    response += `   🎯 Match: ${confidence}%\n\n`;
   });
   
+  // Add smart follow-up question
+  response += '\n' + STATIC_RESPONSES.isThisYours[lang];
+  
   if (items.length > 5) {
-    response += lang === 'hi' 
-      ? `...aur ${items.length - 5} items. Browse page par dekho.`
-      : `...and ${items.length - 5} more items. Check the Browse page.`;
+    response += '\n\n' + (lang === 'hi' 
+      ? `+${items.length - 5} aur items available.`
+      : `+${items.length - 5} more items available.`);
   }
   
   return response;
@@ -630,166 +717,33 @@ async function handleChat(
   conversationHistory: any[] = [],
   existingSessionContext?: SessionContext
 ): Promise<ChatResponse> {
-  console.log('=== DATABASE-FIRST CHAT HANDLER ===');
+  console.log('=== INVESTIGATOR MODE: DATABASE-FIRST ===');
   console.log('User message:', userMessage);
-  console.log('AI calls so far:', aiCallCount);
+  console.log('Existing context:', JSON.stringify(existingSessionContext));
 
   const lang = detectLanguage(userMessage);
   console.log('Language:', lang);
 
+  // Initialize or continue session context
   let sessionContext: SessionContext = existingSessionContext || {
     infoScore: 0,
     conversationTurn: 0,
   };
   sessionContext.conversationTurn++;
 
-  // Step 0: Check for confirmation/cancellation
-  if (sessionContext.infoScore >= 2 && sessionContext.category) {
-    const confirmation = checkConfirmation(userMessage);
-    
-    if (confirmation === 'confirm') {
-      const autoPost = generateAutoPost(sessionContext, lang);
-      return {
-        response: lang === 'hi' 
-          ? `Post ready hai. "${autoPost.itemType === 'lost' ? 'Post Lost' : 'Post Found'}" page par jaake submit karo.\n\nTitle: ${autoPost.title}`
-          : `Post is ready. Go to "${autoPost.itemType === 'lost' ? 'Post Lost' : 'Post Found'}" page to submit.\n\nTitle: ${autoPost.title}`,
-        context: {
-          intent: sessionContext.intent || 'search',
-          missingFields: [],
-          clarifyingQuestions: [],
-          matches: [],
-          recommendedAction: 'navigate_to_post',
-          aiUsed: false,
-          dbQueried: false,
-          sessionContext,
-          autoPost,
-        },
-      };
-    }
-    
-    if (confirmation === 'cancel') {
-      sessionContext = { infoScore: 0, conversationTurn: 1 };
-      return {
-        response: lang === 'hi' ? "Theek hai, phir se batao - kya kho gaya ya mila?" : "Alright, let's start over - what did you lose or find?",
-        context: {
-          intent: 'unknown',
-          missingFields: ['category', 'location', 'description'],
-          clarifyingQuestions: [],
-          matches: [],
-          recommendedAction: 'provide_info',
-          aiUsed: false,
-          dbQueried: false,
-          sessionContext,
-        },
-      };
-    }
-  }
-
-  // Step 1: RULE-BASED intent detection
-  const { intent, confidence, matchedKeywords } = detectIntentByRules(userMessage);
-  console.log('Intent:', intent, 'Confidence:', confidence);
-
-  if (intent !== 'unknown') {
-    sessionContext.intent = intent;
-  }
-
-  // Handle off-topic immediately
-  if (intent === 'off_topic') {
-    return {
-      response: STATIC_RESPONSES.offTopic[lang],
-      context: {
-        intent: 'off_topic',
-        missingFields: [],
-        clarifyingQuestions: [],
-        matches: [],
-        recommendedAction: 'redirect',
-        aiUsed: false,
-        dbQueried: false,
-        sessionContext,
-      },
-    };
-  }
-
-  // Handle identity
-  if (intent === 'identity') {
-    return {
-      response: STATIC_RESPONSES.identity[lang],
-      context: {
-        intent: 'identity',
-        missingFields: [],
-        clarifyingQuestions: [],
-        matches: [],
-        recommendedAction: 'continue',
-        aiUsed: false,
-        dbQueried: false,
-        sessionContext,
-      },
-    };
-  }
-
-  // Handle greetings
-  if (intent === 'greeting') {
-    return {
-      response: STATIC_RESPONSES.greeting[lang],
-      context: {
-        intent: 'greeting',
-        missingFields: [],
-        clarifyingQuestions: [],
-        matches: [],
-        recommendedAction: 'await_input',
-        aiUsed: false,
-        dbQueried: false,
-        sessionContext,
-      },
-    };
-  }
-
-  // Handle help
-  if (intent === 'help') {
-    return {
-      response: STATIC_RESPONSES.help[lang],
-      context: {
-        intent: 'help',
-        missingFields: [],
-        clarifyingQuestions: [],
-        matches: [],
-        recommendedAction: 'await_input',
-        aiUsed: false,
-        dbQueried: false,
-        sessionContext,
-      },
-    };
-  }
-
-  // Handle claim
-  if (intent === 'claim') {
-    return {
-      response: STATIC_RESPONSES.claim[lang],
-      context: {
-        intent: 'claim',
-        missingFields: [],
-        clarifyingQuestions: [],
-        matches: [],
-        recommendedAction: 'show_claims',
-        aiUsed: false,
-        dbQueried: false,
-        sessionContext,
-      },
-    };
-  }
-
-  // Step 2: RULE-BASED info extraction
+  // STEP 1: Extract info from current message FIRST (before intent detection)
   const extractedInfo = extractInfoByRules(userMessage);
-  console.log('Extracted info:', extractedInfo);
+  console.log('Extracted info:', JSON.stringify(extractedInfo));
 
-  // Merge with session context
+  // Merge extracted info into session context
   if (extractedInfo.category) sessionContext.category = extractedInfo.category;
   if (extractedInfo.location) sessionContext.location = extractedInfo.location;
   if (extractedInfo.color) sessionContext.color = extractedInfo.color;
   if (extractedInfo.brand) sessionContext.brand = extractedInfo.brand;
   if (extractedInfo.date) sessionContext.date = extractedInfo.date;
   if (extractedInfo.description) sessionContext.description = extractedInfo.description;
-  
+
+  // Calculate cumulative info score
   let cumulativeScore = 0;
   if (sessionContext.category) cumulativeScore++;
   if (sessionContext.location) cumulativeScore++;
@@ -798,13 +752,126 @@ async function handleChat(
   if (sessionContext.date) cumulativeScore++;
   sessionContext.infoScore = cumulativeScore;
 
-  console.log('Session context:', sessionContext);
+  console.log('Session context after merge:', JSON.stringify(sessionContext));
 
-  // Step 3: DATABASE SEARCH (MANDATORY before any AI)
-  if (sessionContext.infoScore >= 1 || intent === 'search' || intent === 'post_found') {
-    console.log('Searching database first...');
+  // STEP 2: Detect intent (context-aware)
+  const { intent, confidence, matchedKeywords } = detectIntentByRules(userMessage, sessionContext);
+  console.log('Intent:', intent, 'Confidence:', confidence);
+
+  // Update session intent (preserve previous if just updating location/info)
+  if (intent === 'location_update' && sessionContext.intent) {
+    // Keep previous intent, just update location
+    console.log('Location update detected, keeping previous intent:', sessionContext.intent);
+  } else if (intent !== 'unknown') {
+    sessionContext.intent = intent;
+  }
+
+  // STEP 3: Handle special intents immediately (NO database needed)
+  
+  // Off-topic
+  if (intent === 'off_topic') {
+    return {
+      response: STATIC_RESPONSES.offTopic[lang],
+      context: {
+        intent: 'off_topic', missingFields: [], clarifyingQuestions: [], matches: [],
+        recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext,
+      },
+    };
+  }
+
+  // Identity question
+  if (intent === 'identity') {
+    return {
+      response: STATIC_RESPONSES.identity[lang],
+      context: {
+        intent: 'identity', missingFields: [], clarifyingQuestions: [], matches: [],
+        recommendedAction: 'continue', aiUsed: false, dbQueried: false, sessionContext,
+      },
+    };
+  }
+
+  // Greeting (only for short messages)
+  if (intent === 'greeting') {
+    return {
+      response: STATIC_RESPONSES.greeting[lang],
+      context: {
+        intent: 'greeting', missingFields: [], clarifyingQuestions: [], matches: [],
+        recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext,
+      },
+    };
+  }
+
+  // Help
+  if (intent === 'help') {
+    return {
+      response: STATIC_RESPONSES.help[lang],
+      context: {
+        intent: 'help', missingFields: [], clarifyingQuestions: [], matches: [],
+        recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext,
+      },
+    };
+  }
+
+  // Claim
+  if (intent === 'claim') {
+    return {
+      response: STATIC_RESPONSES.claim[lang],
+      context: {
+        intent: 'claim', missingFields: [], clarifyingQuestions: [], matches: [],
+        recommendedAction: 'show_claims', aiUsed: false, dbQueried: false, sessionContext,
+      },
+    };
+  }
+
+  // Check for confirmation/cancellation of auto post
+  if (sessionContext.infoScore >= 2 && sessionContext.category) {
+    const confirmation = checkConfirmation(userMessage);
     
-    const searchType = intent === 'search' ? 'found' : (intent === 'post_found' ? 'lost' : 'both');
+    if (confirmation === 'confirm') {
+      const autoPost = generateAutoPost(sessionContext, lang);
+      return {
+        response: lang === 'hi' 
+          ? `Post ready. "${autoPost.itemType === 'lost' ? 'Post Lost' : 'Post Found'}" page par submit karo.`
+          : `Post ready. Submit on "${autoPost.itemType === 'lost' ? 'Post Lost' : 'Post Found'}" page.`,
+        context: {
+          intent: sessionContext.intent || 'search', missingFields: [], clarifyingQuestions: [], matches: [],
+          recommendedAction: 'navigate_to_post', aiUsed: false, dbQueried: false, sessionContext, autoPost,
+        },
+      };
+    }
+    
+    if (confirmation === 'cancel') {
+      sessionContext = { infoScore: 0, conversationTurn: 1 };
+      return {
+        response: lang === 'hi' ? "Theek hai, phir se batao - kya kho gaya ya mila?" : "Alright - what did you lose or find?",
+        context: {
+          intent: 'unknown', missingFields: ['category', 'location', 'description'], clarifyingQuestions: [], matches: [],
+          recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext,
+        },
+      };
+    }
+  }
+
+  // STEP 4: INVESTIGATOR ACTION - Query database IMMEDIATELY if we have ANY info
+  // Don't wait, don't ask questions first - ACT NOW
+  
+  const hasAnyInfo = sessionContext.category || sessionContext.location || sessionContext.color || sessionContext.brand;
+  const shouldSearch = hasAnyInfo || intent === 'search' || intent === 'post_found' || intent === 'location_update' || intent === 'browse';
+  
+  if (shouldSearch) {
+    console.log('=== EXECUTING DATABASE SEARCH (INVESTIGATOR MODE) ===');
+    
+    // Determine search type based on intent
+    // If user lost something, search FOUND items
+    // If user found something, search LOST items (to find owner)
+    let searchType: 'lost' | 'found' | 'both' = 'both';
+    if (sessionContext.intent === 'search' || intent === 'search') {
+      searchType = 'found'; // User lost item, search found items
+    } else if (sessionContext.intent === 'post_found' || intent === 'post_found') {
+      searchType = 'lost'; // User found item, search lost items
+    }
+    
+    console.log('Search type:', searchType);
     
     const { items: results, dbQueried, error } = await searchDatabase(supabase, {
       category: sessionContext.category,
@@ -818,43 +885,46 @@ async function handleChat(
       return {
         response: STATIC_RESPONSES.dbError[lang],
         context: {
-          intent,
-          missingFields: [],
-          clarifyingQuestions: [],
-          matches: [],
-          recommendedAction: 'retry',
-          aiUsed: false,
-          dbQueried: true,
-          sessionContext,
+          intent: intent, missingFields: [], clarifyingQuestions: [], matches: [],
+          recommendedAction: 'retry', aiUsed: false, dbQueried: true, sessionContext,
         },
       };
     }
     
-    let response = formatResults(results, lang);
+    // Format results with smart follow-up
+    let response = formatResults(results, lang, sessionContext);
     let autoPost = undefined;
     let recommendedAction = results.length > 0 ? 'review_matches' : 'post_item';
     
-    // If no results and enough info, offer auto post
-    if (results.length === 0 && sessionContext.infoScore >= 2) {
-      autoPost = generateAutoPost(sessionContext, lang);
-      
-      if (autoPost.canGenerate) {
-        response += '\n\n' + (lang === 'hi' 
-          ? `Auto Post Preview:\nTitle: ${autoPost.title}\nDescription: ${autoPost.description}\n\n"Yes" bolo confirm karne ke liye.`
-          : `Auto Post Preview:\nTitle: ${autoPost.title}\nDescription: ${autoPost.description}\n\nSay "Yes" to confirm.`);
-        recommendedAction = 'confirm_auto_post';
+    // If no results found, ask ONE smart clarifying question based on what's missing
+    if (results.length === 0) {
+      if (!sessionContext.location && sessionContext.category) {
+        // Have category, need location
+        response = lang === 'hi'
+          ? `${sessionContext.category} ke liye abhi koi match nahi mila. Kahan ${sessionContext.intent === 'post_found' ? 'mila' : 'kho gaya'} tha?`
+          : `No ${sessionContext.category} found yet. Where did you ${sessionContext.intent === 'post_found' ? 'find' : 'lose'} it?`;
+        recommendedAction = 'provide_location';
+      } else if (sessionContext.infoScore >= 2) {
+        // Enough info to offer auto post
+        autoPost = generateAutoPost(sessionContext, lang);
+        if (autoPost.canGenerate) {
+          response += '\n\n' + (lang === 'hi' 
+            ? `Post karna chahte ho?\nTitle: ${autoPost.title}\n\n"Yes" bolo.`
+            : `Want to post it?\nTitle: ${autoPost.title}\n\nSay "Yes".`);
+          recommendedAction = 'confirm_auto_post';
+        }
       }
     }
     
     return {
       response,
       context: {
-        intent,
+        intent: sessionContext.intent || intent,
         missingFields: [],
         clarifyingQuestions: [],
         matches: results.map((item, index) => ({
           item,
-          confidence: item.relevanceScore,
+          confidence: Math.min(item.relevanceScore || 50, 100),
           reasoning: item.matchReasons?.join(', ') || 'Matched by keywords',
           rank: index + 1,
         })),
@@ -867,39 +937,29 @@ async function handleChat(
     };
   }
 
-  // Step 4: If no info extracted and unknown intent, ask for details (NO AI)
-  if (intent === 'unknown' && sessionContext.infoScore === 0) {
+  // STEP 5: No info extracted - ask for item type (NO AI, just static question)
+  if (!hasAnyInfo && intent === 'unknown') {
     return {
       response: STATIC_RESPONSES.needMoreInfo[lang],
       context: {
-        intent: 'unknown',
-        missingFields: ['category', 'location', 'description'],
-        clarifyingQuestions: [],
-        matches: [],
-        recommendedAction: 'provide_info',
-        aiUsed: false,
-        dbQueried: false,
-        sessionContext,
+        intent: 'unknown', missingFields: ['category', 'location'], clarifyingQuestions: [], matches: [],
+        recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext,
       },
     };
   }
 
-  // Step 5: ONLY use Ollama as LAST RESORT for complex/vague queries
+  // STEP 6: LAST RESORT - Use Ollama only for truly unclear/complex queries
+  // This should rarely happen if our rules are comprehensive
   console.log('=== OLLAMA FALLBACK (LAST RESORT) ===');
+  console.log('Reason: Could not determine intent or extract info');
   
   const ollamaResponse = await callOllamaLLM(userMessage, lang);
   
   return {
     response: ollamaResponse,
     context: {
-      intent: 'unknown',
-      missingFields: [],
-      clarifyingQuestions: [],
-      matches: [],
-      recommendedAction: 'continue',
-      aiUsed: true,
-      dbQueried: false,
-      sessionContext,
+      intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [],
+      recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext,
     },
   };
 }
