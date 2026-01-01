@@ -9,10 +9,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// ============= DUAL OLLAMA MODEL CONFIGURATION =============
+// ============= OLLAMA TEXT MODEL CONFIGURATION =============
 const OLLAMA_BASE_URL = 'http://localhost:11434';
 const OLLAMA_TEXT_MODEL = 'phi3:mini';       // Text understanding
-const OLLAMA_VISION_MODEL = 'moondream';     // Image understanding
 
 // Track usage for monitoring
 let aiCallCount = 0;
@@ -139,10 +138,6 @@ const STATIC_RESPONSES = {
   askLocationColor: {
     en: (category: string) => `Got it - ${category}.\n\nQuick:\n1. Which area/location?\n2. Color/brand (if known)?`,
     hi: (category: string) => `Samjha - ${category}.\n\nBatao:\n1. Kahan?\n2. Color/brand?`
-  },
-  imageAnalyzed: {
-    en: (desc: string) => `I see: ${desc}\n\nSearching for matches...`,
-    hi: (desc: string) => `Dikh raha hai: ${desc}\n\nMatch search kar raha hoon...`
   }
 };
 
@@ -387,75 +382,6 @@ function formatResults(items: any[], lang: 'hi' | 'en'): string {
   return response;
 }
 
-// ============= MOONDREAM VISION MODEL (IMAGE ANALYSIS) =============
-async function analyzeImageWithMoondream(imageBase64: string): Promise<{ description: string; attributes: any }> {
-  console.log('=== MOONDREAM VISION ANALYSIS ===');
-  aiCallCount++;
-  
-  try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OLLAMA_VISION_MODEL,
-        prompt: `Describe this object for a lost & found database. Include:
-1. What is it? (phone, wallet, bag, ring, keys, etc.)
-2. Color
-3. Brand (if visible)
-4. Any distinctive features
-
-Keep it brief, 2-3 sentences max.`,
-        images: [imageBase64],
-        stream: false,
-        options: { temperature: 0.2, num_predict: 150 }
-      }),
-    });
-    
-    if (!response.ok) {
-      console.error('Moondream error:', response.status);
-      throw new Error('Vision model unavailable');
-    }
-    
-    const result = await response.json();
-    const description = result.response?.trim() || 'Unable to analyze image';
-    
-    // Extract structured attributes from description
-    const lowerDesc = description.toLowerCase();
-    const attributes: any = {};
-    
-    // Extract item type
-    for (const [cat, keywords] of Object.entries(ITEM_KEYWORDS)) {
-      for (const kw of keywords) {
-        if (lowerDesc.includes(kw)) {
-          attributes.category = cat;
-          attributes.itemName = kw;
-          break;
-        }
-      }
-      if (attributes.category) break;
-    }
-    
-    // Extract color
-    const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'gold', 'silver'];
-    for (const color of colors) {
-      if (lowerDesc.includes(color)) { attributes.color = color; break; }
-    }
-    
-    // Extract brand
-    const brands = ['apple', 'samsung', 'iphone', 'xiaomi', 'oneplus', 'oppo', 'vivo'];
-    for (const brand of brands) {
-      if (lowerDesc.includes(brand)) { attributes.brand = brand; break; }
-    }
-    
-    console.log('Vision result:', { description, attributes });
-    return { description, attributes };
-    
-  } catch (error) {
-    console.error('Moondream failed:', error);
-    return { description: 'Unable to analyze image', attributes: {} };
-  }
-}
-
 // ============= PHI3 TEXT MODEL (LAST RESORT) =============
 async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
   console.log('=== PHI3 TEXT MODEL (FALLBACK) ===');
@@ -504,7 +430,6 @@ interface ChatResponse {
     dbQueried: boolean;
     sessionContext?: SessionContext;
     needsLocation?: boolean;
-    visionUsed?: boolean;
     autoPost?: any;
   };
 }
@@ -513,72 +438,16 @@ async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = [],
-  existingSessionContext?: SessionContext,
-  imageBase64?: string
+  existingSessionContext?: SessionContext
 ): Promise<ChatResponse> {
   console.log('=== INVESTIGATOR MODE ===');
   console.log('Message:', userMessage);
-  console.log('Has image:', !!imageBase64);
   
   const lang = detectLanguage(userMessage);
   
   // Initialize session context
   let sessionContext: SessionContext = existingSessionContext || { infoScore: 0, conversationTurn: 0 };
   sessionContext.conversationTurn++;
-  
-  // ============= IMAGE HANDLING (MOONDREAM) =============
-  if (imageBase64) {
-    console.log('Processing image with Moondream...');
-    const { description, attributes } = await analyzeImageWithMoondream(imageBase64);
-    
-    // Merge vision attributes into context
-    if (attributes.category) sessionContext.category = attributes.category;
-    if (attributes.itemName) sessionContext.itemName = attributes.itemName;
-    if (attributes.color) sessionContext.color = attributes.color;
-    if (attributes.brand) sessionContext.brand = attributes.brand;
-    
-    // Search database with vision-extracted attributes
-    const { items, error } = await searchDatabase(supabase, {
-      keyword: attributes.itemName || attributes.category,
-      location: sessionContext.location,
-      status: 'active'
-    });
-    
-    if (error) {
-      return {
-        response: STATIC_RESPONSES.dbError[lang],
-        context: {
-          intent: 'search', missingFields: [], clarifyingQuestions: [], matches: [],
-          recommendedAction: 'retry', aiUsed: false, dbQueried: true, sessionContext, visionUsed: true
-        }
-      };
-    }
-    
-    let response = STATIC_RESPONSES.imageAnalyzed[lang](description);
-    
-    if (items.length > 0) {
-      response += '\n\n' + formatResults(items, lang);
-    } else {
-      response += '\n\n' + STATIC_RESPONSES.noResults[lang];
-      response += '\n' + (lang === 'hi' ? 'Location batao better results ke liye.' : 'Tell me the location for better results.');
-    }
-    
-    return {
-      response,
-      context: {
-        intent: 'search',
-        missingFields: [],
-        clarifyingQuestions: [],
-        matches: items.map((item, i) => ({
-          item, confidence: Math.min(item.relevanceScore || 50, 100),
-          reasoning: item.matchReasons?.join(', ') || 'Vision match', rank: i + 1
-        })),
-        recommendedAction: items.length > 0 ? 'review_matches' : 'post_item',
-        aiUsed: false, dbQueried: true, sessionContext,
-        needsLocation: !sessionContext.location, visionUsed: true
-      }
-    };
-  }
   
   // ============= TEXT PROCESSING =============
   
@@ -725,22 +594,12 @@ serve(async (req) => {
     let result: any;
 
     switch (action) {
-      case 'analyze_image':
-        // Direct image analysis endpoint
-        if (params.imageBase64) {
-          result = await analyzeImageWithMoondream(params.imageBase64);
-        } else {
-          throw new Error('No image provided');
-        }
-        break;
-
       case 'chat':
         result = await handleChat(
           supabase,
           params.message,
           params.history || [],
-          params.sessionContext,
-          params.imageBase64  // New: support image in chat
+          params.sessionContext
         );
         break;
 

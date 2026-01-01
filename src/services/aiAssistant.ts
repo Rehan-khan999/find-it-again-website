@@ -41,7 +41,6 @@ export interface ConversationContext {
   sessionContext?: SessionContext;
   autoPost?: AutoPost;
   needsLocation?: boolean;
-  visionUsed?: boolean;
 }
 
 export interface SessionContext {
@@ -81,30 +80,15 @@ export interface ChatMessage {
 }
 
 // Main chat function - uses full investigator flow with session context
-// Now supports image upload via imageBase64 parameter
 export async function chat(
   message: string,
   history: ChatMessage[] = [],
-  sessionContext?: SessionContext,
-  imageBase64?: string
+  sessionContext?: SessionContext
 ): Promise<AIResponse<{
   response: string;
   context: ConversationContext;
 }>> {
-  return callAI('chat', { message, history, sessionContext, imageBase64 });
-}
-
-// Analyze image using Moondream vision model
-export async function analyzeImage(imageBase64: string): Promise<AIResponse<{ 
-  description: string; 
-  attributes: {
-    category?: string;
-    itemName?: string;
-    color?: string;
-    brand?: string;
-  };
-}>> {
-  return callAI('analyze_image', { imageBase64 });
+  return callAI('chat', { message, history, sessionContext });
 }
 
 // Calculate match score between items
@@ -216,19 +200,4 @@ export async function fetchAITags(itemId: string) {
     .single();
 
   return { data, error };
-}
-
-// Helper to convert File to base64
-export async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Remove data URL prefix (data:image/...;base64,)
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
