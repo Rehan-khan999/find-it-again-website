@@ -30,53 +30,6 @@ async function callAI<T>(action: string, params: Record<string, any>): Promise<A
   }
 }
 
-// Image tagging and object recognition
-export async function analyzeImage(imageUrl: string): Promise<AIResponse<{ tags: string[], objects: string[] }>> {
-  return callAI('analyze_image', { imageUrl });
-}
-
-// Auto-generate title and description
-export async function generateTitleDescription(context: {
-  tags: string[];
-  objects: string[];
-  category: string;
-  location: string;
-}): Promise<AIResponse<{ title: string; description: string }>> {
-  return callAI('generate_title_description', context);
-}
-
-// Calculate match score between items
-export async function calculateMatchScore(
-  lostItem: any,
-  foundItem: any
-): Promise<AIResponse<{ score: number; reasoning: string; textSimilarity: number; locationProximity: number }>> {
-  return callAI('calculate_match_score', { lostItem, foundItem });
-}
-
-// Semantic search
-export async function semanticSearch(query: string, items: any[]): Promise<AIResponse<any[]>> {
-  return callAI('semantic_search', { query, items });
-}
-
-// Smart autocomplete
-export async function getAutocomplete(query: string, context?: string): Promise<AIResponse<string[]>> {
-  return callAI('autocomplete', { query, context });
-}
-
-// Duplicate detection
-export async function detectDuplicates(newItem: any, existingItems: any[]): Promise<AIResponse<any[]>> {
-  return callAI('detect_duplicates', { newItem, existingItems });
-}
-
-// Intent clarification
-export async function clarifyIntent(query: string): Promise<AIResponse<{
-  intent: string;
-  suggestions: string[];
-  clarification: string;
-}>> {
-  return callAI('clarify_intent', { query });
-}
-
 // Conversation context from the investigator flow
 export interface ConversationContext {
   intent: 'search' | 'post_lost' | 'post_found' | 'refine' | 'help' | 'claim' | 'unknown';
@@ -88,6 +41,7 @@ export interface ConversationContext {
   sessionContext?: SessionContext;
   autoPost?: AutoPost;
   needsLocation?: boolean;
+  visionUsed?: boolean;
 }
 
 export interface SessionContext {
@@ -98,6 +52,7 @@ export interface SessionContext {
   description?: string;
   color?: string;
   brand?: string;
+  itemName?: string;
   itemType?: 'lost' | 'found';
   infoScore: number;
   conversationTurn: number;
@@ -126,20 +81,57 @@ export interface ChatMessage {
 }
 
 // Main chat function - uses full investigator flow with session context
+// Now supports image upload via imageBase64 parameter
 export async function chat(
   message: string,
   history: ChatMessage[] = [],
-  sessionContext?: SessionContext
+  sessionContext?: SessionContext,
+  imageBase64?: string
 ): Promise<AIResponse<{
   response: string;
   context: ConversationContext;
 }>> {
-  return callAI('chat', { message, history, sessionContext });
+  return callAI('chat', { message, history, sessionContext, imageBase64 });
 }
 
-// Suggest missing info
-export async function suggestMissingInfo(item: any): Promise<AIResponse<string[]>> {
-  return callAI('suggest_missing_info', { item });
+// Analyze image using Moondream vision model
+export async function analyzeImage(imageBase64: string): Promise<AIResponse<{ 
+  description: string; 
+  attributes: {
+    category?: string;
+    itemName?: string;
+    color?: string;
+    brand?: string;
+  };
+}>> {
+  return callAI('analyze_image', { imageBase64 });
+}
+
+// Calculate match score between items
+export async function calculateMatchScore(
+  lostItem: any,
+  foundItem: any
+): Promise<AIResponse<{ score: number; reasoning: string; textSimilarity: number; locationProximity: number }>> {
+  return callAI('calculate_match_score', { lostItem, foundItem });
+}
+
+// Semantic search
+export async function semanticSearch(query: string, items: any[]): Promise<AIResponse<any[]>> {
+  return callAI('semantic_search', { query, items });
+}
+
+// Smart autocomplete
+export async function getAutocomplete(query: string, context?: string): Promise<AIResponse<string[]>> {
+  // Simple client-side autocomplete for common items
+  const suggestions = [
+    'phone', 'wallet', 'bag', 'keys', 'laptop', 'watch', 'glasses', 
+    'earphones', 'charger', 'bottle', 'umbrella', 'card', 'ring'
+  ];
+  
+  const lowerQuery = query.toLowerCase();
+  const matches = suggestions.filter(s => s.includes(lowerQuery));
+  
+  return { data: matches.slice(0, 5), error: null };
 }
 
 // Generate notification
@@ -224,4 +216,19 @@ export async function fetchAITags(itemId: string) {
     .single();
 
   return { data, error };
+}
+
+// Helper to convert File to base64
+export async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix (data:image/...;base64,)
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }

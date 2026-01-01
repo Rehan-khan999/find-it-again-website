@@ -9,11 +9,12 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Ollama Local LLM Configuration
-const OLLAMA_URL = 'http://localhost:11434/api/generate';
-const OLLAMA_MODEL = 'phi3:mini';
+// ============= DUAL OLLAMA MODEL CONFIGURATION =============
+const OLLAMA_BASE_URL = 'http://localhost:11434';
+const OLLAMA_TEXT_MODEL = 'phi3:mini';       // Text understanding
+const OLLAMA_VISION_MODEL = 'moondream';     // Image understanding
 
-// Track AI usage for monitoring
+// Track usage for monitoring
 let aiCallCount = 0;
 
 // ============= SESSION CONTEXT STORAGE =============
@@ -26,367 +27,86 @@ interface SessionContext {
   color?: string;
   brand?: string;
   itemType?: 'lost' | 'found';
+  itemName?: string;
   infoScore: number;
   conversationTurn: number;
 }
 
-// ============= AUTO POST TEMPLATES (NO AI) =============
-const POST_TEMPLATES = {
-  lost: {
-    en: (ctx: SessionContext) => ({
-      title: `Lost ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'Item'}`,
-      description: `I lost my ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'item'}${ctx.location ? ' near ' + ctx.location : ''}${ctx.date ? ' on ' + ctx.date : ''}. ${ctx.description || 'Please contact if found.'}`,
-    }),
-    hi: (ctx: SessionContext) => ({
-      title: `खोया: ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'}`,
-      description: `मेरा ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'} खो गया${ctx.location ? ' ' + ctx.location + ' के पास' : ''}${ctx.date ? ' ' + ctx.date + ' को' : ''}। ${ctx.description || 'कृपया मिलने पर संपर्क करें।'}`,
-    }),
-  },
-  found: {
-    en: (ctx: SessionContext) => ({
-      title: `Found ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'Item'}`,
-      description: `I found a ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'item'}${ctx.location ? ' near ' + ctx.location : ''}${ctx.date ? ' on ' + ctx.date : ''}. ${ctx.description || 'Owner can claim with proper identification.'}`,
-    }),
-    hi: (ctx: SessionContext) => ({
-      title: `मिला: ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'}`,
-      description: `मुझे एक ${ctx.color ? ctx.color + ' ' : ''}${ctx.brand ? ctx.brand + ' ' : ''}${ctx.category || 'सामान'} मिला${ctx.location ? ' ' + ctx.location + ' के पास' : ''}${ctx.date ? ' ' + ctx.date + ' को' : ''}। ${ctx.description || 'मालिक पहचान के साथ दावा कर सकते हैं।'}`,
-    }),
-  },
+// ============= CATEGORY EXPANSION (CRITICAL) =============
+// User says → search these terms
+const CATEGORY_EXPANSION: Record<string, string[]> = {
+  phone: ['phone', 'mobile', 'smartphone', 'iphone', 'android', 'cell', 'handset'],
+  wallet: ['wallet', 'purse', 'billfold', 'batua', 'pocketbook'],
+  bag: ['bag', 'backpack', 'handbag', 'satchel', 'tote', 'rucksack', 'sling'],
+  ring: ['ring', 'finger ring', 'gold ring', 'silver ring'],
+  laptop: ['laptop', 'notebook', 'macbook', 'chromebook', 'computer'],
+  keys: ['keys', 'key', 'keychain', 'car key', 'bike key', 'chabi'],
+  earphones: ['earphones', 'earbuds', 'headphones', 'airpods', 'headset'],
+  glasses: ['glasses', 'spectacles', 'eyeglasses', 'sunglasses', 'chasma'],
+  watch: ['watch', 'wristwatch', 'smartwatch', 'ghadi'],
+  bottle: ['bottle', 'water bottle', 'flask', 'sipper', 'tumbler'],
+  charger: ['charger', 'adapter', 'power bank', 'cable'],
+  card: ['card', 'id card', 'aadhar', 'pan card', 'credit card', 'debit card'],
+  umbrella: ['umbrella', 'parasol', 'chhatri'],
+  jewelry: ['jewelry', 'jewellery', 'necklace', 'chain', 'bracelet', 'earring', 'pendant'],
 };
 
-// Generate auto post preview (NO AI)
-function generateAutoPost(ctx: SessionContext, lang: 'hi' | 'en'): {
-  title: string;
-  description: string;
-  category: string;
-  location: string;
-  itemType: 'lost' | 'found';
-  canGenerate: boolean;
-  missingFields: string[];
-} {
-  const missingFields: string[] = [];
+// Get all search terms for a category
+function expandCategory(term: string): string[] {
+  const lowerTerm = term.toLowerCase();
+  const terms = new Set<string>([lowerTerm]);
   
-  if (!ctx.category) missingFields.push('category');
-  if (!ctx.location) missingFields.push('location');
-  
-  const itemType: 'lost' | 'found' = ctx.intent === 'post_found' ? 'found' : 'lost';
-  const canGenerate = !!ctx.category && ctx.infoScore >= 2;
-  
-  if (!canGenerate) {
-    return {
-      title: '',
-      description: '',
-      category: ctx.category || '',
-      location: ctx.location || '',
-      itemType,
-      canGenerate: false,
-      missingFields,
-    };
+  for (const [key, values] of Object.entries(CATEGORY_EXPANSION)) {
+    if (key === lowerTerm || values.includes(lowerTerm)) {
+      terms.add(key);
+      values.forEach(v => terms.add(v));
+    }
   }
   
-  const template = POST_TEMPLATES[itemType][lang];
-  const { title, description } = template(ctx);
-  
-  return {
-    title,
-    description,
-    category: ctx.category || 'other',
-    location: ctx.location || '',
-    itemType,
-    canGenerate: true,
-    missingFields,
-  };
+  return Array.from(terms);
 }
 
-// ============= INTELLIGENT INVESTIGATOR RULES =============
-
-// Intent keywords - detect from natural language immediately
-const LOST_KEYWORDS = ['lost', 'missing', 'kho gaya', 'kho gayi', 'kho di', 'gum', 'gum ho gaya', 'bhul gaya', 'chhut gaya', 'nahi mil raha', 'can\'t find', 'cannot find', 'left behind', 'misplaced', 'kho', 'mera', 'meri', 'apna', 'apni', 'lose', 'losing'];
+// ============= INTENT KEYWORDS =============
+const LOST_KEYWORDS = ['lost', 'missing', 'kho gaya', 'kho gayi', 'kho di', 'gum', 'gum ho gaya', 'bhul gaya', 'chhut gaya', 'nahi mil raha', 'can\'t find', 'cannot find', 'left behind', 'misplaced', 'kho', 'mera', 'meri', 'lose'];
 const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paaya', 'dekha', 'someone left', 'lying', 'unclaimed', 'picked up', 'discovered'];
-const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya karna', 'guide', 'madad', 'sahayata', 'explain', 'kya hai'];
-const IDENTITY_KEYWORDS = ['kisne banaya', 'kisne train', 'who made', 'who built', 'who trained', 'who created', 'tujhe kisne', 'aapko kisne', 'tumhe kisne', 'maker', 'creator', 'developer', 'coder', 'rehan'];
-const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste', 'namaskar', 'good morning', 'good evening', 'good afternoon'];
-const CLAIM_KEYWORDS = ['claim', 'mine', 'mera hai', 'meri hai', 'belong', 'owner', 'return', 'wapas'];
-const CONFIRM_KEYWORDS = ['yes', 'ok', 'okay', 'confirm', 'post', 'submit', 'haan', 'ha', 'theek', 'kar do', 'kardo', 'post karo', 'save', 'done'];
-const CANCEL_KEYWORDS = ['no', 'nahi', 'cancel', 'nope', 'edit', 'change', 'modify', 'badlo', 'ruko', 'nahi chahiye'];
-const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'football', 'politics', 'joke', 'story', 'poem', 'recipe', 'game', 'temperature', 'stock'];
-const BROWSE_KEYWORDS = ['browse', 'show', 'list', 'dekho', 'dikhao', 'all items', 'sab', 'everything', 'recent'];
+const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya karna', 'guide', 'madad'];
+const IDENTITY_KEYWORDS = ['kisne banaya', 'who made', 'who built', 'who created', 'rehan'];
+const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste'];
+const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'joke', 'recipe'];
+const BROWSE_KEYWORDS = ['browse', 'show', 'list', 'dikhao', 'all items', 'recent'];
 
-// Enhanced category keywords for better extraction
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  'electronics': ['phone', 'mobile', 'laptop', 'charger', 'earphone', 'headphone', 'airpod', 'airpods', 'tablet', 'ipad', 'camera', 'watch', 'smartwatch', 'powerbank', 'cable', 'adapter', 'speaker', 'bluetooth', 'pendrive', 'usb', 'mouse', 'keyboard'],
-  'wallet': ['wallet', 'purse', 'money', 'cash', 'card', 'credit card', 'debit card', 'batua', 'pocketbook', 'billfold'],
-  'keys': ['key', 'keys', 'keychain', 'car key', 'bike key', 'room key', 'chabi', 'chaabi', 'lock'],
-  'bag': ['bag', 'backpack', 'handbag', 'suitcase', 'luggage', 'pouch', 'sling', 'tote', 'laptop bag', 'school bag', 'office bag', 'duffle'],
-  'documents': ['document', 'id', 'id card', 'aadhar', 'aadhaar', 'pan', 'passport', 'license', 'certificate', 'marksheet', 'degree', 'admit card', 'hall ticket'],
-  'accessories': ['glasses', 'sunglasses', 'watch', 'ring', 'chain', 'bracelet', 'earring', 'jewelry', 'jewellery', 'belt', 'umbrella', 'cap', 'hat', 'scarf', 'tie', 'necklace'],
-  'clothing': ['jacket', 'coat', 'sweater', 'hoodie', 'shirt', 'jeans', 'shoes', 'sandal', 'scarf', 'tshirt', 't-shirt', 'blazer', 'suit'],
-  'bottle': ['bottle', 'water bottle', 'flask', 'sipper', 'tumbler', 'thermos'],
-  'other': []
+// ============= CATEGORY KEYWORDS FOR EXTRACTION =============
+const ITEM_KEYWORDS: Record<string, string[]> = {
+  phone: ['phone', 'mobile', 'smartphone', 'iphone', 'android', 'cell'],
+  wallet: ['wallet', 'purse', 'batua', 'pocketbook'],
+  bag: ['bag', 'backpack', 'handbag', 'laptop bag', 'school bag'],
+  ring: ['ring', 'anguthi', 'gold ring', 'silver ring'],
+  laptop: ['laptop', 'macbook', 'notebook'],
+  keys: ['key', 'keys', 'chabi', 'keychain'],
+  earphones: ['earphone', 'earphones', 'earbuds', 'airpods', 'headphone'],
+  glasses: ['glasses', 'chasma', 'spectacles', 'sunglasses'],
+  watch: ['watch', 'ghadi', 'smartwatch'],
+  bottle: ['bottle', 'water bottle', 'flask', 'sipper'],
+  charger: ['charger', 'cable', 'powerbank', 'adapter'],
+  card: ['card', 'id card', 'aadhar', 'pan', 'license'],
+  umbrella: ['umbrella', 'chhatri'],
+  jewelry: ['jewelry', 'necklace', 'chain', 'bracelet', 'earring', 'pendant'],
 };
 
-// Location keywords for extraction
+// ============= LOCATION KEYWORDS =============
 const LOCATION_KEYWORDS = [
-  // Campus locations
-  'library', 'canteen', 'cafeteria', 'classroom', 'class', 'lab', 'laboratory', 'hostel', 'mess', 'ground', 'playground',
-  'parking', 'bus stop', 'gate', 'entrance', 'exit', 'corridor', 'hallway', 'washroom', 'bathroom', 'toilet',
-  'auditorium', 'seminar hall', 'gym', 'sports complex', 'admin', 'office', 'department', 'reception',
-  'block', 'building', 'floor', 'room', 'near', 'behind', 'front', 'beside', 'opposite', 'staircase', 'lift', 'elevator',
-  // City locations
-  'malad', 'andheri', 'bandra', 'dadar', 'mumbai', 'delhi', 'station', 'mall', 'market', 'park', 'garden',
-  'road', 'street', 'lane', 'nagar', 'colony', 'sector', 'phase', 'east', 'west', 'north', 'south',
-  'metro', 'railway', 'airport', 'bus stand', 'terminal', 'platform', 'shop', 'store', 'restaurant', 'hotel', 'cafe',
-  // Hindi locations
-  'ghar', 'dukaan', 'bazaar', 'mandir', 'masjid', 'church', 'gurudwara', 'hospital', 'clinic'
+  'library', 'canteen', 'cafeteria', 'classroom', 'class', 'lab', 'hostel', 'mess', 'ground',
+  'parking', 'bus stop', 'gate', 'corridor', 'washroom', 'auditorium', 'gym', 'office',
+  'block', 'building', 'floor', 'room', 'near', 'malad', 'andheri', 'bandra', 'dadar',
+  'station', 'mall', 'market', 'park', 'metro', 'railway', 'platform', 'shop', 'restaurant',
+  'east', 'west', 'north', 'south', 'nagar', 'colony', 'sector'
 ];
 
-function checkConfirmation(message: string): 'confirm' | 'cancel' | null {
-  const lowerMsg = message.toLowerCase();
-  for (const kw of CONFIRM_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return 'confirm';
-  }
-  for (const kw of CANCEL_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return 'cancel';
-  }
-  return null;
-}
-
-function isOffTopic(message: string): boolean {
-  const lowerMsg = message.toLowerCase();
-  for (const kw of OFF_TOPIC_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return true;
-  }
-  return false;
-}
-
-// Intelligent intent detection - understand what user wants immediately
-function detectIntentByRules(message: string, sessionContext?: SessionContext): {
-  intent: 'search' | 'post_lost' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'claim' | 'off_topic' | 'location_update' | 'unknown';
-  confidence: number;
-  matchedKeywords: string[];
-} {
-  const lowerMsg = message.toLowerCase().trim();
-  const matchedKeywords: string[] = [];
-  const words = lowerMsg.split(/\s+/);
-  
-  // Check if this is just a location update (context-aware)
-  if (sessionContext?.intent && sessionContext.category && !sessionContext.location) {
-    const isJustLocation = LOCATION_KEYWORDS.some(loc => lowerMsg.includes(loc)) && 
-                          words.length <= 4 &&
-                          !LOST_KEYWORDS.some(kw => lowerMsg.includes(kw)) &&
-                          !FOUND_KEYWORDS.some(kw => lowerMsg.includes(kw));
-    if (isJustLocation) {
-      return { intent: 'location_update', confidence: 90, matchedKeywords: [] };
-    }
-  }
-  
-  // Check off-topic first
-  if (isOffTopic(message)) {
-    return { intent: 'off_topic', confidence: 90, matchedKeywords: [] };
-  }
-  
-  // Check identity
-  for (const kw of IDENTITY_KEYWORDS) {
-    if (lowerMsg.includes(kw)) {
-      return { intent: 'identity', confidence: 100, matchedKeywords: [kw] };
-    }
-  }
-  
-  // Check greetings (only if message is short)
-  if (words.length <= 3) {
-    for (const kw of GREETING_KEYWORDS) {
-      if (lowerMsg.startsWith(kw) || lowerMsg === kw) {
-        return { intent: 'greeting', confidence: 90, matchedKeywords: [kw] };
-      }
-    }
-  }
-  
-  // Check browse intent
-  for (const kw of BROWSE_KEYWORDS) {
-    if (lowerMsg.includes(kw)) {
-      return { intent: 'browse', confidence: 80, matchedKeywords: [kw] };
-    }
-  }
-  
-  // Check claim intent
-  for (const kw of CLAIM_KEYWORDS) {
-    if (lowerMsg.includes(kw)) {
-      matchedKeywords.push(kw);
-    }
-  }
-  if (matchedKeywords.length > 0 && words.length < 5) {
-    return { intent: 'claim', confidence: 70, matchedKeywords };
-  }
-  
-  // Check lost vs found intent
-  let lostScore = 0;
-  let foundScore = 0;
-  
-  for (const kw of LOST_KEYWORDS) {
-    if (lowerMsg.includes(kw)) {
-      lostScore += 2;
-      matchedKeywords.push(kw);
-    }
-  }
-  
-  for (const kw of FOUND_KEYWORDS) {
-    if (lowerMsg.includes(kw)) {
-      foundScore += 2;
-      matchedKeywords.push(kw);
-    }
-  }
-  
-  // If message mentions an item category, boost confidence
-  let hasCategory = false;
-  for (const keywords of Object.values(CATEGORY_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (lowerMsg.includes(kw)) {
-        hasCategory = true;
-        break;
-      }
-    }
-    if (hasCategory) break;
-  }
-  
-  if (hasCategory) {
-    lostScore += 1;
-  }
-  
-  if (lostScore > foundScore && lostScore > 0) {
-    return { intent: 'search', confidence: Math.min(lostScore * 20 + 40, 95), matchedKeywords };
-  }
-  if (foundScore > lostScore && foundScore > 0) {
-    return { intent: 'post_found', confidence: Math.min(foundScore * 20 + 40, 95), matchedKeywords };
-  }
-  
-  // If has category keywords but no explicit lost/found, assume search (most common)
-  if (hasCategory) {
-    return { intent: 'search', confidence: 60, matchedKeywords: [] };
-  }
-  
-  // Check help intent
-  for (const kw of HELP_KEYWORDS) {
-    if (lowerMsg.includes(kw)) {
-      return { intent: 'help', confidence: 70, matchedKeywords: [kw] };
-    }
-  }
-  
-  return { intent: 'unknown', confidence: 0, matchedKeywords: [] };
-}
-
-// Enhanced entity extraction - extract as much as possible immediately
-function extractInfoByRules(message: string): {
-  category?: string;
-  location?: string;
-  description?: string;
-  color?: string;
-  brand?: string;
-  date?: string;
-  itemName?: string;
-  infoScore: number;
-} {
-  const lowerMsg = message.toLowerCase();
-  const result: any = { infoScore: 0 };
-  
-  // Extract specific item name for better matching
-  let foundItemKeyword = '';
-  
-  // Extract category
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (lowerMsg.includes(kw)) {
-        result.category = category;
-        foundItemKeyword = kw;
-        result.infoScore++;
-        break;
-      }
-    }
-    if (result.category) break;
-  }
-  
-  // Store the specific item name (e.g., "phone" not just "electronics")
-  if (foundItemKeyword) {
-    result.itemName = foundItemKeyword;
-  }
-  
-  // Extract location - more aggressive matching
-  for (const loc of LOCATION_KEYWORDS) {
-    if (lowerMsg.includes(loc)) {
-      // Try to capture surrounding context for better location
-      const regex = new RegExp(`([\\w\\s]{0,15})?${loc}([\\w\\s]{0,15})?`, 'i');
-      const match = message.match(regex);
-      if (match) {
-        // Clean up the match
-        let location = match[0].trim();
-        // Remove common words that aren't part of location
-        location = location.replace(/^(in|at|near|beside|behind|front|opposite)\s+/i, '');
-        location = location.replace(/\s+(lost|found|mila|kho|gaya|gayi|hai)$/i, '');
-        result.location = location.trim();
-        result.infoScore++;
-        break;
-      }
-    }
-  }
-  
-  // Extract colors (including Hindi colors)
-  const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'orange', 'purple', 'gold', 'silver', 'kala', 'safed', 'lal', 'neela', 'hara', 'peela'];
-  for (const color of colors) {
-    if (lowerMsg.includes(color)) {
-      result.color = color;
-      result.infoScore++;
-      break;
-    }
-  }
-  
-  // Extract brands (more extensive list)
-  const brands = ['apple', 'samsung', 'xiaomi', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'sony', 'hp', 'dell', 'lenovo', 'asus', 'acer', 'nike', 'adidas', 'puma', 'boat', 'jbl', 'iphone', 'macbook', 'mi', 'poco', 'motorola', 'lg', 'huawei', 'google', 'pixel', 'nothing', 'iqoo', 'fossil', 'titan', 'fastrack', 'casio', 'rolex', 'tommy', 'levis', 'zara', 'h&m'];
-  for (const brand of brands) {
-    if (lowerMsg.includes(brand)) {
-      result.brand = brand;
-      result.infoScore++;
-      break;
-    }
-  }
-  
-  // Extract date patterns (more patterns)
-  const datePatterns = [
-    { pattern: /yesterday/i, value: 'yesterday' },
-    { pattern: /today/i, value: 'today' },
-    { pattern: /kal/i, value: 'yesterday' },
-    { pattern: /aaj/i, value: 'today' },
-    { pattern: /abhi/i, value: 'today' },
-    { pattern: /last\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i, value: null },
-    { pattern: /\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/, value: null },
-    { pattern: /\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i, value: null },
-  ];
-  for (const { pattern, value } of datePatterns) {
-    const match = message.match(pattern);
-    if (match) {
-      result.date = value || match[0];
-      result.infoScore++;
-      break;
-    }
-  }
-  
-  // Build description from extracted info
-  const descParts: string[] = [];
-  if (result.color) descParts.push(result.color);
-  if (result.brand) descParts.push(result.brand);
-  if (result.itemName) descParts.push(result.itemName);
-  else if (result.category) descParts.push(result.category);
-  if (descParts.length > 0) {
-    result.description = descParts.join(' ');
-  }
-  
-  return result;
-}
-
-// ============= INVESTIGATOR STATIC RESPONSES (NO AI) =============
-
+// ============= STATIC RESPONSES (NO AI NEEDED) =============
 const STATIC_RESPONSES = {
   identity: {
-    en: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nI'm your Lost & Found investigator. What did you lose or find?",
-    hi: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nMain aapka Lost & Found investigator hoon. Kya kho gaya ya mila?"
+    en: "Mujhe Rehan bhai ne banaya hai!\n\nI'm your Lost & Found investigator. What did you lose or find?",
+    hi: "Mujhe Rehan bhai ne banaya hai!\n\nMain aapka Lost & Found investigator hoon. Kya kho gaya ya mila?"
   },
   greeting: {
     en: "Lost & Found Investigator ready. What happened?",
@@ -397,57 +117,39 @@ const STATIC_RESPONSES = {
     hi: "Bas naturally batao - main turant search karunga.\nExample: 'kal library mein mera black phone kho gaya'"
   },
   needMoreInfo: {
-    en: "What item? Phone, wallet, bag, keys?",
-    hi: "Kya item? Phone, wallet, bag, keys?"
+    en: "What item? Phone, wallet, bag, keys, ring?",
+    hi: "Kya item? Phone, wallet, bag, keys, ring?"
   },
   noResults: {
     en: "No match found yet.",
     hi: "Abhi koi match nahi mila."
-  },
-  resultsFound: {
-    en: "Found:",
-    hi: "Mile:"
-  },
-  claim: {
-    en: "Click any item to view details and claim.",
-    hi: "Item click karo details dekhne ke liye."
   },
   offTopic: {
     en: "I only handle Lost & Found. What did you lose or find?",
     hi: "Main sirf Lost & Found handle karta hoon. Kya kho gaya ya mila?"
   },
   dbError: {
-    en: "Unable to access database right now. Try again.",
-    hi: "Database abhi available nahi. Phir try karo."
+    en: "Search temporarily unavailable. Please try again.",
+    hi: "Search abhi available nahi. Phir try karo."
   },
   isThisYours: {
     en: "Is any of these yours?",
     hi: "Kya inme se koi tumhara hai?"
   },
-  // Multi-question templates (ask 2-3 at once)
-  multiQuestion: {
-    lost: {
-      en: (category: string) => `Got it - ${category} lost.\n\nQuick questions:\n1. Which area/location?\n2. Approx date/time?\n3. Any brand/color?`,
-      hi: (category: string) => `Samjha - ${category} kho gaya.\n\nBatao:\n1. Kahan? (area/location)\n2. Kab? (date/time)\n3. Brand/Color?`
-    },
-    found: {
-      en: (category: string) => `Got it - ${category} found.\n\nQuick questions:\n1. Which area/location?\n2. When did you find it?\n3. Any identifying features?`,
-      hi: (category: string) => `Samjha - ${category} mila.\n\nBatao:\n1. Kahan mila?\n2. Kab mila?\n3. Koi identifying features?`
-    }
+  askLocationColor: {
+    en: (category: string) => `Got it - ${category}.\n\nQuick:\n1. Which area/location?\n2. Color/brand (if known)?`,
+    hi: (category: string) => `Samjha - ${category}.\n\nBatao:\n1. Kahan?\n2. Color/brand?`
   },
-  askLocationOnly: {
-    en: "Where exactly? Use the location button below or type the area name.",
-    hi: "Kahan exactly? Neeche location button use karo ya area name likho."
-  },
-  locationRequired: {
-    en: "I need the location to search nearby items. Click 'Add Location' or type the area.",
-    hi: "Location chahiye nearby items search karne ke liye. 'Add Location' click karo ya area likho."
+  imageAnalyzed: {
+    en: (desc: string) => `I see: ${desc}\n\nSearching for matches...`,
+    hi: (desc: string) => `Dikh raha hai: ${desc}\n\nMatch search kar raha hoon...`
   }
 };
 
+// ============= LANGUAGE DETECTION =============
 function detectLanguage(message: string): 'hi' | 'en' {
   const hindiChars = message.match(/[\u0900-\u097F]/g);
-  const hindiWords = ['kya', 'kahan', 'kaise', 'mera', 'meri', 'hai', 'hain', 'nahi', 'toh', 'aur', 'se', 'mein', 'ko', 'gaya', 'gayi', 'ho', 'raha', 'rahi', 'kar', 'karo', 'tha', 'thi', 'hoon', 'yahan', 'wahan'];
+  const hindiWords = ['kya', 'kahan', 'kaise', 'mera', 'meri', 'hai', 'nahi', 'toh', 'aur', 'gaya', 'gayi', 'hoon'];
   const lowerMsg = message.toLowerCase();
   
   let hindiScore = hindiChars ? hindiChars.length : 0;
@@ -458,259 +160,338 @@ function detectLanguage(message: string): 'hi' | 'en' {
   return hindiScore > 3 ? 'hi' : 'en';
 }
 
-// ============= DATABASE SEARCH (ALWAYS FIRST) =============
-
-const ITEM_SYNONYMS: Record<string, string[]> = {
-  phone: ['mobile', 'smartphone', 'iphone', 'android', 'cell', 'cellphone', 'handset'],
-  wallet: ['purse', 'billfold', 'pocketbook', 'card holder', 'money clip', 'batua'],
-  bag: ['backpack', 'handbag', 'satchel', 'tote', 'rucksack', 'pouch', 'sling bag'],
-  laptop: ['notebook', 'macbook', 'chromebook', 'computer'],
-  keys: ['keychain', 'key ring', 'car keys', 'house keys', 'chabi'],
-  earphones: ['earbuds', 'headphones', 'airpods', 'headset'],
-  glasses: ['spectacles', 'eyeglasses', 'sunglasses', 'shades', 'chasma'],
-  watch: ['wristwatch', 'smartwatch', 'timepiece', 'ghadi'],
-  card: ['id card', 'identity card', 'credit card', 'debit card', 'aadhar', 'pan card'],
-  bottle: ['water bottle', 'flask', 'tumbler', 'sipper'],
-  umbrella: ['parasol', 'brolly', 'chhatri'],
-  charger: ['adapter', 'power bank', 'charging cable'],
-};
-
-function getSynonyms(term: string): string[] {
-  const lowerTerm = term.toLowerCase();
-  const synonyms = new Set<string>([lowerTerm]);
+// ============= INTENT DETECTION =============
+function detectIntent(message: string, sessionContext?: SessionContext): {
+  intent: 'search' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'off_topic' | 'location_update' | 'unknown';
+  confidence: number;
+} {
+  const lowerMsg = message.toLowerCase().trim();
+  const words = lowerMsg.split(/\s+/);
   
-  for (const [key, values] of Object.entries(ITEM_SYNONYMS)) {
-    if (key === lowerTerm || values.includes(lowerTerm)) {
-      synonyms.add(key);
-      values.forEach(v => synonyms.add(v));
+  // Location update (context-aware)
+  if (sessionContext?.intent && sessionContext.category && !sessionContext.location) {
+    const isJustLocation = LOCATION_KEYWORDS.some(loc => lowerMsg.includes(loc)) && words.length <= 4;
+    if (isJustLocation) return { intent: 'location_update', confidence: 90 };
+  }
+  
+  // Special intents
+  for (const kw of OFF_TOPIC_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'off_topic', confidence: 90 };
+  }
+  for (const kw of IDENTITY_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'identity', confidence: 100 };
+  }
+  if (words.length <= 3) {
+    for (const kw of GREETING_KEYWORDS) {
+      if (lowerMsg.startsWith(kw)) return { intent: 'greeting', confidence: 90 };
+    }
+  }
+  for (const kw of BROWSE_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'browse', confidence: 80 };
+  }
+  for (const kw of HELP_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'help', confidence: 70 };
+  }
+  
+  // Lost vs Found
+  let lostScore = 0, foundScore = 0;
+  for (const kw of LOST_KEYWORDS) {
+    if (lowerMsg.includes(kw)) lostScore += 2;
+  }
+  for (const kw of FOUND_KEYWORDS) {
+    if (lowerMsg.includes(kw)) foundScore += 2;
+  }
+  
+  // Check for item keywords
+  let hasItem = false;
+  for (const keywords of Object.values(ITEM_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) { hasItem = true; break; }
+    }
+    if (hasItem) break;
+  }
+  if (hasItem) lostScore++;
+  
+  if (lostScore > foundScore && lostScore > 0) return { intent: 'search', confidence: 80 };
+  if (foundScore > lostScore && foundScore > 0) return { intent: 'post_found', confidence: 80 };
+  if (hasItem) return { intent: 'search', confidence: 60 };
+  
+  return { intent: 'unknown', confidence: 0 };
+}
+
+// ============= ENTITY EXTRACTION =============
+function extractInfo(message: string): {
+  category?: string;
+  itemName?: string;
+  location?: string;
+  color?: string;
+  brand?: string;
+  date?: string;
+  infoScore: number;
+} {
+  const lowerMsg = message.toLowerCase();
+  const result: any = { infoScore: 0 };
+  
+  // Extract item/category
+  for (const [category, keywords] of Object.entries(ITEM_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) {
+        result.category = category;
+        result.itemName = kw;
+        result.infoScore++;
+        break;
+      }
+    }
+    if (result.category) break;
+  }
+  
+  // Extract location
+  for (const loc of LOCATION_KEYWORDS) {
+    if (lowerMsg.includes(loc)) {
+      const regex = new RegExp(`([\\w\\s]{0,10})?${loc}([\\w\\s]{0,10})?`, 'i');
+      const match = message.match(regex);
+      if (match) {
+        result.location = match[0].trim().replace(/^(in|at|near)\s+/i, '').replace(/\s+(lost|found|mila|kho)$/i, '');
+        result.infoScore++;
+        break;
+      }
     }
   }
   
-  return Array.from(synonyms);
+  // Colors
+  const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'gold', 'silver', 'kala', 'safed', 'lal', 'neela'];
+  for (const color of colors) {
+    if (lowerMsg.includes(color)) { result.color = color; result.infoScore++; break; }
+  }
+  
+  // Brands
+  const brands = ['apple', 'samsung', 'xiaomi', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'iphone', 'boat', 'jbl', 'fossil', 'titan', 'casio'];
+  for (const brand of brands) {
+    if (lowerMsg.includes(brand)) { result.brand = brand; result.infoScore++; break; }
+  }
+  
+  // Date patterns
+  if (/yesterday|kal/i.test(message)) { result.date = 'yesterday'; result.infoScore++; }
+  else if (/today|aaj|abhi/i.test(message)) { result.date = 'today'; result.infoScore++; }
+  
+  return result;
 }
 
+// ============= DATABASE SEARCH (FUZZY TEXT-BASED) =============
 async function searchDatabase(
   supabase: any,
-  extractedInfo: { category?: string; location?: string; description?: string; color?: string; brand?: string },
-  searchType: 'lost' | 'found' | 'both' = 'both'
+  params: { keyword?: string; location?: string; status?: string }
 ): Promise<{ items: any[], dbQueried: boolean, error?: string }> {
-  console.log('=== DATABASE SEARCH (MANDATORY FIRST) ===');
-  console.log('Search params:', JSON.stringify(extractedInfo));
+  console.log('=== DATABASE SEARCH ===');
+  console.log('Params:', JSON.stringify(params));
   
-  const searchTerms: string[] = [];
+  const { keyword, location, status = 'active' } = params;
   
-  if (extractedInfo.category) {
-    searchTerms.push(...getSynonyms(extractedInfo.category));
-  }
-  if (extractedInfo.color) {
-    searchTerms.push(extractedInfo.color);
-  }
-  if (extractedInfo.brand) {
-    searchTerms.push(extractedInfo.brand);
-  }
-  if (extractedInfo.description) {
-    const words = extractedInfo.description.toLowerCase().split(/\s+/);
-    words.forEach((word: string) => {
-      if (word.length > 2) {
-        searchTerms.push(...getSynonyms(word));
-      }
-    });
-  }
-
-  console.log('Search terms:', [...new Set(searchTerms)]);
-
+  // Expand keyword to all synonyms
+  const searchTerms = keyword ? expandCategory(keyword) : [];
+  console.log('Search terms:', searchTerms);
+  
   try {
+    // Fetch items
     let query = supabase
       .from('items')
       .select('*')
-      .eq('status', 'active')
+      .eq('status', status)
       .order('created_at', { ascending: false })
       .limit(50);
-
-    if (searchType !== 'both') {
-      query = query.eq('item_type', searchType);
-    }
-
+    
     const { data: allItems, error } = await query;
     
     if (error) {
-      console.error('Database search error:', error);
+      console.error('DB error:', error);
       return { items: [], dbQueried: true, error: 'Database query failed' };
     }
-
+    
     if (!allItems || allItems.length === 0) {
-      console.log('No items in database');
       return { items: [], dbQueried: true };
     }
-
-    console.log('Total items fetched:', allItems.length);
-
-    // Score and filter items
+    
+    console.log('Total items:', allItems.length);
+    
+    // Score items using fuzzy text matching
     const scoredItems = allItems.map((item: any) => {
-      let relevanceScore = 0;
-      const matchReasons: string[] = [];
+      let score = 0;
+      const reasons: string[] = [];
       
-      const itemTitle = (item.title || '').toLowerCase();
-      const itemDesc = (item.description || '').toLowerCase();
-      const itemCategory = (item.category || '').toLowerCase();
-      const itemLocation = (item.location || '').toLowerCase();
+      const title = (item.title || '').toLowerCase();
+      const desc = (item.description || '').toLowerCase();
+      const cat = (item.category || '').toLowerCase();
+      const loc = (item.location || '').toLowerCase();
       
+      // Keyword matching (title, description, category)
       for (const term of searchTerms) {
-        if (itemTitle.includes(term)) {
-          relevanceScore += 30;
-          matchReasons.push(`Title: "${term}"`);
-        }
-        if (itemDesc.includes(term)) {
-          relevanceScore += 20;
-          matchReasons.push(`Desc: "${term}"`);
-        }
-        if (itemCategory.includes(term)) {
-          relevanceScore += 25;
-          matchReasons.push(`Category: "${term}"`);
-        }
+        if (title.includes(term)) { score += 30; reasons.push(`Title: ${term}`); }
+        if (desc.includes(term)) { score += 20; reasons.push(`Desc: ${term}`); }
+        if (cat.includes(term)) { score += 25; reasons.push(`Category: ${term}`); }
       }
       
-      // Location matching with fuzzy support
-      if (extractedInfo.location) {
-        const userLoc = extractedInfo.location.toLowerCase();
-        const locWords = userLoc.split(/\s+/).filter((w: string) => w.length > 2);
-        
+      // Location matching (fuzzy)
+      if (location) {
+        const locWords = location.toLowerCase().split(/\s+/).filter(w => w.length > 2);
         for (const word of locWords) {
-          if (itemLocation.includes(word)) {
-            relevanceScore += 25;
-            matchReasons.push(`Location: "${word}"`);
-          }
-          // Fuzzy: Check if location starts with or contains partial match
-          if (itemLocation.startsWith(word.substring(0, 3))) {
-            relevanceScore += 10;
-            matchReasons.push(`Location partial: "${word}"`);
+          if (loc.includes(word)) { score += 25; reasons.push(`Location: ${word}`); }
+          // Partial match
+          else if (loc.startsWith(word.substring(0, 3)) || word.startsWith(loc.substring(0, 3))) {
+            score += 10; reasons.push(`Location partial: ${word}`);
           }
         }
       }
       
-      return { ...item, relevanceScore, matchReasons };
+      return { ...item, relevanceScore: score, matchReasons: reasons };
     });
-
-    let relevantItems = scoredItems.filter((item: any) => item.relevanceScore > 0);
     
-    if (relevantItems.length === 0) {
-      console.log('No relevant items found');
-      return { items: [], dbQueried: true };
-    }
-
-    relevantItems.sort((a: any, b: any) => b.relevanceScore - a.relevanceScore);
+    // Filter and sort
+    const relevant = scoredItems
+      .filter((item: any) => item.relevanceScore > 0)
+      .sort((a: any, b: any) => b.relevanceScore - a.relevanceScore)
+      .slice(0, 10);
     
-    console.log('Relevant items found:', relevantItems.length);
-
-    return { items: relevantItems.slice(0, 10), dbQueried: true };
+    console.log('Relevant items:', relevant.length);
+    return { items: relevant, dbQueried: true };
+    
   } catch (err) {
-    console.error('Database search exception:', err);
+    console.error('Search exception:', err);
     return { items: [], dbQueried: true, error: 'Database connection failed' };
   }
 }
 
-// Investigator-style results formatting - direct, no fluff
-function formatResults(items: any[], lang: 'hi' | 'en', sessionContext?: SessionContext, userLocation?: { lat: number; lng: number }): string {
-  if (items.length === 0) {
-    return STATIC_RESPONSES.noResults[lang];
-  }
+// ============= FORMAT RESULTS =============
+function formatResults(items: any[], lang: 'hi' | 'en'): string {
+  if (items.length === 0) return STATIC_RESPONSES.noResults[lang];
   
-  // Direct results display
-  let response = STATIC_RESPONSES.resultsFound[lang] + '\n';
+  let response = lang === 'hi' ? 'Mile:\n' : 'Found:\n';
   
   items.slice(0, 5).forEach((item, i) => {
-    const typeLabel = item.item_type === 'lost' ? 'LOST' : 'FOUND';
+    const type = item.item_type === 'lost' ? 'LOST' : 'FOUND';
     const confidence = Math.min(item.relevanceScore || 50, 100);
     
-    // Calculate distance if user location provided
-    let distanceStr = '';
-    if (userLocation && item.latitude && item.longitude) {
-      const dist = calculateDistance(userLocation.lat, userLocation.lng, item.latitude, item.longitude);
-      distanceStr = dist < 1 ? `${Math.round(dist * 1000)}m away` : `${dist.toFixed(1)}km away`;
-    }
-    
-    response += `\n${i + 1}. [${typeLabel}] ${item.title}`;
-    response += `\n   Location: ${item.location || 'Not specified'}${distanceStr ? ` (${distanceStr})` : ''}`;
+    response += `\n${i + 1}. [${type}] ${item.title}`;
+    response += `\n   Location: ${item.location || 'Not specified'}`;
     response += `\n   Date: ${item.date_lost_found || 'Not specified'}`;
     response += `\n   Match: ${confidence}%`;
+    if (item.matchReasons?.length > 0) {
+      response += `\n   Reason: ${item.matchReasons.slice(0, 2).join(', ')}`;
+    }
   });
   
   response += '\n\n' + STATIC_RESPONSES.isThisYours[lang];
-  
   if (items.length > 5) {
-    response += lang === 'hi' 
-      ? ` (+${items.length - 5} aur)`
-      : ` (+${items.length - 5} more)`;
+    response += ` (+${items.length - 5} more)`;
   }
   
   return response;
 }
 
-// Calculate distance between two coordinates (Haversine formula)
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+// ============= MOONDREAM VISION MODEL (IMAGE ANALYSIS) =============
+async function analyzeImageWithMoondream(imageBase64: string): Promise<{ description: string; attributes: any }> {
+  console.log('=== MOONDREAM VISION ANALYSIS ===');
+  aiCallCount++;
+  
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OLLAMA_VISION_MODEL,
+        prompt: `Describe this object for a lost & found database. Include:
+1. What is it? (phone, wallet, bag, ring, keys, etc.)
+2. Color
+3. Brand (if visible)
+4. Any distinctive features
+
+Keep it brief, 2-3 sentences max.`,
+        images: [imageBase64],
+        stream: false,
+        options: { temperature: 0.2, num_predict: 150 }
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error('Moondream error:', response.status);
+      throw new Error('Vision model unavailable');
+    }
+    
+    const result = await response.json();
+    const description = result.response?.trim() || 'Unable to analyze image';
+    
+    // Extract structured attributes from description
+    const lowerDesc = description.toLowerCase();
+    const attributes: any = {};
+    
+    // Extract item type
+    for (const [cat, keywords] of Object.entries(ITEM_KEYWORDS)) {
+      for (const kw of keywords) {
+        if (lowerDesc.includes(kw)) {
+          attributes.category = cat;
+          attributes.itemName = kw;
+          break;
+        }
+      }
+      if (attributes.category) break;
+    }
+    
+    // Extract color
+    const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'gold', 'silver'];
+    for (const color of colors) {
+      if (lowerDesc.includes(color)) { attributes.color = color; break; }
+    }
+    
+    // Extract brand
+    const brands = ['apple', 'samsung', 'iphone', 'xiaomi', 'oneplus', 'oppo', 'vivo'];
+    for (const brand of brands) {
+      if (lowerDesc.includes(brand)) { attributes.brand = brand; break; }
+    }
+    
+    console.log('Vision result:', { description, attributes });
+    return { description, attributes };
+    
+  } catch (error) {
+    console.error('Moondream failed:', error);
+    return { description: 'Unable to analyze image', attributes: {} };
+  }
 }
 
-// ============= OLLAMA LOCAL LLM (LAST RESORT ONLY) =============
-
-async function callOllamaLLM(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
-  console.log('=== CALLING OLLAMA (LAST RESORT) ===');
-  console.log('Message:', userMessage.substring(0, 50));
-  
+// ============= PHI3 TEXT MODEL (LAST RESORT) =============
+async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
+  console.log('=== PHI3 TEXT MODEL (FALLBACK) ===');
   aiCallCount++;
-  console.log('AI call count:', aiCallCount);
   
   const systemPrompt = `You are FindIt AI, a Lost & Found assistant. STRICT RULES:
 - Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
 - MAX 2 sentences
-- Ask ONE clarifying question about what item they lost/found or where
-- NO storytelling, NO motivational talk
-- ONLY assist with Lost & Found tasks
-- If question is unrelated, politely redirect to Lost & Found`;
+- Ask ONE clarifying question about item or location
+- NO storytelling
+- ONLY Lost & Found tasks`;
 
   try {
-    const response = await fetch(OLLAMA_URL, {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: OLLAMA_MODEL,
+        model: OLLAMA_TEXT_MODEL,
         prompt: `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`,
         stream: false,
-        options: {
-          temperature: 0.3,
-          num_predict: 100,
-        }
+        options: { temperature: 0.3, num_predict: 100 }
       }),
     });
 
-    if (!response.ok) {
-      console.error('Ollama API error:', response.status);
-      throw new Error('Ollama unavailable');
-    }
+    if (!response.ok) throw new Error('Text model unavailable');
 
     const result = await response.json();
+    return result.response?.trim() || STATIC_RESPONSES.needMoreInfo[lang];
     
-    if (result.response) {
-      return result.response.trim();
-    }
-    
-    throw new Error('Unexpected Ollama response format');
   } catch (error) {
-    console.error('Ollama call failed:', error);
-    // Fallback to static response if Ollama fails
+    console.error('Phi3 failed:', error);
     return STATIC_RESPONSES.needMoreInfo[lang];
   }
 }
 
-// ============= MAIN CHAT HANDLER (DATABASE-FIRST, AI-LAST) =============
-
+// ============= MAIN CHAT HANDLER =============
 interface ChatResponse {
   response: string;
   context: {
@@ -722,16 +503,9 @@ interface ChatResponse {
     aiUsed: boolean;
     dbQueried: boolean;
     sessionContext?: SessionContext;
-    needsLocation?: boolean; // Flag for location picker
-    autoPost?: {
-      title: string;
-      description: string;
-      category: string;
-      location: string;
-      itemType: 'lost' | 'found';
-      canGenerate: boolean;
-      missingFields: string[];
-    };
+    needsLocation?: boolean;
+    visionUsed?: boolean;
+    autoPost?: any;
   };
 }
 
@@ -739,221 +513,140 @@ async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = [],
-  existingSessionContext?: SessionContext
+  existingSessionContext?: SessionContext,
+  imageBase64?: string
 ): Promise<ChatResponse> {
-  console.log('=== INVESTIGATOR MODE: DATABASE-FIRST ===');
-  console.log('User message:', userMessage);
-  console.log('Existing context:', JSON.stringify(existingSessionContext));
-
+  console.log('=== INVESTIGATOR MODE ===');
+  console.log('Message:', userMessage);
+  console.log('Has image:', !!imageBase64);
+  
   const lang = detectLanguage(userMessage);
-  console.log('Language:', lang);
-
-  // Initialize or continue session context
-  let sessionContext: SessionContext = existingSessionContext || {
-    infoScore: 0,
-    conversationTurn: 0,
-  };
+  
+  // Initialize session context
+  let sessionContext: SessionContext = existingSessionContext || { infoScore: 0, conversationTurn: 0 };
   sessionContext.conversationTurn++;
-
-  // STEP 1: Extract info from current message FIRST (before intent detection)
-  const extractedInfo = extractInfoByRules(userMessage);
-  console.log('Extracted info:', JSON.stringify(extractedInfo));
-
-  // Merge extracted info into session context
-  if (extractedInfo.category) sessionContext.category = extractedInfo.category;
-  if (extractedInfo.location) sessionContext.location = extractedInfo.location;
-  if (extractedInfo.color) sessionContext.color = extractedInfo.color;
-  if (extractedInfo.brand) sessionContext.brand = extractedInfo.brand;
-  if (extractedInfo.date) sessionContext.date = extractedInfo.date;
-  if (extractedInfo.description) sessionContext.description = extractedInfo.description;
-
-  // Calculate cumulative info score
-  let cumulativeScore = 0;
-  if (sessionContext.category) cumulativeScore++;
-  if (sessionContext.location) cumulativeScore++;
-  if (sessionContext.color) cumulativeScore++;
-  if (sessionContext.brand) cumulativeScore++;
-  if (sessionContext.date) cumulativeScore++;
-  sessionContext.infoScore = cumulativeScore;
-
-  console.log('Session context after merge:', JSON.stringify(sessionContext));
-
-  // STEP 2: Detect intent (context-aware)
-  const { intent, confidence, matchedKeywords } = detectIntentByRules(userMessage, sessionContext);
-  console.log('Intent:', intent, 'Confidence:', confidence);
-
-  // Update session intent (preserve previous if just updating location/info)
-  if (intent === 'location_update' && sessionContext.intent) {
-    // Keep previous intent, just update location
-    console.log('Location update detected, keeping previous intent:', sessionContext.intent);
-  } else if (intent !== 'unknown') {
-    sessionContext.intent = intent;
-  }
-
-  // STEP 3: Handle special intents immediately (NO database needed)
   
-  // Off-topic
-  if (intent === 'off_topic') {
-    return {
-      response: STATIC_RESPONSES.offTopic[lang],
-      context: {
-        intent: 'off_topic', missingFields: [], clarifyingQuestions: [], matches: [],
-        recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext,
-      },
-    };
-  }
-
-  // Identity question
-  if (intent === 'identity') {
-    return {
-      response: STATIC_RESPONSES.identity[lang],
-      context: {
-        intent: 'identity', missingFields: [], clarifyingQuestions: [], matches: [],
-        recommendedAction: 'continue', aiUsed: false, dbQueried: false, sessionContext,
-      },
-    };
-  }
-
-  // Greeting (only for short messages)
-  if (intent === 'greeting') {
-    return {
-      response: STATIC_RESPONSES.greeting[lang],
-      context: {
-        intent: 'greeting', missingFields: [], clarifyingQuestions: [], matches: [],
-        recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext,
-      },
-    };
-  }
-
-  // Help
-  if (intent === 'help') {
-    return {
-      response: STATIC_RESPONSES.help[lang],
-      context: {
-        intent: 'help', missingFields: [], clarifyingQuestions: [], matches: [],
-        recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext,
-      },
-    };
-  }
-
-  // Claim
-  if (intent === 'claim') {
-    return {
-      response: STATIC_RESPONSES.claim[lang],
-      context: {
-        intent: 'claim', missingFields: [], clarifyingQuestions: [], matches: [],
-        recommendedAction: 'show_claims', aiUsed: false, dbQueried: false, sessionContext,
-      },
-    };
-  }
-
-  // Check for confirmation/cancellation of auto post
-  if (sessionContext.infoScore >= 2 && sessionContext.category) {
-    const confirmation = checkConfirmation(userMessage);
+  // ============= IMAGE HANDLING (MOONDREAM) =============
+  if (imageBase64) {
+    console.log('Processing image with Moondream...');
+    const { description, attributes } = await analyzeImageWithMoondream(imageBase64);
     
-    if (confirmation === 'confirm') {
-      const autoPost = generateAutoPost(sessionContext, lang);
-      return {
-        response: lang === 'hi' 
-          ? `Post ready. "${autoPost.itemType === 'lost' ? 'Post Lost' : 'Post Found'}" page par submit karo.`
-          : `Post ready. Submit on "${autoPost.itemType === 'lost' ? 'Post Lost' : 'Post Found'}" page.`,
-        context: {
-          intent: sessionContext.intent || 'search', missingFields: [], clarifyingQuestions: [], matches: [],
-          recommendedAction: 'navigate_to_post', aiUsed: false, dbQueried: false, sessionContext, autoPost,
-        },
-      };
-    }
+    // Merge vision attributes into context
+    if (attributes.category) sessionContext.category = attributes.category;
+    if (attributes.itemName) sessionContext.itemName = attributes.itemName;
+    if (attributes.color) sessionContext.color = attributes.color;
+    if (attributes.brand) sessionContext.brand = attributes.brand;
     
-    if (confirmation === 'cancel') {
-      sessionContext = { infoScore: 0, conversationTurn: 1 };
-      return {
-        response: lang === 'hi' ? "Theek hai, phir se batao - kya kho gaya ya mila?" : "Alright - what did you lose or find?",
-        context: {
-          intent: 'unknown', missingFields: ['category', 'location', 'description'], clarifyingQuestions: [], matches: [],
-          recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext,
-        },
-      };
-    }
-  }
-
-  // STEP 4: INVESTIGATOR ACTION - Database search IMMEDIATELY with any info
-  
-  const hasCategory = !!sessionContext.category;
-  const hasLocation = !!sessionContext.location;
-  const hasAnyInfo = hasCategory || hasLocation || sessionContext.color || sessionContext.brand;
-  const shouldSearch = hasAnyInfo || intent === 'search' || intent === 'post_found' || intent === 'location_update' || intent === 'browse';
-  
-  if (shouldSearch) {
-    console.log('=== EXECUTING DATABASE SEARCH (INVESTIGATOR MODE) ===');
-    
-    // If we have category but no location, first search then ask for location with multi-questions
-    const needsLocationPrompt = hasCategory && !hasLocation && sessionContext.conversationTurn <= 2;
-    
-    // Determine search type
-    let searchType: 'lost' | 'found' | 'both' = 'both';
-    if (sessionContext.intent === 'search' || intent === 'search') {
-      searchType = 'found';
-    } else if (sessionContext.intent === 'post_found' || intent === 'post_found') {
-      searchType = 'lost';
-    }
-    
-    console.log('Search type:', searchType);
-    
-    const { items: results, dbQueried, error } = await searchDatabase(supabase, {
-      category: sessionContext.category,
+    // Search database with vision-extracted attributes
+    const { items, error } = await searchDatabase(supabase, {
+      keyword: attributes.itemName || attributes.category,
       location: sessionContext.location,
-      color: sessionContext.color,
-      brand: sessionContext.brand,
-      description: sessionContext.description,
-    }, searchType);
+      status: 'active'
+    });
     
     if (error) {
       return {
         response: STATIC_RESPONSES.dbError[lang],
         context: {
-          intent: intent, missingFields: [], clarifyingQuestions: [], matches: [],
-          recommendedAction: 'retry', aiUsed: false, dbQueried: true, sessionContext,
-        },
+          intent: 'search', missingFields: [], clarifyingQuestions: [], matches: [],
+          recommendedAction: 'retry', aiUsed: false, dbQueried: true, sessionContext, visionUsed: true
+        }
       };
     }
     
-    // Format results
-    let response = formatResults(results, lang, sessionContext);
-    let autoPost = undefined;
-    let recommendedAction = results.length > 0 ? 'review_matches' : 'post_item';
-    let needsLocation = false;
+    let response = STATIC_RESPONSES.imageAnalyzed[lang](description);
     
-    // Smart follow-up logic
-    if (results.length === 0) {
-      // No results - ask multi-questions if first time, or request location
-      if (needsLocationPrompt) {
-        // Ask 2-3 questions at once (MULTI-QUESTION INTELLIGENCE)
-        const multiQ = sessionContext.intent === 'post_found' 
-          ? STATIC_RESPONSES.multiQuestion.found
-          : STATIC_RESPONSES.multiQuestion.lost;
-        response = multiQ[lang](sessionContext.category || 'item');
-        recommendedAction = 'provide_location';
-        needsLocation = true;
-      } else if (!hasLocation && hasCategory) {
-        // Still need location specifically
-        response = STATIC_RESPONSES.askLocationOnly[lang];
-        recommendedAction = 'provide_location';
-        needsLocation = true;
-      } else if (sessionContext.infoScore >= 2) {
-        // Enough info to offer auto post
-        autoPost = generateAutoPost(sessionContext, lang);
-        if (autoPost.canGenerate) {
-          response += '\n\n' + (lang === 'hi' 
-            ? `Post karna chahte ho?\nTitle: "${autoPost.title}"\n\nBolo "Yes" ya "No".`
-            : `Want to post it?\nTitle: "${autoPost.title}"\n\nSay "Yes" or "No".`);
-          recommendedAction = 'confirm_auto_post';
-        }
+    if (items.length > 0) {
+      response += '\n\n' + formatResults(items, lang);
+    } else {
+      response += '\n\n' + STATIC_RESPONSES.noResults[lang];
+      response += '\n' + (lang === 'hi' ? 'Location batao better results ke liye.' : 'Tell me the location for better results.');
+    }
+    
+    return {
+      response,
+      context: {
+        intent: 'search',
+        missingFields: [],
+        clarifyingQuestions: [],
+        matches: items.map((item, i) => ({
+          item, confidence: Math.min(item.relevanceScore || 50, 100),
+          reasoning: item.matchReasons?.join(', ') || 'Vision match', rank: i + 1
+        })),
+        recommendedAction: items.length > 0 ? 'review_matches' : 'post_item',
+        aiUsed: false, dbQueried: true, sessionContext,
+        needsLocation: !sessionContext.location, visionUsed: true
       }
-    } else if (results.length > 0 && !hasLocation) {
-      // Found results but no location - suggest adding location for better results
-      response += '\n\n' + (lang === 'hi' 
-        ? 'Location add karo better matches ke liye.'
-        : 'Add location for better matches.');
+    };
+  }
+  
+  // ============= TEXT PROCESSING =============
+  
+  // Step 1: Extract info
+  const extracted = extractInfo(userMessage);
+  if (extracted.category) sessionContext.category = extracted.category;
+  if (extracted.itemName) sessionContext.itemName = extracted.itemName;
+  if (extracted.location) sessionContext.location = extracted.location;
+  if (extracted.color) sessionContext.color = extracted.color;
+  if (extracted.brand) sessionContext.brand = extracted.brand;
+  if (extracted.date) sessionContext.date = extracted.date;
+  
+  // Calculate score
+  let score = 0;
+  if (sessionContext.category) score++;
+  if (sessionContext.location) score++;
+  if (sessionContext.color) score++;
+  if (sessionContext.brand) score++;
+  sessionContext.infoScore = score;
+  
+  // Step 2: Detect intent
+  const { intent } = detectIntent(userMessage, sessionContext);
+  if (intent !== 'unknown' && intent !== 'location_update') sessionContext.intent = intent;
+  
+  // Step 3: Handle special intents immediately
+  if (intent === 'off_topic') {
+    return { response: STATIC_RESPONSES.offTopic[lang], context: { intent: 'off_topic', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  if (intent === 'identity') {
+    return { response: STATIC_RESPONSES.identity[lang], context: { intent: 'identity', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  if (intent === 'greeting') {
+    return { response: STATIC_RESPONSES.greeting[lang], context: { intent: 'greeting', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  if (intent === 'help') {
+    return { response: STATIC_RESPONSES.help[lang], context: { intent: 'help', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  
+  // Step 4: DATABASE SEARCH (MANDATORY)
+  const hasCategory = !!sessionContext.category;
+  const hasLocation = !!sessionContext.location;
+  const hasAnyInfo = hasCategory || hasLocation || !!sessionContext.color;
+  
+  if (hasAnyInfo || intent === 'search' || intent === 'post_found' || intent === 'location_update' || intent === 'browse') {
+    console.log('Executing database search...');
+    
+    const { items, error } = await searchDatabase(supabase, {
+      keyword: sessionContext.itemName || sessionContext.category,
+      location: sessionContext.location,
+      status: 'active'
+    });
+    
+    if (error) {
+      return { response: STATIC_RESPONSES.dbError[lang], context: { intent, missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'retry', aiUsed: false, dbQueried: true, sessionContext } };
+    }
+    
+    // Format response
+    let response = formatResults(items, lang);
+    let needsLocation = false;
+    let recommendedAction = items.length > 0 ? 'review_matches' : 'post_item';
+    
+    if (items.length === 0 && hasCategory && !hasLocation) {
+      // Ask for location + color in one go
+      response = STATIC_RESPONSES.askLocationColor[lang](sessionContext.category || 'item');
+      needsLocation = true;
+      recommendedAction = 'provide_location';
+    } else if (items.length > 0 && !hasLocation) {
+      response += '\n' + (lang === 'hi' ? 'Location add karo better results ke liye.' : 'Add location for better results.');
       needsLocation = true;
     }
     
@@ -963,165 +656,61 @@ async function handleChat(
         intent: sessionContext.intent || intent,
         missingFields: [],
         clarifyingQuestions: [],
-        matches: results.map((item, index) => ({
-          item,
-          confidence: Math.min(item.relevanceScore || 50, 100),
-          reasoning: item.matchReasons?.join(', ') || 'Matched by keywords',
-          rank: index + 1,
+        matches: items.map((item, i) => ({
+          item, confidence: Math.min(item.relevanceScore || 50, 100),
+          reasoning: item.matchReasons?.join(', ') || 'Matched by keywords', rank: i + 1
         })),
-        recommendedAction,
-        aiUsed: false,
-        dbQueried: true,
-        sessionContext,
-        needsLocation,
-        autoPost,
-      },
+        recommendedAction, aiUsed: false, dbQueried: true, sessionContext, needsLocation
+      }
     };
   }
-
-  // STEP 5: No info extracted - ask for item type (NO AI, just static question)
+  
+  // Step 5: No info - ask for item type (static)
   if (!hasAnyInfo && intent === 'unknown') {
-    return {
-      response: STATIC_RESPONSES.needMoreInfo[lang],
-      context: {
-        intent: 'unknown', missingFields: ['category', 'location'], clarifyingQuestions: [], matches: [],
-        recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext,
-      },
-    };
+    return { response: STATIC_RESPONSES.needMoreInfo[lang], context: { intent: 'unknown', missingFields: ['category'], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext } };
   }
-
-  // STEP 6: LAST RESORT - Use Ollama only for truly unclear/complex queries
-  // This should rarely happen if our rules are comprehensive
-  console.log('=== OLLAMA FALLBACK (LAST RESORT) ===');
-  console.log('Reason: Could not determine intent or extract info');
   
-  const ollamaResponse = await callOllamaLLM(userMessage, lang);
-  
-  return {
-    response: ollamaResponse,
-    context: {
-      intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [],
-      recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext,
-    },
-  };
+  // Step 6: LAST RESORT - Use Phi3 text model
+  console.log('Using Phi3 as fallback...');
+  const aiResponse = await callTextModel(userMessage, lang);
+  return { response: aiResponse, context: { intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } };
 }
 
-// ============= RULE-BASED FUNCTIONS (NO AI) =============
+// ============= HELPER FUNCTIONS =============
 
 function calculateMatchScore(lostItem: any, foundItem: any): { score: number, reasoning: string, textSimilarity: number, locationProximity: number } {
   let score = 0;
   const reasons: string[] = [];
   
-  if (lostItem.category && foundItem.category) {
-    if (lostItem.category.toLowerCase() === foundItem.category.toLowerCase()) {
-      score += 40;
-      reasons.push('Same category');
-    }
+  if (lostItem.category && foundItem.category && lostItem.category.toLowerCase() === foundItem.category.toLowerCase()) {
+    score += 40; reasons.push('Same category');
   }
   
   if (lostItem.location && foundItem.location) {
-    const lostLoc = lostItem.location.toLowerCase();
-    const foundLoc = foundItem.location.toLowerCase();
-    const words = lostLoc.split(/\s+/).filter((w: string) => w.length > 2);
-    const matches = words.filter((w: string) => foundLoc.includes(w));
-    if (matches.length > 0) {
-      score += Math.min(matches.length * 10, 25);
-      reasons.push('Similar location');
-    }
-  }
-  
-  if (lostItem.date_lost_found && foundItem.date_lost_found) {
-    const lostDate = new Date(lostItem.date_lost_found);
-    const foundDate = new Date(foundItem.date_lost_found);
-    const daysDiff = Math.abs((lostDate.getTime() - foundDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff <= 3) {
-      score += 15;
-      reasons.push('Close dates');
-    } else if (daysDiff <= 7) {
-      score += 10;
-      reasons.push('Within a week');
-    }
+    const words = lostItem.location.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+    const matches = words.filter((w: string) => foundItem.location.toLowerCase().includes(w));
+    if (matches.length > 0) { score += Math.min(matches.length * 10, 25); reasons.push('Similar location'); }
   }
   
   if (lostItem.description && foundItem.description) {
-    const lostDesc = lostItem.description.toLowerCase();
-    const foundDesc = foundItem.description.toLowerCase();
-    const words = lostDesc.split(/\s+/).filter((w: string) => w.length > 3);
-    const matches = words.filter((w: string) => foundDesc.includes(w));
-    if (matches.length >= 3) {
-      score += 20;
-      reasons.push('Similar description');
-    } else if (matches.length >= 1) {
-      score += 10;
-      reasons.push('Partial description match');
-    }
+    const words = lostItem.description.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+    const matches = words.filter((w: string) => foundItem.description.toLowerCase().includes(w));
+    if (matches.length >= 2) { score += 20; reasons.push('Similar description'); }
   }
   
-  return {
-    score: Math.min(score, 100),
-    reasoning: reasons.join(', ') || 'Low similarity',
-    textSimilarity: score,
-    locationProximity: score > 25 ? 80 : 50,
-  };
+  return { score: Math.min(score, 100), reasoning: reasons.join(', ') || 'Low similarity', textSimilarity: score, locationProximity: score > 25 ? 80 : 50 };
 }
 
 function generateNotification(type: string, context: any): { title: string, message: string } {
   const templates: Record<string, { title: string, message: string }> = {
-    potential_match: {
-      title: 'Potential Match Found!',
-      message: `A ${context.matchTitle || 'similar item'} might match your ${context.itemTitle || 'item'}.`,
-    },
-    new_claim: {
-      title: 'New Claim Received',
-      message: `Someone has claimed your ${context.itemTitle || 'item'}. Review the claim now.`,
-    },
-    claim_approved: {
-      title: 'Claim Approved',
-      message: `Your claim for ${context.itemTitle || 'the item'} has been approved.`,
-    },
-    claim_rejected: {
-      title: 'Claim Rejected',
-      message: `Your claim for ${context.itemTitle || 'the item'} was not approved.`,
-    },
-    default: {
-      title: 'Notification',
-      message: 'You have a new notification.',
-    },
+    potential_match: { title: 'Potential Match Found!', message: `A ${context.matchTitle || 'similar item'} might match your ${context.itemTitle || 'item'}.` },
+    new_claim: { title: 'New Claim Received', message: `Someone has claimed your ${context.itemTitle || 'item'}.` },
+    default: { title: 'Notification', message: 'You have a new notification.' },
   };
-  
   return templates[type] || templates.default;
 }
 
-function detectDuplicates(newItem: any, existingItems: any[]): any[] {
-  if (existingItems.length === 0) return [];
-  
-  const duplicates: any[] = [];
-  
-  for (const item of existingItems) {
-    const { score } = calculateMatchScore(newItem, item);
-    if (score >= 70) {
-      duplicates.push({ ...item, similarityScore: score });
-    }
-  }
-  
-  return duplicates;
-}
-
-function suggestMissingInfo(item: any): string[] {
-  const missing: string[] = [];
-  
-  if (!item.title) missing.push('Add a descriptive title');
-  if (!item.description) missing.push('Add a detailed description');
-  if (!item.category) missing.push('Select a category');
-  if (!item.location) missing.push('Specify the location');
-  if (!item.date_lost_found) missing.push('Add the date');
-  if (!item.photos || item.photos.length === 0) missing.push('Upload a photo');
-  
-  return missing;
-}
-
 // ============= MAIN SERVER =============
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -1136,21 +725,32 @@ serve(async (req) => {
     let result: any;
 
     switch (action) {
+      case 'analyze_image':
+        // Direct image analysis endpoint
+        if (params.imageBase64) {
+          result = await analyzeImageWithMoondream(params.imageBase64);
+        } else {
+          throw new Error('No image provided');
+        }
+        break;
+
+      case 'chat':
+        result = await handleChat(
+          supabase,
+          params.message,
+          params.history || [],
+          params.sessionContext,
+          params.imageBase64  // New: support image in chat
+        );
+        break;
+
       case 'calculate_match_score':
         result = calculateMatchScore(params.lostItem, params.foundItem);
         break;
 
       case 'semantic_search':
-        const { items } = await searchDatabase(supabase, { description: params.query }, 'both');
+        const { items } = await searchDatabase(supabase, { keyword: params.query });
         result = items;
-        break;
-
-      case 'detect_duplicates':
-        result = detectDuplicates(params.newItem, params.existingItems);
-        break;
-
-      case 'suggest_missing_info':
-        result = suggestMissingInfo(params.item);
         break;
 
       case 'generate_notification':
@@ -1160,36 +760,12 @@ serve(async (req) => {
       case 'process_new_item':
         const { item } = params;
         const processResult: any = {};
-
-        if (!item.title || !item.description) {
-          const ctx: SessionContext = {
-            category: item.category,
-            location: item.location,
-            infoScore: 2,
-            conversationTurn: 1,
-          };
-          const autoPost = generateAutoPost(ctx, 'en');
-          processResult.autoTitle = autoPost.title;
-          processResult.autoDescription = autoPost.description;
-        }
-
-        const { data: existingItems } = await supabase
-          .from('items')
-          .select('id, title, description, category, location, date_lost_found')
-          .eq('item_type', item.item_type)
-          .eq('category', item.category)
-          .limit(20);
-
-        if (existingItems) {
-          processResult.duplicates = detectDuplicates(item, existingItems);
-        }
-
+        
         const oppositeType = item.item_type === 'lost' ? 'found' : 'lost';
         const { data: potentialMatches } = await supabase
           .from('items')
           .select('*')
           .eq('item_type', oppositeType)
-          .eq('category', item.category)
           .eq('status', 'active')
           .limit(10);
 
@@ -1201,16 +777,11 @@ serve(async (req) => {
               item.item_type === 'lost' ? match : item
             );
             if (matchScore.score >= 40) {
-              processResult.matches.push({
-                item: match,
-                ...matchScore,
-              });
+              processResult.matches.push({ item: match, ...matchScore });
             }
           }
           processResult.matches.sort((a: any, b: any) => b.score - a.score);
         }
-
-        processResult.missingInfo = suggestMissingInfo(item);
         result = processResult;
         break;
 
@@ -1231,7 +802,6 @@ serve(async (req) => {
           .from('items')
           .select('*')
           .eq('item_type', matchType)
-          .eq('category', webhookItem.category)
           .eq('status', 'active')
           .limit(20);
 
@@ -1255,7 +825,6 @@ serve(async (req) => {
               const notification = generateNotification('potential_match', {
                 itemTitle: webhookItem.title,
                 matchTitle: candidate.title,
-                score: matchResult.score,
               });
 
               await supabase.from('ai_notifications').insert({
@@ -1264,26 +833,13 @@ serve(async (req) => {
                 notification_type: 'potential_match',
                 title: notification.title,
                 message: notification.message,
-                metadata: { match_item_id: candidate.id, score: matchResult.score },
-              });
-
-              await supabase.from('ai_notifications').insert({
-                user_id: candidate.user_id,
-                item_id: candidate.id,
-                notification_type: 'potential_match',
-                title: notification.title,
-                message: notification.message,
-                metadata: { match_item_id: webhookItem.id, score: matchResult.score },
+                metadata: { match_item_id: candidate.id },
               });
             }
           }
         }
 
         result = { success: true, processed: webhookItem.id };
-        break;
-
-      case 'chat':
-        result = await handleChat(supabase, params.message, params.history || [], params.sessionContext);
         break;
 
       default:
