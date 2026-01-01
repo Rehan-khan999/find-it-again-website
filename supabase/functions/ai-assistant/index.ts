@@ -385,52 +385,63 @@ function extractInfoByRules(message: string): {
 
 const STATIC_RESPONSES = {
   identity: {
-    en: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nI'm your Lost & Found investigator. Tell me what you lost or found.",
-    hi: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nMain aapka Lost & Found investigator hoon. Batao kya kho gaya ya mila?"
+    en: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nI'm your Lost & Found investigator. What did you lose or find?",
+    hi: "Mujhe Rehan bhai ne banaya hai and train kiya hai!\n\nMain aapka Lost & Found investigator hoon. Kya kho gaya ya mila?"
   },
   greeting: {
-    en: "I'm your Lost & Found investigator. Tell me what happened - what did you lose or find?",
-    hi: "Main aapka Lost & Found investigator hoon. Batao kya hua - kya kho gaya ya mila?"
+    en: "Lost & Found Investigator ready. What happened?",
+    hi: "Lost & Found Investigator ready. Kya hua?"
   },
   help: {
-    en: "Just tell me naturally:\n- 'Lost my phone in library'\n- 'Found a wallet near canteen'\n\nI'll search the database immediately.",
-    hi: "Bas naturally batao:\n- 'Mera phone library mein kho gaya'\n- 'Canteen ke paas wallet mila'\n\nMain turant database search karunga."
+    en: "Just describe naturally - I'll search immediately.\nExample: 'lost my black phone in library yesterday'",
+    hi: "Bas naturally batao - main turant search karunga.\nExample: 'kal library mein mera black phone kho gaya'"
   },
   needMoreInfo: {
-    en: "What item? Tell me - phone, wallet, bag, keys, etc.",
-    hi: "Kya item hai? Batao - phone, wallet, bag, keys, etc."
+    en: "What item? Phone, wallet, bag, keys?",
+    hi: "Kya item? Phone, wallet, bag, keys?"
   },
   noResults: {
-    en: "No matching items in database yet.",
-    hi: "Database mein abhi koi match nahi mila."
+    en: "No match found yet.",
+    hi: "Abhi koi match nahi mila."
   },
   resultsFound: {
-    en: "Found these items:",
-    hi: "Ye items mile:"
+    en: "Found:",
+    hi: "Mile:"
   },
   claim: {
-    en: "Click on any item to view details and submit a claim.",
-    hi: "Kisi bhi item par click karo details dekhne aur claim karne ke liye."
+    en: "Click any item to view details and claim.",
+    hi: "Item click karo details dekhne ke liye."
   },
   offTopic: {
     en: "I only handle Lost & Found. What did you lose or find?",
-    hi: "Main sirf Lost & Found ke liye hoon. Kya kho gaya ya mila?"
+    hi: "Main sirf Lost & Found handle karta hoon. Kya kho gaya ya mila?"
   },
   dbError: {
-    en: "Database temporarily unavailable. Please try again.",
-    hi: "Database abhi available nahi hai. Thodi der baad try karo."
-  },
-  askLocation: {
-    en: "Where did you lose/find it?",
-    hi: "Kahan kho gaya/mila tha?"
+    en: "Unable to access database right now. Try again.",
+    hi: "Database abhi available nahi. Phir try karo."
   },
   isThisYours: {
     en: "Is any of these yours?",
     hi: "Kya inme se koi tumhara hai?"
   },
-  noneMatch: {
-    en: "If none match, I can help you post your lost item so others can find it.",
-    hi: "Agar koi match nahi, toh main tumhara lost item post karne mein help kar sakta hoon."
+  // Multi-question templates (ask 2-3 at once)
+  multiQuestion: {
+    lost: {
+      en: (category: string) => `Got it - ${category} lost.\n\nQuick questions:\n1. Which area/location?\n2. Approx date/time?\n3. Any brand/color?`,
+      hi: (category: string) => `Samjha - ${category} kho gaya.\n\nBatao:\n1. Kahan? (area/location)\n2. Kab? (date/time)\n3. Brand/Color?`
+    },
+    found: {
+      en: (category: string) => `Got it - ${category} found.\n\nQuick questions:\n1. Which area/location?\n2. When did you find it?\n3. Any identifying features?`,
+      hi: (category: string) => `Samjha - ${category} mila.\n\nBatao:\n1. Kahan mila?\n2. Kab mila?\n3. Koi identifying features?`
+    }
+  },
+  askLocationOnly: {
+    en: "Where exactly? Use the location button below or type the area name.",
+    hi: "Kahan exactly? Neeche location button use karo ya area name likho."
+  },
+  locationRequired: {
+    en: "I need the location to search nearby items. Click 'Add Location' or type the area.",
+    hi: "Location chahiye nearby items search karne ke liye. 'Add Location' click karo ya area likho."
   }
 };
 
@@ -598,41 +609,53 @@ async function searchDatabase(
   }
 }
 
-// Investigator-style results formatting - direct and informative
-function formatResults(items: any[], lang: 'hi' | 'en', sessionContext?: SessionContext): string {
+// Investigator-style results formatting - direct, no fluff
+function formatResults(items: any[], lang: 'hi' | 'en', sessionContext?: SessionContext, userLocation?: { lat: number; lng: number }): string {
   if (items.length === 0) {
-    // Smart follow-up based on what's missing
-    if (sessionContext?.category && !sessionContext?.location) {
-      return lang === 'hi' 
-        ? `${sessionContext.category} ke liye koi match nahi mila. Kahan ${sessionContext.intent === 'post_found' ? 'mila' : 'kho gaya'} tha?`
-        : `No ${sessionContext.category} found. Where did you ${sessionContext.intent === 'post_found' ? 'find' : 'lose'} it?`;
-    }
     return STATIC_RESPONSES.noResults[lang];
   }
   
-  // Direct results - no fluff
-  let response = STATIC_RESPONSES.resultsFound[lang] + '\n\n';
+  // Direct results display
+  let response = STATIC_RESPONSES.resultsFound[lang] + '\n';
   
   items.slice(0, 5).forEach((item, i) => {
-    const typeLabel = item.item_type === 'lost' ? '[LOST]' : '[FOUND]';
+    const typeLabel = item.item_type === 'lost' ? 'LOST' : 'FOUND';
     const confidence = Math.min(item.relevanceScore || 50, 100);
     
-    response += `${i + 1}. ${typeLabel} ${item.title}\n`;
-    response += `   📍 ${item.location || 'Location not specified'}\n`;
-    response += `   📅 ${item.date_lost_found || 'Date not specified'}\n`;
-    response += `   🎯 Match: ${confidence}%\n\n`;
+    // Calculate distance if user location provided
+    let distanceStr = '';
+    if (userLocation && item.latitude && item.longitude) {
+      const dist = calculateDistance(userLocation.lat, userLocation.lng, item.latitude, item.longitude);
+      distanceStr = dist < 1 ? `${Math.round(dist * 1000)}m away` : `${dist.toFixed(1)}km away`;
+    }
+    
+    response += `\n${i + 1}. [${typeLabel}] ${item.title}`;
+    response += `\n   Location: ${item.location || 'Not specified'}${distanceStr ? ` (${distanceStr})` : ''}`;
+    response += `\n   Date: ${item.date_lost_found || 'Not specified'}`;
+    response += `\n   Match: ${confidence}%`;
   });
   
-  // Add smart follow-up question
-  response += '\n' + STATIC_RESPONSES.isThisYours[lang];
+  response += '\n\n' + STATIC_RESPONSES.isThisYours[lang];
   
   if (items.length > 5) {
-    response += '\n\n' + (lang === 'hi' 
-      ? `+${items.length - 5} aur items available.`
-      : `+${items.length - 5} more items available.`);
+    response += lang === 'hi' 
+      ? ` (+${items.length - 5} aur)`
+      : ` (+${items.length - 5} more)`;
   }
   
   return response;
+}
+
+// Calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 // ============= OLLAMA LOCAL LLM (LAST RESORT ONLY) =============
@@ -699,6 +722,7 @@ interface ChatResponse {
     aiUsed: boolean;
     dbQueried: boolean;
     sessionContext?: SessionContext;
+    needsLocation?: boolean; // Flag for location picker
     autoPost?: {
       title: string;
       description: string;
@@ -852,23 +876,25 @@ async function handleChat(
     }
   }
 
-  // STEP 4: INVESTIGATOR ACTION - Query database IMMEDIATELY if we have ANY info
-  // Don't wait, don't ask questions first - ACT NOW
+  // STEP 4: INVESTIGATOR ACTION - Database search IMMEDIATELY with any info
   
-  const hasAnyInfo = sessionContext.category || sessionContext.location || sessionContext.color || sessionContext.brand;
+  const hasCategory = !!sessionContext.category;
+  const hasLocation = !!sessionContext.location;
+  const hasAnyInfo = hasCategory || hasLocation || sessionContext.color || sessionContext.brand;
   const shouldSearch = hasAnyInfo || intent === 'search' || intent === 'post_found' || intent === 'location_update' || intent === 'browse';
   
   if (shouldSearch) {
     console.log('=== EXECUTING DATABASE SEARCH (INVESTIGATOR MODE) ===');
     
-    // Determine search type based on intent
-    // If user lost something, search FOUND items
-    // If user found something, search LOST items (to find owner)
+    // If we have category but no location, first search then ask for location with multi-questions
+    const needsLocationPrompt = hasCategory && !hasLocation && sessionContext.conversationTurn <= 2;
+    
+    // Determine search type
     let searchType: 'lost' | 'found' | 'both' = 'both';
     if (sessionContext.intent === 'search' || intent === 'search') {
-      searchType = 'found'; // User lost item, search found items
+      searchType = 'found';
     } else if (sessionContext.intent === 'post_found' || intent === 'post_found') {
-      searchType = 'lost'; // User found item, search lost items
+      searchType = 'lost';
     }
     
     console.log('Search type:', searchType);
@@ -891,29 +917,44 @@ async function handleChat(
       };
     }
     
-    // Format results with smart follow-up
+    // Format results
     let response = formatResults(results, lang, sessionContext);
     let autoPost = undefined;
     let recommendedAction = results.length > 0 ? 'review_matches' : 'post_item';
+    let needsLocation = false;
     
-    // If no results found, ask ONE smart clarifying question based on what's missing
+    // Smart follow-up logic
     if (results.length === 0) {
-      if (!sessionContext.location && sessionContext.category) {
-        // Have category, need location
-        response = lang === 'hi'
-          ? `${sessionContext.category} ke liye abhi koi match nahi mila. Kahan ${sessionContext.intent === 'post_found' ? 'mila' : 'kho gaya'} tha?`
-          : `No ${sessionContext.category} found yet. Where did you ${sessionContext.intent === 'post_found' ? 'find' : 'lose'} it?`;
+      // No results - ask multi-questions if first time, or request location
+      if (needsLocationPrompt) {
+        // Ask 2-3 questions at once (MULTI-QUESTION INTELLIGENCE)
+        const multiQ = sessionContext.intent === 'post_found' 
+          ? STATIC_RESPONSES.multiQuestion.found
+          : STATIC_RESPONSES.multiQuestion.lost;
+        response = multiQ[lang](sessionContext.category || 'item');
         recommendedAction = 'provide_location';
+        needsLocation = true;
+      } else if (!hasLocation && hasCategory) {
+        // Still need location specifically
+        response = STATIC_RESPONSES.askLocationOnly[lang];
+        recommendedAction = 'provide_location';
+        needsLocation = true;
       } else if (sessionContext.infoScore >= 2) {
         // Enough info to offer auto post
         autoPost = generateAutoPost(sessionContext, lang);
         if (autoPost.canGenerate) {
           response += '\n\n' + (lang === 'hi' 
-            ? `Post karna chahte ho?\nTitle: ${autoPost.title}\n\n"Yes" bolo.`
-            : `Want to post it?\nTitle: ${autoPost.title}\n\nSay "Yes".`);
+            ? `Post karna chahte ho?\nTitle: "${autoPost.title}"\n\nBolo "Yes" ya "No".`
+            : `Want to post it?\nTitle: "${autoPost.title}"\n\nSay "Yes" or "No".`);
           recommendedAction = 'confirm_auto_post';
         }
       }
+    } else if (results.length > 0 && !hasLocation) {
+      // Found results but no location - suggest adding location for better results
+      response += '\n\n' + (lang === 'hi' 
+        ? 'Location add karo better matches ke liye.'
+        : 'Add location for better matches.');
+      needsLocation = true;
     }
     
     return {
@@ -932,6 +973,7 @@ async function handleChat(
         aiUsed: false,
         dbQueried: true,
         sessionContext,
+        needsLocation,
         autoPost,
       },
     };

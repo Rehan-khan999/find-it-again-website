@@ -87,6 +87,7 @@ export interface ConversationContext {
   aiUsed?: boolean;
   sessionContext?: SessionContext;
   autoPost?: AutoPost;
+  needsLocation?: boolean;
 }
 
 export interface SessionContext {
