@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Sparkles, Tag, AlertTriangle, Lightbulb, CheckCircle2 } from "lucide-react";
-import { analyzeImage, processNewItem } from "@/services/aiAssistant";
+import { Loader2, Sparkles, AlertTriangle, Lightbulb, CheckCircle2 } from "lucide-react";
+import { processNewItem } from "@/services/aiAssistant";
 import { toast } from "sonner";
 
 interface AIItemProcessorProps {
@@ -89,41 +89,6 @@ export const AIItemProcessor = ({
     }
   };
 
-  const handleAnalyzeImage = async () => {
-    if (!item.photos || item.photos.length === 0) {
-      toast.error("No photos to analyze");
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const { data, error } = await analyzeImage(item.photos[0]);
-
-      if (error) {
-        toast.error("Image analysis failed: " + error);
-        return;
-      }
-
-      if (data) {
-        // Extract tags from attributes
-        const extractedTags: string[] = [];
-        if (data.attributes.category) extractedTags.push(data.attributes.category);
-        if (data.attributes.color) extractedTags.push(data.attributes.color);
-        if (data.attributes.brand) extractedTags.push(data.attributes.brand);
-        
-        setTags(extractedTags);
-        setObjects(data.attributes.itemName ? [data.attributes.itemName] : []);
-        onTagsGenerated?.(extractedTags);
-        toast.success("Image analyzed successfully!");
-      }
-    } catch (error) {
-      toast.error("Failed to analyze image");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -133,36 +98,24 @@ export const AIItemProcessor = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          <Button
-            onClick={handleProcess}
-            disabled={isProcessing}
-            className="flex-1"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Auto-Analyze
-              </>
-            )}
-          </Button>
-          {item.photos && item.photos.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={handleAnalyzeImage}
-              disabled={isProcessing}
-            >
-              <Tag className="h-4 w-4 mr-2" />
-              Scan Image
-            </Button>
+        {/* Action button */}
+        <Button
+          onClick={handleProcess}
+          disabled={isProcessing}
+          className="w-full"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Auto-Analyze
+            </>
           )}
-        </div>
+        </Button>
 
         {/* Detected objects */}
         {objects.length > 0 && (
