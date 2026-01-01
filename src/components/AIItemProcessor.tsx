@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Sparkles, Tag, AlertTriangle, Lightbulb, CheckCircle2 } from "lucide-react";
-import { analyzeImage, suggestMissingInfo, processNewItem, detectDuplicates } from "@/services/aiAssistant";
+import { analyzeImage, processNewItem } from "@/services/aiAssistant";
 import { toast } from "sonner";
 
 interface AIItemProcessorProps {
@@ -54,44 +54,30 @@ export const AIItemProcessor = ({
       }
 
       if (data) {
-        // Set tags
         if (data.tags) {
           setTags(data.tags);
           onTagsGenerated?.(data.tags);
         }
-
-        // Set detected objects
         if (data.objects) {
           setObjects(data.objects);
         }
-
-        // Set suggested title
         if (data.autoTitle) {
           setSuggestedTitle(data.autoTitle);
         }
-
-        // Set suggested description
         if (data.autoDescription) {
           setSuggestedDescription(data.autoDescription);
         }
-
-        // Set duplicates
         if (data.duplicates && data.duplicates.length > 0) {
           setDuplicates(data.duplicates);
           onDuplicatesFound?.(data.duplicates);
         }
-
-        // Set matches
         if (data.matches && data.matches.length > 0) {
           setMatches(data.matches);
           onMatchesFound?.(data.matches);
         }
-
-        // Set missing info
         if (data.missingInfo) {
           setMissingInfo(data.missingInfo);
         }
-
         setHasProcessed(true);
         toast.success("AI analysis complete!");
       }
@@ -120,9 +106,15 @@ export const AIItemProcessor = ({
       }
 
       if (data) {
-        setTags(data.tags);
-        setObjects(data.objects);
-        onTagsGenerated?.(data.tags);
+        // Extract tags from attributes
+        const extractedTags: string[] = [];
+        if (data.attributes.category) extractedTags.push(data.attributes.category);
+        if (data.attributes.color) extractedTags.push(data.attributes.color);
+        if (data.attributes.brand) extractedTags.push(data.attributes.brand);
+        
+        setTags(extractedTags);
+        setObjects(data.attributes.itemName ? [data.attributes.itemName] : []);
+        onTagsGenerated?.(extractedTags);
         toast.success("Image analyzed successfully!");
       }
     } catch (error) {
