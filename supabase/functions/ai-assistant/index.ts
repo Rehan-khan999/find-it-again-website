@@ -516,19 +516,14 @@ interface ChatResponse {
   };
 }
 
-// AI Mode type - user controlled, not auto-detected
-type AIMode = 'normal' | 'general';
-
 async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = [],
-  existingSessionContext?: SessionContext,
-  aiMode: AIMode = 'normal'
+  existingSessionContext?: SessionContext
 ): Promise<ChatResponse> {
-  console.log('=== DUAL-MODE AI ASSISTANT ===');
+  console.log('=== LOST & FOUND INVESTIGATOR ===');
   console.log('Message:', userMessage);
-  console.log('Mode:', aiMode);
   
   const lang = detectLanguage(userMessage);
   
@@ -555,39 +550,15 @@ async function handleChat(
   if (sessionContext.brand) score++;
   sessionContext.infoScore = score;
   
-  // Step 2: Detect intent (for routing within the mode)
+  // Step 2: Detect intent
   const { intent } = detectIntent(userMessage, sessionContext);
   if (intent !== 'unknown' && intent !== 'location_update' && intent !== 'general_query' && intent !== 'disallowed_topic') {
     sessionContext.intent = intent;
   }
   
-  console.log(`Intent: ${intent}, User Mode: ${aiMode}`);
+  console.log(`Intent: ${intent}`);
   
-  // ============= GENERAL MODE (User Controlled) =============
-  if (aiMode === 'general') {
-    console.log('=== GENERAL MODE: Open AI ===');
-    
-    // Check for disallowed topics even in general mode
-    const lowerMsg = userMessage.toLowerCase();
-    for (const kw of DISALLOWED_TOPICS) {
-      if (lowerMsg.includes(kw)) {
-        return { 
-          response: STATIC_RESPONSES.disallowedTopic[lang], 
-          context: { intent: 'disallowed_topic', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext } 
-        };
-      }
-    }
-    
-    // Use Phi3 with general mode prompt
-    const aiResponse = await callTextModel(userMessage, lang, 'secondary');
-    return { 
-      response: aiResponse, 
-      context: { intent: 'general_query', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } 
-    };
-  }
-  
-  // ============= NORMAL MODE (Lost & Found Investigator - Default) =============
-  console.log('=== NORMAL MODE: Investigator ===');
+  // ============= LOST & FOUND INVESTIGATOR MODE =============
   
   // Step 3: Handle special intents immediately
   if (intent === 'identity') {
@@ -736,8 +707,7 @@ serve(async (req) => {
           supabase,
           params.message,
           params.history || [],
-          params.sessionContext,
-          params.aiMode || 'normal'
+          params.sessionContext
         );
         break;
 
