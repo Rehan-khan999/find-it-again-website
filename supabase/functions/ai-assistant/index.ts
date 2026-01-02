@@ -71,7 +71,12 @@ const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paay
 const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya karna', 'guide', 'madad'];
 const IDENTITY_KEYWORDS = ['kisne banaya', 'who made', 'who built', 'who created', 'rehan'];
 const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste'];
-const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'joke', 'recipe', 'politics', 'sports'];
+
+// Disallowed topics for General AI mode
+const DISALLOWED_TOPICS = ['politics', 'religion', 'ideology', 'nsfw', 'legal advice', 'medical advice', 'hacking', 'code', 'coding', 'programming', 'debate', 'controversial'];
+
+// General knowledge topics allowed in secondary mode
+const GENERAL_KNOWLEDGE_KEYWORDS = ['science', 'technology', 'motivation', 'productivity', 'explain', 'what is', 'how does', 'why', 'meaning', 'definition', 'history', 'fact'];
 const BROWSE_KEYWORDS = ['browse', 'show', 'list', 'dikhao', 'all items', 'recent'];
 // Investigator-specific keywords
 const CLOSURE_KEYWORDS = ['close', 'remove', 'delete', 'hatao', 'band karo', 'listing close', 'resolved', 'mil gaya mujhe', 'wapas mila'];
@@ -106,19 +111,19 @@ const LOCATION_KEYWORDS = [
   'east', 'west', 'north', 'south', 'nagar', 'colony', 'sector'
 ];
 
-// ============= STATIC RESPONSES (INVESTIGATOR PERSONA) =============
+// ============= STATIC RESPONSES (DUAL-MODE PERSONA) =============
 const STATIC_RESPONSES = {
   identity: {
-    en: "Mujhe Rehan bhai ne banaya hai!\n\nI'm FindIt AI – your Lost & Found Investigator. I help with search, recovery guidance, and listing management. What can I help you with?",
-    hi: "Mujhe Rehan bhai ne banaya hai!\n\nMain FindIt AI hoon – aapka Lost & Found Investigator. Search, recovery guidance, aur listing management mein help karta hoon. Kya madad chahiye?"
+    en: "Mujhe Rehan bhai ne banaya hai!\n\nI'm FindIt AI – your Lost & Found Investigator. I help with search, recovery guidance, and listing management. I can also answer general knowledge questions briefly. What can I help you with?",
+    hi: "Mujhe Rehan bhai ne banaya hai!\n\nMain FindIt AI hoon – aapka Lost & Found Investigator. Search, recovery guidance, aur listing management mein help karta hoon. General knowledge questions ka bhi briefly answer de sakta hoon. Kya madad chahiye?"
   },
   greeting: {
-    en: "FindIt AI – Lost & Found Investigator ready.\n\nI can help you:\n• Search for lost/found items\n• Understand search results\n• Guide recovery steps\n• Manage your listings\n\nWhat happened?",
-    hi: "FindIt AI – Lost & Found Investigator ready.\n\nMain help kar sakta hoon:\n• Lost/found items search\n• Results samjhana\n• Recovery guidance\n• Listings manage karna\n\nKya hua?"
+    en: "FindIt AI – Lost & Found Investigator ready.\n\nI can help you:\n• Search for lost/found items\n• Understand search results\n• Guide recovery steps\n• Manage your listings\n• Answer general questions briefly\n\nWhat happened?",
+    hi: "FindIt AI – Lost & Found Investigator ready.\n\nMain help kar sakta hoon:\n• Lost/found items search\n• Results samjhana\n• Recovery guidance\n• Listings manage karna\n• General questions ka brief answer\n\nKya hua?"
   },
   help: {
-    en: "I'm your Lost & Found Investigator. Here's how I can help:\n\n• Describe what you lost/found – I'll search immediately\n• Ask about search results – I'll explain matches\n• Need recovery tips? Just ask\n• Want to close a listing? I'll guide you\n\nExample: 'lost my black phone in library yesterday'",
-    hi: "Main aapka Lost & Found Investigator hoon. Yeh kar sakta hoon:\n\n• Batao kya khoya/mila – turant search karunga\n• Results ke baare mein pucho – explain karunga\n• Recovery tips chahiye? Bas pucho\n• Listing close karni hai? Guide karunga\n\nExample: 'kal library mein mera black phone kho gaya'"
+    en: "I'm your Lost & Found Investigator. Here's how I can help:\n\n• Describe what you lost/found – I'll search immediately\n• Ask about search results – I'll explain matches\n• Need recovery tips? Just ask\n• Want to close a listing? I'll guide you\n• General questions? I can help briefly\n\nExample: 'lost my black phone in library yesterday'",
+    hi: "Main aapka Lost & Found Investigator hoon. Yeh kar sakta hoon:\n\n• Batao kya khoya/mila – turant search karunga\n• Results ke baare mein pucho – explain karunga\n• Recovery tips chahiye? Bas pucho\n• Listing close karni hai? Guide karunga\n• General questions? Brief answer dunga\n\nExample: 'kal library mein mera black phone kho gaya'"
   },
   needMoreInfo: {
     en: "To investigate, I need details. What item are you looking for?\n\nCommon: phone, wallet, bag, keys, ring, laptop, watch",
@@ -128,9 +133,9 @@ const STATIC_RESPONSES = {
     en: "No matches found yet.\n\nPossible reasons:\n• Generic keywords – try adding brand/color\n• Location mismatch – specify exact area\n• Item not yet reported\n\nWant me to help refine your search?",
     hi: "Abhi koi match nahi mila.\n\nPossible reasons:\n• Generic keywords – brand/color add karo\n• Location mismatch – exact area batao\n• Item abhi report nahi hua\n\nSearch refine karne mein help chahiye?"
   },
-  offTopic: {
-    en: "I'm here specifically for item recovery and platform guidance. How can I help with your lost or found item?",
-    hi: "Main specifically item recovery aur platform guidance ke liye hoon. Lost ya found item mein kaise help karun?"
+  disallowedTopic: {
+    en: "I can help with general knowledge briefly, but not this topic. I'm best at helping with lost & found items. How can I assist with that?",
+    hi: "General knowledge mein briefly help kar sakta hoon, lekin yeh topic nahi. Lost & found items mein best help kar sakta hoon. Usme kaise madad karun?"
   },
   dbError: {
     en: "Search temporarily unavailable. Please try again in a moment.",
@@ -159,6 +164,10 @@ const STATIC_RESPONSES = {
   whatNext: {
     en: "What to do next:\n\n• Review any matches shown\n• Add more details if no matches\n• Check back regularly for new listings\n• Respond to claims promptly\n• Close listing when resolved",
     hi: "Aage kya karna hai:\n\n• Matches review karo\n• No matches to details add karo\n• Regularly new listings check karo\n• Claims ko jaldi respond karo\n• Resolve hone pe listing close karo"
+  },
+  generalModeSwitch: {
+    en: "Switching to general assistance.",
+    hi: "General assistance mode mein switch kar raha hoon."
   }
 };
 
@@ -176,10 +185,11 @@ function detectLanguage(message: string): 'hi' | 'en' {
   return hindiScore > 3 ? 'hi' : 'en';
 }
 
-// ============= INTENT DETECTION =============
+// ============= INTENT DETECTION (DUAL-MODE) =============
 function detectIntent(message: string, sessionContext?: SessionContext): {
-  intent: 'search' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'off_topic' | 'location_update' | 'closure' | 'safety' | 'recovery' | 'next_steps' | 'unknown';
+  intent: 'search' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'disallowed_topic' | 'general_query' | 'location_update' | 'closure' | 'safety' | 'recovery' | 'next_steps' | 'unknown';
   confidence: number;
+  mode: 'primary' | 'secondary';
 } {
   const lowerMsg = message.toLowerCase().trim();
   const words = lowerMsg.split(/\s+/);
@@ -187,44 +197,46 @@ function detectIntent(message: string, sessionContext?: SessionContext): {
   // Location update (context-aware)
   if (sessionContext?.intent && sessionContext.category && !sessionContext.location) {
     const isJustLocation = LOCATION_KEYWORDS.some(loc => lowerMsg.includes(loc)) && words.length <= 4;
-    if (isJustLocation) return { intent: 'location_update', confidence: 90 };
+    if (isJustLocation) return { intent: 'location_update', confidence: 90, mode: 'primary' };
   }
   
-  // Special intents
-  for (const kw of OFF_TOPIC_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'off_topic', confidence: 90 };
+  // Check for disallowed topics FIRST (Secondary mode boundary)
+  for (const kw of DISALLOWED_TOPICS) {
+    if (lowerMsg.includes(kw)) return { intent: 'disallowed_topic', confidence: 95, mode: 'secondary' };
   }
+  
+  // Primary mode intents (Lost & Found related)
   for (const kw of IDENTITY_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'identity', confidence: 100 };
+    if (lowerMsg.includes(kw)) return { intent: 'identity', confidence: 100, mode: 'primary' };
   }
   
   // Investigator-specific intents
   for (const kw of CLOSURE_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'closure', confidence: 85 };
+    if (lowerMsg.includes(kw)) return { intent: 'closure', confidence: 85, mode: 'primary' };
   }
   for (const kw of SAFETY_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'safety', confidence: 85 };
+    if (lowerMsg.includes(kw)) return { intent: 'safety', confidence: 85, mode: 'primary' };
   }
   for (const kw of RECOVERY_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'recovery', confidence: 80 };
+    if (lowerMsg.includes(kw)) return { intent: 'recovery', confidence: 80, mode: 'primary' };
   }
   for (const kw of NEXT_STEPS_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'next_steps', confidence: 80 };
+    if (lowerMsg.includes(kw)) return { intent: 'next_steps', confidence: 80, mode: 'primary' };
   }
   
   if (words.length <= 3) {
     for (const kw of GREETING_KEYWORDS) {
-      if (lowerMsg.startsWith(kw)) return { intent: 'greeting', confidence: 90 };
+      if (lowerMsg.startsWith(kw)) return { intent: 'greeting', confidence: 90, mode: 'primary' };
     }
   }
   for (const kw of BROWSE_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'browse', confidence: 80 };
+    if (lowerMsg.includes(kw)) return { intent: 'browse', confidence: 80, mode: 'primary' };
   }
   for (const kw of HELP_KEYWORDS) {
-    if (lowerMsg.includes(kw)) return { intent: 'help', confidence: 70 };
+    if (lowerMsg.includes(kw)) return { intent: 'help', confidence: 70, mode: 'primary' };
   }
   
-  // Lost vs Found
+  // Lost vs Found (Primary mode)
   let lostScore = 0, foundScore = 0;
   for (const kw of LOST_KEYWORDS) {
     if (lowerMsg.includes(kw)) lostScore += 2;
@@ -233,7 +245,7 @@ function detectIntent(message: string, sessionContext?: SessionContext): {
     if (lowerMsg.includes(kw)) foundScore += 2;
   }
   
-  // Check for item keywords
+  // Check for item keywords (Primary mode)
   let hasItem = false;
   for (const keywords of Object.values(ITEM_KEYWORDS)) {
     for (const kw of keywords) {
@@ -243,11 +255,21 @@ function detectIntent(message: string, sessionContext?: SessionContext): {
   }
   if (hasItem) lostScore++;
   
-  if (lostScore > foundScore && lostScore > 0) return { intent: 'search', confidence: 80 };
-  if (foundScore > lostScore && foundScore > 0) return { intent: 'post_found', confidence: 80 };
-  if (hasItem) return { intent: 'search', confidence: 60 };
+  if (lostScore > foundScore && lostScore > 0) return { intent: 'search', confidence: 80, mode: 'primary' };
+  if (foundScore > lostScore && foundScore > 0) return { intent: 'post_found', confidence: 80, mode: 'primary' };
+  if (hasItem) return { intent: 'search', confidence: 60, mode: 'primary' };
   
-  return { intent: 'unknown', confidence: 0 };
+  // Check if it's a general knowledge query (Secondary mode)
+  const isGeneralQuery = GENERAL_KNOWLEDGE_KEYWORDS.some(kw => lowerMsg.includes(kw));
+  if (isGeneralQuery) return { intent: 'general_query', confidence: 60, mode: 'secondary' };
+  
+  // If message is a question but not L&F related, treat as potential general query
+  const isQuestion = lowerMsg.includes('?') || lowerMsg.startsWith('what') || lowerMsg.startsWith('why') || lowerMsg.startsWith('how') || lowerMsg.startsWith('explain');
+  if (isQuestion && !hasItem && lostScore === 0 && foundScore === 0) {
+    return { intent: 'general_query', confidence: 50, mode: 'secondary' };
+  }
+  
+  return { intent: 'unknown', confidence: 0, mode: 'primary' };
 }
 
 // ============= ENTITY EXTRACTION =============
@@ -426,12 +448,12 @@ function formatResults(items: any[], lang: 'hi' | 'en'): string {
   return response;
 }
 
-// ============= PHI3 TEXT MODEL (INVESTIGATOR FALLBACK) =============
-async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
-  console.log('=== PHI3 TEXT MODEL (FALLBACK) ===');
+// ============= PHI3 TEXT MODEL (DUAL-MODE FALLBACK) =============
+async function callTextModel(userMessage: string, lang: 'hi' | 'en', mode: 'primary' | 'secondary' = 'primary'): Promise<string> {
+  console.log(`=== PHI3 TEXT MODEL (${mode.toUpperCase()} MODE) ===`);
   aiCallCount++;
   
-  const systemPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
+  const primaryPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
 - Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
 - MAX 2-3 sentences
 - Act as an investigator, not a search bar
@@ -441,6 +463,17 @@ async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<st
 - ONLY Lost & Found, item recovery, and listing management topics
 - If unsure, ask a clarification question instead of guessing`;
 
+  const secondaryPrompt = `You are FindIt AI in general assistance mode. STRICT RULES:
+- Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
+- MAX 2 sentences, be VERY concise
+- Answer only informational, harmless questions
+- Topics allowed: basic science, technology, motivation, productivity, everyday knowledge
+- Topics FORBIDDEN: politics, religion, NSFW, legal advice, medical advice, coding tutorials, debates
+- Do NOT reference training data or model size
+- If topic is forbidden, politely redirect to Lost & Found`;
+
+  const systemPrompt = mode === 'primary' ? primaryPrompt : secondaryPrompt;
+
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: 'POST',
@@ -449,7 +482,7 @@ async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<st
         model: OLLAMA_TEXT_MODEL,
         prompt: `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`,
         stream: false,
-        options: { temperature: 0.3, num_predict: 120 }
+        options: { temperature: 0.3, num_predict: mode === 'secondary' ? 80 : 120 }
       }),
     });
 
@@ -460,7 +493,9 @@ async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<st
     
   } catch (error) {
     console.error('Phi3 failed:', error);
-    return STATIC_RESPONSES.needMoreInfo[lang];
+    return mode === 'secondary' 
+      ? STATIC_RESPONSES.disallowedTopic[lang] 
+      : STATIC_RESPONSES.needMoreInfo[lang];
   }
 }
 
@@ -487,7 +522,7 @@ async function handleChat(
   conversationHistory: any[] = [],
   existingSessionContext?: SessionContext
 ): Promise<ChatResponse> {
-  console.log('=== INVESTIGATOR MODE ===');
+  console.log('=== DUAL-MODE AI ASSISTANT ===');
   console.log('Message:', userMessage);
   
   const lang = detectLanguage(userMessage);
@@ -515,14 +550,38 @@ async function handleChat(
   if (sessionContext.brand) score++;
   sessionContext.infoScore = score;
   
-  // Step 2: Detect intent
-  const { intent } = detectIntent(userMessage, sessionContext);
-  if (intent !== 'unknown' && intent !== 'location_update') sessionContext.intent = intent;
+  // Step 2: Detect intent (now with mode)
+  const { intent, mode } = detectIntent(userMessage, sessionContext);
+  if (intent !== 'unknown' && intent !== 'location_update' && intent !== 'general_query' && intent !== 'disallowed_topic') {
+    sessionContext.intent = intent;
+  }
+  
+  console.log(`Intent: ${intent}, Mode: ${mode}`);
+  
+  // ============= SECONDARY MODE (General AI) =============
+  if (mode === 'secondary') {
+    if (intent === 'disallowed_topic') {
+      return { 
+        response: STATIC_RESPONSES.disallowedTopic[lang], 
+        context: { intent: 'disallowed_topic', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext } 
+      };
+    }
+    
+    if (intent === 'general_query') {
+      console.log('=== SECONDARY MODE: General Query ===');
+      const prefix = STATIC_RESPONSES.generalModeSwitch[lang] + '\n\n';
+      const aiResponse = await callTextModel(userMessage, lang, 'secondary');
+      return { 
+        response: prefix + aiResponse, 
+        context: { intent: 'general_query', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } 
+      };
+    }
+  }
+  
+  // ============= PRIMARY MODE (Lost & Found Investigator) =============
+  console.log('=== PRIMARY MODE: Investigator ===');
   
   // Step 3: Handle special intents immediately
-  if (intent === 'off_topic') {
-    return { response: STATIC_RESPONSES.offTopic[lang], context: { intent: 'off_topic', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext } };
-  }
   if (intent === 'identity') {
     return { response: STATIC_RESPONSES.identity[lang], context: { intent: 'identity', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: false, dbQueried: false, sessionContext } };
   }
@@ -547,7 +606,7 @@ async function handleChat(
     return { response: STATIC_RESPONSES.whatNext[lang], context: { intent: 'next_steps', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_guidance', aiUsed: false, dbQueried: false, sessionContext } };
   }
   
-  // Step 4: DATABASE SEARCH (MANDATORY)
+  // Step 4: DATABASE SEARCH (MANDATORY for primary mode)
   const hasCategory = !!sessionContext.category;
   const hasLocation = !!sessionContext.location;
   const hasAnyInfo = hasCategory || hasLocation || !!sessionContext.color;
@@ -600,9 +659,9 @@ async function handleChat(
     return { response: STATIC_RESPONSES.needMoreInfo[lang], context: { intent: 'unknown', missingFields: ['category'], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext } };
   }
   
-  // Step 6: LAST RESORT - Use Phi3 text model
-  console.log('Using Phi3 as fallback...');
-  const aiResponse = await callTextModel(userMessage, lang);
+  // Step 6: LAST RESORT - Use Phi3 text model in primary mode
+  console.log('Using Phi3 as fallback (primary mode)...');
+  const aiResponse = await callTextModel(userMessage, lang, 'primary');
   return { response: aiResponse, context: { intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } };
 }
 
