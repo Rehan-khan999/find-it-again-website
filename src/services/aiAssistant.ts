@@ -79,16 +79,20 @@ export interface ChatMessage {
   content: string;
 }
 
+// AI Mode type
+export type AIMode = 'normal' | 'general';
+
 // Main chat function - uses full investigator flow with session context
 export async function chat(
   message: string,
   history: ChatMessage[] = [],
-  sessionContext?: SessionContext
+  sessionContext?: SessionContext,
+  aiMode: AIMode = 'normal'
 ): Promise<AIResponse<{
   response: string;
   context: ConversationContext;
 }>> {
-  return callAI('chat', { message, history, sessionContext });
+  return callAI('chat', { message, history, sessionContext, aiMode });
 }
 
 // Calculate match score between items

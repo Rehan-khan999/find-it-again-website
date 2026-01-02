@@ -4,13 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, X, MapPin, Tag, RotateCcw, Eye } from "lucide-react";
+import { Loader2, Send, X, MapPin, Tag, RotateCcw, Eye, Search, MessageCircle } from "lucide-react";
 import aiAssistantLogo from "@/assets/ai-assistant-logo.png";
-import { chat, getAutocomplete, ChatMessage, MatchResult, SessionContext, AutoPost } from "@/services/aiAssistant";
+import { chat, getAutocomplete, ChatMessage, MatchResult, SessionContext, AutoPost, AIMode } from "@/services/aiAssistant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { useAITabController, setLastIntent } from "@/hooks/useAITabControl";
+import { cn } from "@/lib/utils";
 
 // Session memory keys
 const MEMORY_KEYS = {
@@ -82,9 +83,13 @@ export const AIAssistant = () => {
   const { switchTab } = useAITabController();
   const location = useLocation();
   const [sessionContext, setSessionContext] = useState<SessionContext | undefined>(sessionMemory.sessionContext);
+  const [aiMode, setAiMode] = useState<AIMode>('normal');
   
-  // Generate welcome message - investigator style
-  const getWelcomeMessage = () => {
+  // Generate welcome message based on mode
+  const getWelcomeMessage = (mode: AIMode = 'normal') => {
+    if (mode === 'general') {
+      return "General AI Assistant ready.\n\nAsk me anything - technology, science, everyday topics, or just chat!";
+    }
     const { lastCategory, lastLocation } = sessionMemory;
     if (lastCategory && lastLocation) {
       return `Welcome back. Last: ${lastCategory} in ${lastLocation}.\n\nContinue or describe new item.`;
@@ -105,6 +110,22 @@ export const AIAssistant = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // Handle mode change - don't clear chat, just update welcome for context
+  const handleModeChange = (newMode: AIMode) => {
+    if (newMode === aiMode) return;
+    setAiMode(newMode);
+    
+    // Add a system message indicating mode switch
+    const modeMessage: Message = {
+      role: "assistant",
+      content: newMode === 'general' 
+        ? "Switched to General Mode. Ask me anything!"
+        : "Switched to Normal Mode. I'm focused on Lost & Found items now."
+    };
+    setMessages(prev => [...prev, modeMessage]);
+    toast.success(`Switched to ${newMode === 'general' ? 'General' : 'Normal'} Mode`);
+  };
 
   // Handle viewing item details in dialog
   const handleViewItem = (item: any) => {
@@ -178,7 +199,7 @@ export const AIAssistant = () => {
     setConversationHistory(newHistory);
 
     try {
-      const { data, error } = await chat(userMessage, newHistory, sessionContext);
+      const { data, error } = await chat(userMessage, newHistory, sessionContext, aiMode);
 
       if (error) {
         throw new Error(error);
@@ -377,24 +398,63 @@ export const AIAssistant = () => {
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-[420px] h-[550px] shadow-2xl z-50 flex flex-col">
-      <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(0,191,166,0.3)] ring-1 ring-teal-400/20">
-            <img src={aiAssistantLogo} alt="AI Assistant" className="h-full w-full object-cover" />
+    <Card className="fixed bottom-6 right-6 w-[420px] h-[600px] shadow-2xl z-50 flex flex-col">
+      <CardHeader className="flex flex-col gap-3 py-3 px-4 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(0,191,166,0.3)] ring-1 ring-teal-400/20">
+              <img src={aiAssistantLogo} alt="AI Assistant" className="h-full w-full object-cover" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold tracking-tight">
+                {aiMode === 'general' ? 'General AI Assistant' : 'Lost & Found Investigator'}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground font-medium">
+                {aiMode === 'general' ? 'Open conversation' : 'Smart search assistant'}
+              </p>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-base font-semibold tracking-tight">Lost & Found Investigator</CardTitle>
-            <p className="text-xs text-muted-foreground font-medium">Smart search assistant</p>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleClearConversation} title="Clear conversation">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={handleClearConversation} title="Clear conversation">
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+        
+        {/* Mode Toggle */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex gap-2">
+            <Button
+              variant={aiMode === 'normal' ? 'default' : 'outline'}
+              size="sm"
+              className={cn(
+                "flex-1 gap-1.5 h-8 text-xs font-medium transition-all",
+                aiMode === 'normal' && "ring-2 ring-primary/30"
+              )}
+              onClick={() => handleModeChange('normal')}
+            >
+              <Search className="h-3.5 w-3.5" />
+              Normal Mode
+            </Button>
+            <Button
+              variant={aiMode === 'general' ? 'default' : 'outline'}
+              size="sm"
+              className={cn(
+                "flex-1 gap-1.5 h-8 text-xs font-medium transition-all",
+                aiMode === 'general' && "ring-2 ring-primary/30"
+              )}
+              onClick={() => handleModeChange('general')}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              General Mode
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground text-center">
+            Normal Mode helps with Lost & Found items. General Mode allows open AI questions.
+          </p>
         </div>
       </CardHeader>
 
@@ -528,7 +588,7 @@ export const AIAssistant = () => {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Describe what you're looking for..."
+            placeholder={aiMode === 'general' ? "Ask me anything..." : "Describe what you're looking for..."}
             className="flex-1"
             disabled={isLoading}
           />
