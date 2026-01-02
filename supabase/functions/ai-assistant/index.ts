@@ -71,8 +71,13 @@ const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paay
 const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya karna', 'guide', 'madad'];
 const IDENTITY_KEYWORDS = ['kisne banaya', 'who made', 'who built', 'who created', 'rehan'];
 const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste'];
-const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'joke', 'recipe'];
+const OFF_TOPIC_KEYWORDS = ['weather', 'news', 'movie', 'song', 'cricket', 'joke', 'recipe', 'politics', 'sports'];
 const BROWSE_KEYWORDS = ['browse', 'show', 'list', 'dikhao', 'all items', 'recent'];
+// Investigator-specific keywords
+const CLOSURE_KEYWORDS = ['close', 'remove', 'delete', 'hatao', 'band karo', 'listing close', 'resolved', 'mil gaya mujhe', 'wapas mila'];
+const SAFETY_KEYWORDS = ['safe', 'safety', 'meet', 'meeting', 'milna', 'danger', 'secure', 'trust'];
+const RECOVERY_KEYWORDS = ['increase', 'improve', 'better', 'chances', 'recovery', 'tips', 'advice'];
+const NEXT_STEPS_KEYWORDS = ['next', 'aage', 'what now', 'ab kya', 'what should', 'kya karun', 'what do'];
 
 // ============= CATEGORY KEYWORDS FOR EXTRACTION =============
 const ITEM_KEYWORDS: Record<string, string[]> = {
@@ -101,43 +106,59 @@ const LOCATION_KEYWORDS = [
   'east', 'west', 'north', 'south', 'nagar', 'colony', 'sector'
 ];
 
-// ============= STATIC RESPONSES (NO AI NEEDED) =============
+// ============= STATIC RESPONSES (INVESTIGATOR PERSONA) =============
 const STATIC_RESPONSES = {
   identity: {
-    en: "Mujhe Rehan bhai ne banaya hai!\n\nI'm your Lost & Found investigator. What did you lose or find?",
-    hi: "Mujhe Rehan bhai ne banaya hai!\n\nMain aapka Lost & Found investigator hoon. Kya kho gaya ya mila?"
+    en: "Mujhe Rehan bhai ne banaya hai!\n\nI'm FindIt AI – your Lost & Found Investigator. I help with search, recovery guidance, and listing management. What can I help you with?",
+    hi: "Mujhe Rehan bhai ne banaya hai!\n\nMain FindIt AI hoon – aapka Lost & Found Investigator. Search, recovery guidance, aur listing management mein help karta hoon. Kya madad chahiye?"
   },
   greeting: {
-    en: "Lost & Found Investigator ready. What happened?",
-    hi: "Lost & Found Investigator ready. Kya hua?"
+    en: "FindIt AI – Lost & Found Investigator ready.\n\nI can help you:\n• Search for lost/found items\n• Understand search results\n• Guide recovery steps\n• Manage your listings\n\nWhat happened?",
+    hi: "FindIt AI – Lost & Found Investigator ready.\n\nMain help kar sakta hoon:\n• Lost/found items search\n• Results samjhana\n• Recovery guidance\n• Listings manage karna\n\nKya hua?"
   },
   help: {
-    en: "Just describe naturally - I'll search immediately.\nExample: 'lost my black phone in library yesterday'",
-    hi: "Bas naturally batao - main turant search karunga.\nExample: 'kal library mein mera black phone kho gaya'"
+    en: "I'm your Lost & Found Investigator. Here's how I can help:\n\n• Describe what you lost/found – I'll search immediately\n• Ask about search results – I'll explain matches\n• Need recovery tips? Just ask\n• Want to close a listing? I'll guide you\n\nExample: 'lost my black phone in library yesterday'",
+    hi: "Main aapka Lost & Found Investigator hoon. Yeh kar sakta hoon:\n\n• Batao kya khoya/mila – turant search karunga\n• Results ke baare mein pucho – explain karunga\n• Recovery tips chahiye? Bas pucho\n• Listing close karni hai? Guide karunga\n\nExample: 'kal library mein mera black phone kho gaya'"
   },
   needMoreInfo: {
-    en: "What item? Phone, wallet, bag, keys, ring?",
-    hi: "Kya item? Phone, wallet, bag, keys, ring?"
+    en: "To investigate, I need details. What item are you looking for?\n\nCommon: phone, wallet, bag, keys, ring, laptop, watch",
+    hi: "Investigate karne ke liye details chahiye. Kya item dhundh rahe ho?\n\nCommon: phone, wallet, bag, keys, ring, laptop, watch"
   },
   noResults: {
-    en: "No match found yet.",
-    hi: "Abhi koi match nahi mila."
+    en: "No matches found yet.\n\nPossible reasons:\n• Generic keywords – try adding brand/color\n• Location mismatch – specify exact area\n• Item not yet reported\n\nWant me to help refine your search?",
+    hi: "Abhi koi match nahi mila.\n\nPossible reasons:\n• Generic keywords – brand/color add karo\n• Location mismatch – exact area batao\n• Item abhi report nahi hua\n\nSearch refine karne mein help chahiye?"
   },
   offTopic: {
-    en: "I only handle Lost & Found. What did you lose or find?",
-    hi: "Main sirf Lost & Found handle karta hoon. Kya kho gaya ya mila?"
+    en: "I'm here specifically for item recovery and platform guidance. How can I help with your lost or found item?",
+    hi: "Main specifically item recovery aur platform guidance ke liye hoon. Lost ya found item mein kaise help karun?"
   },
   dbError: {
-    en: "Search temporarily unavailable. Please try again.",
-    hi: "Search abhi available nahi. Phir try karo."
+    en: "Search temporarily unavailable. Please try again in a moment.",
+    hi: "Search abhi temporarily unavailable hai. Thodi der mein try karo."
   },
   isThisYours: {
-    en: "Is any of these yours?",
-    hi: "Kya inme se koi tumhara hai?"
+    en: "Review these matches carefully. Verify details before contacting.",
+    hi: "Matches dhyan se dekho. Contact karne se pehle details verify karo."
   },
   askLocationColor: {
-    en: (category: string) => `Got it - ${category}.\n\nQuick:\n1. Which area/location?\n2. Color/brand (if known)?`,
-    hi: (category: string) => `Samjha - ${category}.\n\nBatao:\n1. Kahan?\n2. Color/brand?`
+    en: (category: string) => `Noted – ${category}.\n\nTo narrow the search:\n1. Which area/location?\n2. Any distinguishing features (color, brand, marks)?`,
+    hi: (category: string) => `Samjha – ${category}.\n\nSearch narrow karne ke liye:\n1. Kahan tha?\n2. Koi identifying features (color, brand, marks)?`
+  },
+  closureTopic: {
+    en: "To close your listing, you'll need to select a reason:\n\n• Item found by owner\n• Item returned to owner\n• Duplicate listing\n• Posted by mistake\n• No longer relevant\n• Other\n\nClosed listings help maintain platform trust and analytics. The data is preserved for records.",
+    hi: "Listing close karne ke liye reason select karna hoga:\n\n• Owner ko mil gaya\n• Owner ko return ho gaya\n• Duplicate listing\n• Galti se post kiya\n• Ab relevant nahi\n• Other\n\nClosed listings platform trust aur analytics ke liye help karti hain. Data records ke liye preserve hota hai."
+  },
+  safetyTips: {
+    en: "Safety tips for meeting a finder/claimant:\n\n• Meet in a public place\n• Bring someone with you\n• Verify item details before handover\n• Don't share personal info until verified\n• Trust your instincts",
+    hi: "Finder/claimant se milne ke safety tips:\n\n• Public jagah milo\n• Kisi ko saath lao\n• Handover se pehle item verify karo\n• Verify hone tak personal info share mat karo\n• Apni instincts pe trust karo"
+  },
+  recoveryTips: {
+    en: "To increase recovery chances:\n\n• Add detailed description with brand/color\n• Include specific location\n• Check regularly for new matches\n• Respond quickly to potential matches\n• Consider expanding search area",
+    hi: "Recovery chances badhane ke liye:\n\n• Detailed description add karo (brand/color)\n• Specific location include karo\n• Regularly new matches check karo\n• Potential matches ko jaldi respond karo\n• Search area expand karo"
+  },
+  whatNext: {
+    en: "What to do next:\n\n• Review any matches shown\n• Add more details if no matches\n• Check back regularly for new listings\n• Respond to claims promptly\n• Close listing when resolved",
+    hi: "Aage kya karna hai:\n\n• Matches review karo\n• No matches to details add karo\n• Regularly new listings check karo\n• Claims ko jaldi respond karo\n• Resolve hone pe listing close karo"
   }
 };
 
@@ -157,7 +178,7 @@ function detectLanguage(message: string): 'hi' | 'en' {
 
 // ============= INTENT DETECTION =============
 function detectIntent(message: string, sessionContext?: SessionContext): {
-  intent: 'search' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'off_topic' | 'location_update' | 'unknown';
+  intent: 'search' | 'post_found' | 'browse' | 'help' | 'identity' | 'greeting' | 'off_topic' | 'location_update' | 'closure' | 'safety' | 'recovery' | 'next_steps' | 'unknown';
   confidence: number;
 } {
   const lowerMsg = message.toLowerCase().trim();
@@ -176,6 +197,21 @@ function detectIntent(message: string, sessionContext?: SessionContext): {
   for (const kw of IDENTITY_KEYWORDS) {
     if (lowerMsg.includes(kw)) return { intent: 'identity', confidence: 100 };
   }
+  
+  // Investigator-specific intents
+  for (const kw of CLOSURE_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'closure', confidence: 85 };
+  }
+  for (const kw of SAFETY_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'safety', confidence: 85 };
+  }
+  for (const kw of RECOVERY_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'recovery', confidence: 80 };
+  }
+  for (const kw of NEXT_STEPS_KEYWORDS) {
+    if (lowerMsg.includes(kw)) return { intent: 'next_steps', confidence: 80 };
+  }
+  
   if (words.length <= 3) {
     for (const kw of GREETING_KEYWORDS) {
       if (lowerMsg.startsWith(kw)) return { intent: 'greeting', confidence: 90 };
@@ -355,44 +391,55 @@ async function searchDatabase(
   }
 }
 
-// ============= FORMAT RESULTS =============
+// ============= FORMAT RESULTS (INVESTIGATOR STYLE) =============
 function formatResults(items: any[], lang: 'hi' | 'en'): string {
   if (items.length === 0) return STATIC_RESPONSES.noResults[lang];
   
-  let response = lang === 'hi' ? 'Mile:\n' : 'Found:\n';
+  const header = lang === 'hi' ? 'Investigation Results:' : 'Investigation Results:';
+  let response = header + '\n';
   
   items.slice(0, 5).forEach((item, i) => {
     const type = item.item_type === 'lost' ? 'LOST' : 'FOUND';
     const confidence = Math.min(item.relevanceScore || 50, 100);
+    const confidenceLabel = confidence >= 70 ? 'High' : confidence >= 40 ? 'Medium' : 'Low';
     
     response += `\n${i + 1}. [${type}] ${item.title}`;
-    response += `\n   Location: ${item.location || 'Not specified'}`;
-    response += `\n   Date: ${item.date_lost_found || 'Not specified'}`;
-    response += `\n   Match: ${confidence}%`;
+    response += `\n   📍 ${item.location || 'Location not specified'}`;
+    response += `\n   📅 ${item.date_lost_found || 'Date not specified'}`;
+    response += `\n   🎯 Confidence: ${confidenceLabel} (${confidence}%)`;
     if (item.matchReasons?.length > 0) {
-      response += `\n   Reason: ${item.matchReasons.slice(0, 2).join(', ')}`;
+      response += `\n   📋 Why: ${item.matchReasons.slice(0, 2).join(', ')}`;
     }
   });
   
   response += '\n\n' + STATIC_RESPONSES.isThisYours[lang];
   if (items.length > 5) {
-    response += ` (+${items.length - 5} more)`;
+    response += lang === 'hi' 
+      ? ` (+${items.length - 5} aur results available)`
+      : ` (+${items.length - 5} more results available)`;
   }
+  
+  response += lang === 'hi'
+    ? '\n\nVerify karna hai ya details chahiye? Just ask.'
+    : '\n\nNeed help verifying or want more details? Just ask.';
   
   return response;
 }
 
-// ============= PHI3 TEXT MODEL (LAST RESORT) =============
+// ============= PHI3 TEXT MODEL (INVESTIGATOR FALLBACK) =============
 async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
   console.log('=== PHI3 TEXT MODEL (FALLBACK) ===');
   aiCallCount++;
   
-  const systemPrompt = `You are FindIt AI, a Lost & Found assistant. STRICT RULES:
+  const systemPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
 - Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
-- MAX 2 sentences
-- Ask ONE clarifying question about item or location
+- MAX 2-3 sentences
+- Act as an investigator, not a search bar
+- Ask ONE clarifying question about item, location, or details
+- Provide reasoning and guidance
 - NO storytelling
-- ONLY Lost & Found tasks`;
+- ONLY Lost & Found, item recovery, and listing management topics
+- If unsure, ask a clarification question instead of guessing`;
 
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
@@ -402,7 +449,7 @@ async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<st
         model: OLLAMA_TEXT_MODEL,
         prompt: `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`,
         stream: false,
-        options: { temperature: 0.3, num_predict: 100 }
+        options: { temperature: 0.3, num_predict: 120 }
       }),
     });
 
@@ -484,6 +531,20 @@ async function handleChat(
   }
   if (intent === 'help') {
     return { response: STATIC_RESPONSES.help[lang], context: { intent: 'help', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'await_input', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  
+  // Investigator-specific intents
+  if (intent === 'closure') {
+    return { response: STATIC_RESPONSES.closureTopic[lang], context: { intent: 'closure', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'guide_closure', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  if (intent === 'safety') {
+    return { response: STATIC_RESPONSES.safetyTips[lang], context: { intent: 'safety', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_guidance', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  if (intent === 'recovery') {
+    return { response: STATIC_RESPONSES.recoveryTips[lang], context: { intent: 'recovery', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_guidance', aiUsed: false, dbQueried: false, sessionContext } };
+  }
+  if (intent === 'next_steps') {
+    return { response: STATIC_RESPONSES.whatNext[lang], context: { intent: 'next_steps', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_guidance', aiUsed: false, dbQueried: false, sessionContext } };
   }
   
   // Step 4: DATABASE SEARCH (MANDATORY)
