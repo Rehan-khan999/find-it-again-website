@@ -516,14 +516,19 @@ interface ChatResponse {
   };
 }
 
+// AI Mode type - user controlled, not auto-detected
+type AIMode = 'normal' | 'general';
+
 async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = [],
-  existingSessionContext?: SessionContext
+  existingSessionContext?: SessionContext,
+  aiMode: AIMode = 'normal'
 ): Promise<ChatResponse> {
   console.log('=== DUAL-MODE AI ASSISTANT ===');
   console.log('Message:', userMessage);
+  console.log('Mode:', aiMode);
   
   const lang = detectLanguage(userMessage);
   
@@ -550,36 +555,39 @@ async function handleChat(
   if (sessionContext.brand) score++;
   sessionContext.infoScore = score;
   
-  // Step 2: Detect intent (now with mode)
-  const { intent, mode } = detectIntent(userMessage, sessionContext);
+  // Step 2: Detect intent (for routing within the mode)
+  const { intent } = detectIntent(userMessage, sessionContext);
   if (intent !== 'unknown' && intent !== 'location_update' && intent !== 'general_query' && intent !== 'disallowed_topic') {
     sessionContext.intent = intent;
   }
   
-  console.log(`Intent: ${intent}, Mode: ${mode}`);
+  console.log(`Intent: ${intent}, User Mode: ${aiMode}`);
   
-  // ============= SECONDARY MODE (General AI) =============
-  if (mode === 'secondary') {
-    if (intent === 'disallowed_topic') {
-      return { 
-        response: STATIC_RESPONSES.disallowedTopic[lang], 
-        context: { intent: 'disallowed_topic', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext } 
-      };
+  // ============= GENERAL MODE (User Controlled) =============
+  if (aiMode === 'general') {
+    console.log('=== GENERAL MODE: Open AI ===');
+    
+    // Check for disallowed topics even in general mode
+    const lowerMsg = userMessage.toLowerCase();
+    for (const kw of DISALLOWED_TOPICS) {
+      if (lowerMsg.includes(kw)) {
+        return { 
+          response: STATIC_RESPONSES.disallowedTopic[lang], 
+          context: { intent: 'disallowed_topic', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'redirect', aiUsed: false, dbQueried: false, sessionContext } 
+        };
+      }
     }
     
-    if (intent === 'general_query') {
-      console.log('=== SECONDARY MODE: General Query ===');
-      const prefix = STATIC_RESPONSES.generalModeSwitch[lang] + '\n\n';
-      const aiResponse = await callTextModel(userMessage, lang, 'secondary');
-      return { 
-        response: prefix + aiResponse, 
-        context: { intent: 'general_query', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } 
-      };
-    }
+    // Use Phi3 with general mode prompt
+    const aiResponse = await callTextModel(userMessage, lang, 'secondary');
+    return { 
+      response: aiResponse, 
+      context: { intent: 'general_query', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } 
+    };
   }
   
-  // ============= PRIMARY MODE (Lost & Found Investigator) =============
-  console.log('=== PRIMARY MODE: Investigator ===');
+  // ============= NORMAL MODE (Lost & Found Investigator - Default) =============
+  console.log('=== NORMAL MODE: Investigator ===');
   
   // Step 3: Handle special intents immediately
   if (intent === 'identity') {
@@ -606,7 +614,7 @@ async function handleChat(
     return { response: STATIC_RESPONSES.whatNext[lang], context: { intent: 'next_steps', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_guidance', aiUsed: false, dbQueried: false, sessionContext } };
   }
   
-  // Step 4: DATABASE SEARCH (MANDATORY for primary mode)
+  // Step 4: DATABASE SEARCH (MANDATORY for normal mode)
   const hasCategory = !!sessionContext.category;
   const hasLocation = !!sessionContext.location;
   const hasAnyInfo = hasCategory || hasLocation || !!sessionContext.color;
@@ -656,11 +664,20 @@ async function handleChat(
   
   // Step 5: No info - ask for item type (static)
   if (!hasAnyInfo && intent === 'unknown') {
+    // In normal mode, politely refuse general questions
+    const lowerMsg = userMessage.toLowerCase();
+    const isQuestion = lowerMsg.includes('?') || lowerMsg.startsWith('what') || lowerMsg.startsWith('why') || lowerMsg.startsWith('how') || lowerMsg.startsWith('explain');
+    if (isQuestion) {
+      const refuseMsg = lang === 'hi' 
+        ? "Main Lost & Found items mein help karta hoon. Agar general questions puchne hain, toh General Mode use karo.\n\nLost/found item ke baare mein batao?"
+        : "I help with Lost & Found items. For general questions, please switch to General Mode.\n\nTell me about your lost/found item?";
+      return { response: refuseMsg, context: { intent: 'unknown', missingFields: ['category'], clarifyingQuestions: [], matches: [], recommendedAction: 'switch_mode_or_provide_info', aiUsed: false, dbQueried: false, sessionContext } };
+    }
     return { response: STATIC_RESPONSES.needMoreInfo[lang], context: { intent: 'unknown', missingFields: ['category'], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext } };
   }
   
-  // Step 6: LAST RESORT - Use Phi3 text model in primary mode
-  console.log('Using Phi3 as fallback (primary mode)...');
+  // Step 6: LAST RESORT - Use Phi3 text model in normal mode (Lost & Found focused)
+  console.log('Using Phi3 as fallback (normal mode)...');
   const aiResponse = await callTextModel(userMessage, lang, 'primary');
   return { response: aiResponse, context: { intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } };
 }
@@ -719,7 +736,8 @@ serve(async (req) => {
           supabase,
           params.message,
           params.history || [],
-          params.sessionContext
+          params.sessionContext,
+          params.aiMode || 'normal'
         );
         break;
 
