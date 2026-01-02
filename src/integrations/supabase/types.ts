@@ -335,6 +335,44 @@ export type Database = {
         }
         Relationships: []
       }
+      item_closures: {
+        Row: {
+          closed_at: string
+          created_at: string
+          id: string
+          item_id: string
+          notes: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string
+          created_at?: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_closures_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           additional_info: string | null

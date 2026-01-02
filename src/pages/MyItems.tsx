@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ClaimStatus } from '@/components/ClaimStatus';
 import { ItemDetailsDialog } from '@/components/ItemDetailsDialog';
+import { ItemClosureDialog } from '@/components/ItemClosureDialog';
 import { useState } from 'react';
-import { MapPin, Calendar, Eye } from 'lucide-react';
+import { MapPin, Calendar, Eye, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
-
 interface Item {
   id: string;
   title: string;
@@ -33,8 +33,9 @@ interface Item {
 
 const MyItems = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-
+  const [closureItem, setClosureItem] = useState<Item | null>(null);
   const { data: items = [] } = useQuery({
     queryKey: ['my-items', user?.id],
     queryFn: async () => {
@@ -122,14 +123,26 @@ const MyItems = () => {
                         <ClaimStatus itemId={item.id} />
                       </div>
 
-                      <Button
-                        onClick={() => setSelectedItem(item)}
-                        className="w-full mt-4"
-                        variant="outline"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </Button>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          onClick={() => setSelectedItem(item)}
+                          className="flex-1"
+                          variant="outline"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View
+                        </Button>
+                        {item.status === 'active' && (
+                          <Button
+                            onClick={() => setClosureItem(item)}
+                            variant="destructive"
+                            size="default"
+                          >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Close
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -144,6 +157,18 @@ const MyItems = () => {
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
       />
+
+      {closureItem && (
+        <ItemClosureDialog
+          itemId={closureItem.id}
+          itemTitle={closureItem.title}
+          isOpen={!!closureItem}
+          onClose={() => setClosureItem(null)}
+          onClosed={() => {
+            queryClient.invalidateQueries({ queryKey: ['my-items', user?.id] });
+          }}
+        />
+      )}
     </div>
   );
 };
