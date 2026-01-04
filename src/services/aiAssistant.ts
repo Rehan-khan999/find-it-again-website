@@ -83,12 +83,13 @@ export interface ChatMessage {
 export async function chat(
   message: string,
   history: ChatMessage[] = [],
-  sessionContext?: SessionContext
+  sessionContext?: SessionContext,
+  assistantMode: 'normal' | 'general' = 'normal'
 ): Promise<AIResponse<{
   response: string;
   context: ConversationContext;
 }>> {
-  return callAI('chat', { message, history, sessionContext });
+  return callAI('chat', { message, history, sessionContext, assistantMode });
 }
 
 // Calculate match score between items

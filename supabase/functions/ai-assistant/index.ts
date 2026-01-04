@@ -11,7 +11,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // ============= OLLAMA TEXT MODEL CONFIGURATION =============
 const OLLAMA_BASE_URL = 'http://localhost:11434';
-const OLLAMA_TEXT_MODEL = 'phi3:mini';       // Text understanding
+const OLLAMA_NORMAL_MODEL = 'phi3:mini';       // Normal mode - Lost & Found
+const OLLAMA_GENERAL_MODEL = 'qwen2.5:1.5b';   // General mode - Open domain
 
 // Track usage for monitoring
 let aiCallCount = 0;
@@ -448,12 +449,18 @@ function formatResults(items: any[], lang: 'hi' | 'en'): string {
   return response;
 }
 
-// ============= PHI3 TEXT MODEL (DUAL-MODE FALLBACK) =============
-async function callTextModel(userMessage: string, lang: 'hi' | 'en', mode: 'primary' | 'secondary' = 'primary'): Promise<string> {
-  console.log(`=== PHI3 TEXT MODEL (${mode.toUpperCase()} MODE) ===`);
+// ============= TEXT MODEL (MODE-SPECIFIC) =============
+async function callTextModel(
+  userMessage: string, 
+  lang: 'hi' | 'en', 
+  assistantMode: 'normal' | 'general' = 'normal'
+): Promise<string> {
+  const modelName = assistantMode === 'general' ? OLLAMA_GENERAL_MODEL : OLLAMA_NORMAL_MODEL;
+  console.log(`=== ${modelName.toUpperCase()} (${assistantMode.toUpperCase()} MODE) ===`);
   aiCallCount++;
   
-  const primaryPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
+  // Normal mode: Strict Lost & Found Investigator
+  const normalPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
 - Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
 - MAX 2-3 sentences
 - Act as an investigator, not a search bar
@@ -461,41 +468,69 @@ async function callTextModel(userMessage: string, lang: 'hi' | 'en', mode: 'prim
 - Provide reasoning and guidance
 - NO storytelling
 - ONLY Lost & Found, item recovery, and listing management topics
-- If unsure, ask a clarification question instead of guessing`;
+- If unsure, ask a clarification question instead of guessing
+- Politely refuse unrelated questions`;
 
-  const secondaryPrompt = `You are FindIt AI in general assistance mode. STRICT RULES:
-- Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
-- MAX 2 sentences, be VERY concise
-- Answer only informational, harmless questions
-- Topics allowed: basic science, technology, motivation, productivity, everyday knowledge
-- Topics FORBIDDEN: politics, religion, NSFW, legal advice, medical advice, coding tutorials, debates
-- Do NOT reference training data or model size
-- If topic is forbidden, politely redirect to Lost & Found`;
+  // General mode: Open conversational AI
+  const generalPrompt = `You are a general-purpose AI assistant powered by the Phi-3:mini language model.
+You are operating in General Mode.
+All general, informational, and casual questions are welcome.
 
-  const systemPrompt = mode === 'primary' ? primaryPrompt : secondaryPrompt;
+You may:
+- Answer general knowledge questions
+- Explain concepts clearly
+- Discuss technology, AI, and everyday topics
+- Engage in light, friendly conversation
+- Use your full language understanding freely
+
+Restrictions:
+- Do not provide illegal guidance
+- Do not generate explicit or harmful content
+- Avoid medical or legal advice
+
+You do NOT need to relate answers back to the Lost & Found platform.
+
+Tone:
+- Friendly
+- Natural
+- Human
+- Not robotic
+- Not overly formal
+
+Reply in ${lang === 'hi' ? 'Hindi' : 'English'}.`;
+
+  const systemPrompt = assistantMode === 'general' ? generalPrompt : normalPrompt;
 
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: OLLAMA_TEXT_MODEL,
+        model: modelName,
         prompt: `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`,
         stream: false,
-        options: { temperature: 0.3, num_predict: mode === 'secondary' ? 80 : 120 }
+        options: { 
+          temperature: assistantMode === 'general' ? 0.7 : 0.3, 
+          num_predict: assistantMode === 'general' ? 200 : 120 
+        }
       }),
     });
 
-    if (!response.ok) throw new Error('Text model unavailable');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Model ${modelName} error:`, errorText);
+      throw new Error(`Model ${modelName} unavailable`);
+    }
 
     const result = await response.json();
-    return result.response?.trim() || STATIC_RESPONSES.needMoreInfo[lang];
+    return result.response?.trim() || (assistantMode === 'general' 
+      ? "I'm having trouble processing that. Could you rephrase?" 
+      : STATIC_RESPONSES.needMoreInfo[lang]);
     
   } catch (error) {
-    console.error('Phi3 failed:', error);
-    return mode === 'secondary' 
-      ? STATIC_RESPONSES.disallowedTopic[lang] 
-      : STATIC_RESPONSES.needMoreInfo[lang];
+    console.error(`${modelName} failed:`, error);
+    // DO NOT fallback to other model - show error
+    throw new Error(`${assistantMode === 'general' ? 'General' : 'Normal'} Mode AI is currently unavailable. Please try again.`);
   }
 }
 
@@ -520,18 +555,75 @@ async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = [],
-  existingSessionContext?: SessionContext
+  existingSessionContext?: SessionContext,
+  assistantMode: 'normal' | 'general' = 'normal'
 ): Promise<ChatResponse> {
-  console.log('=== LOST & FOUND INVESTIGATOR ===');
+  console.log(`=== AI ASSISTANT (${assistantMode.toUpperCase()} MODE) ===`);
   console.log('Message:', userMessage);
   
   const lang = detectLanguage(userMessage);
   
+  // ============= GENERAL MODE - Open domain, no database =============
+  if (assistantMode === 'general') {
+    console.log('Processing in GENERAL MODE - no database access');
+    
+    // Check for disallowed topics even in general mode
+    const lowerMsg = userMessage.toLowerCase();
+    for (const topic of DISALLOWED_TOPICS) {
+      if (lowerMsg.includes(topic)) {
+        const refuseMsg = lang === 'hi'
+          ? "Yeh topic mein help nahi kar sakta. Kuch aur puchna ho toh batao!"
+          : "I can't help with that topic. Feel free to ask something else!";
+        return {
+          response: refuseMsg,
+          context: {
+            intent: 'disallowed',
+            missingFields: [],
+            clarifyingQuestions: [],
+            matches: [],
+            recommendedAction: 'continue',
+            aiUsed: false,
+            dbQueried: false
+          }
+        };
+      }
+    }
+    
+    try {
+      const aiResponse = await callTextModel(userMessage, lang, 'general');
+      return {
+        response: aiResponse,
+        context: {
+          intent: 'general_query',
+          missingFields: [],
+          clarifyingQuestions: [],
+          matches: [],
+          recommendedAction: 'continue',
+          aiUsed: true,
+          dbQueried: false
+        }
+      };
+    } catch (error) {
+      return {
+        response: error instanceof Error ? error.message : 'General Mode AI is currently unavailable.',
+        context: {
+          intent: 'error',
+          missingFields: [],
+          clarifyingQuestions: [],
+          matches: [],
+          recommendedAction: 'retry',
+          aiUsed: false,
+          dbQueried: false
+        }
+      };
+    }
+  }
+  
+  // ============= NORMAL MODE - Strict Lost & Found Investigator =============
+  
   // Initialize session context
   let sessionContext: SessionContext = existingSessionContext || { infoScore: 0, conversationTurn: 0 };
   sessionContext.conversationTurn++;
-  
-  // ============= TEXT PROCESSING =============
   
   // Step 1: Extract info
   const extracted = extractInfo(userMessage);
@@ -557,8 +649,6 @@ async function handleChat(
   }
   
   console.log(`Intent: ${intent}`);
-  
-  // ============= LOST & FOUND INVESTIGATOR MODE =============
   
   // Step 3: Handle special intents immediately
   if (intent === 'identity') {
@@ -633,24 +723,30 @@ async function handleChat(
     };
   }
   
-  // Step 5: No info - ask for item type (static)
+  // Step 5: No info - politely refuse general questions and redirect to Lost & Found
   if (!hasAnyInfo && intent === 'unknown') {
-    // In normal mode, politely refuse general questions
     const lowerMsg = userMessage.toLowerCase();
     const isQuestion = lowerMsg.includes('?') || lowerMsg.startsWith('what') || lowerMsg.startsWith('why') || lowerMsg.startsWith('how') || lowerMsg.startsWith('explain');
     if (isQuestion) {
       const refuseMsg = lang === 'hi' 
-        ? "Main Lost & Found items mein help karta hoon. Agar general questions puchne hain, toh General Mode use karo.\n\nLost/found item ke baare mein batao?"
-        : "I help with Lost & Found items. For general questions, please switch to General Mode.\n\nTell me about your lost/found item?";
+        ? "Normal Mode mein sirf Lost & Found items ki help karta hoon. General questions ke liye 'General Mode' button click karo.\n\nYa fir batao – kya khoya ya mila?"
+        : "In Normal Mode, I only help with Lost & Found items. For general questions, click the 'General Mode' button.\n\nOr tell me – what did you lose or find?";
       return { response: refuseMsg, context: { intent: 'unknown', missingFields: ['category'], clarifyingQuestions: [], matches: [], recommendedAction: 'switch_mode_or_provide_info', aiUsed: false, dbQueried: false, sessionContext } };
     }
     return { response: STATIC_RESPONSES.needMoreInfo[lang], context: { intent: 'unknown', missingFields: ['category'], clarifyingQuestions: [], matches: [], recommendedAction: 'provide_info', aiUsed: false, dbQueried: false, sessionContext } };
   }
   
-  // Step 6: LAST RESORT - Use Phi3 text model in normal mode (Lost & Found focused)
-  console.log('Using Phi3 as fallback (normal mode)...');
-  const aiResponse = await callTextModel(userMessage, lang, 'primary');
-  return { response: aiResponse, context: { intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } };
+  // Step 6: LAST RESORT - Use phi3:mini in normal mode (Lost & Found focused)
+  console.log('Using phi3:mini as fallback (normal mode)...');
+  try {
+    const aiResponse = await callTextModel(userMessage, lang, 'normal');
+    return { response: aiResponse, context: { intent: 'unknown', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'continue', aiUsed: true, dbQueried: false, sessionContext } };
+  } catch (error) {
+    return { 
+      response: error instanceof Error ? error.message : 'AI is currently unavailable.', 
+      context: { intent: 'error', missingFields: [], clarifyingQuestions: [], matches: [], recommendedAction: 'retry', aiUsed: false, dbQueried: false, sessionContext } 
+    };
+  }
 }
 
 // ============= HELPER FUNCTIONS =============
@@ -703,11 +799,15 @@ serve(async (req) => {
 
     switch (action) {
       case 'chat':
+        // Default to 'normal' if assistantMode is missing or invalid
+        const mode = params.assistantMode === 'general' ? 'general' : 'normal';
+        console.log('Assistant mode:', mode);
         result = await handleChat(
           supabase,
           params.message,
           params.history || [],
-          params.sessionContext
+          params.sessionContext,
+          mode
         );
         break;
 
