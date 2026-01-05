@@ -11,8 +11,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // ============= OLLAMA TEXT MODEL CONFIGURATION =============
 const OLLAMA_BASE_URL = 'http://localhost:11434';
-const OLLAMA_NORMAL_MODEL = 'phi3:mini';       // Normal mode - Lost & Found
-const OLLAMA_GENERAL_MODEL = 'qwen2.5:1.5b';   // General mode - Open domain
+const OLLAMA_MODEL = 'phi3:mini';
 
 // Track usage for monitoring
 let aiCallCount = 0;
@@ -449,18 +448,12 @@ function formatResults(items: any[], lang: 'hi' | 'en'): string {
   return response;
 }
 
-// ============= TEXT MODEL (MODE-SPECIFIC) =============
-async function callTextModel(
-  userMessage: string, 
-  lang: 'hi' | 'en', 
-  assistantMode: 'normal' | 'general' = 'normal'
-): Promise<string> {
-  const modelName = assistantMode === 'general' ? OLLAMA_GENERAL_MODEL : OLLAMA_NORMAL_MODEL;
-  console.log(`=== ${modelName.toUpperCase()} (${assistantMode.toUpperCase()} MODE) ===`);
+// ============= TEXT MODEL =============
+async function callTextModel(userMessage: string, lang: 'hi' | 'en'): Promise<string> {
+  console.log(`=== ${OLLAMA_MODEL.toUpperCase()} ===`);
   aiCallCount++;
   
-  // Normal mode: Strict Lost & Found Investigator
-  const normalPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
+  const systemPrompt = `You are FindIt AI – Lost & Found Investigator. STRICT RULES:
 - Reply in ${lang === 'hi' ? 'Hindi' : 'English'} ONLY
 - MAX 2-3 sentences
 - Act as an investigator, not a search bar
@@ -471,66 +464,30 @@ async function callTextModel(
 - If unsure, ask a clarification question instead of guessing
 - Politely refuse unrelated questions`;
 
-  // General mode: Open conversational AI
-  const generalPrompt = `You are a general-purpose AI assistant powered by the Phi-3:mini language model.
-You are operating in General Mode.
-All general, informational, and casual questions are welcome.
-
-You may:
-- Answer general knowledge questions
-- Explain concepts clearly
-- Discuss technology, AI, and everyday topics
-- Engage in light, friendly conversation
-- Use your full language understanding freely
-
-Restrictions:
-- Do not provide illegal guidance
-- Do not generate explicit or harmful content
-- Avoid medical or legal advice
-
-You do NOT need to relate answers back to the Lost & Found platform.
-
-Tone:
-- Friendly
-- Natural
-- Human
-- Not robotic
-- Not overly formal
-
-Reply in ${lang === 'hi' ? 'Hindi' : 'English'}.`;
-
-  const systemPrompt = assistantMode === 'general' ? generalPrompt : normalPrompt;
-
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: modelName,
+        model: OLLAMA_MODEL,
         prompt: `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`,
         stream: false,
-        options: { 
-          temperature: assistantMode === 'general' ? 0.7 : 0.3, 
-          num_predict: assistantMode === 'general' ? 200 : 120 
-        }
+        options: { temperature: 0.3, num_predict: 120 }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Model ${modelName} error:`, errorText);
-      throw new Error(`Model ${modelName} unavailable`);
+      console.error(`Model ${OLLAMA_MODEL} error:`, errorText);
+      throw new Error(`Model ${OLLAMA_MODEL} unavailable`);
     }
 
     const result = await response.json();
-    return result.response?.trim() || (assistantMode === 'general' 
-      ? "I'm having trouble processing that. Could you rephrase?" 
-      : STATIC_RESPONSES.needMoreInfo[lang]);
+    return result.response?.trim() || STATIC_RESPONSES.needMoreInfo[lang];
     
   } catch (error) {
-    console.error(`${modelName} failed:`, error);
-    // DO NOT fallback to other model - show error
-    throw new Error(`${assistantMode === 'general' ? 'General' : 'Normal'} Mode AI is currently unavailable. Please try again.`);
+    console.error(`${OLLAMA_MODEL} failed:`, error);
+    throw new Error('AI is currently unavailable. Please try again.');
   }
 }
 
@@ -555,71 +512,12 @@ async function handleChat(
   supabase: any,
   userMessage: string,
   conversationHistory: any[] = [],
-  existingSessionContext?: SessionContext,
-  assistantMode: 'normal' | 'general' = 'normal'
+  existingSessionContext?: SessionContext
 ): Promise<ChatResponse> {
-  console.log(`=== AI ASSISTANT (${assistantMode.toUpperCase()} MODE) ===`);
+  console.log('=== AI ASSISTANT ===');
   console.log('Message:', userMessage);
   
   const lang = detectLanguage(userMessage);
-  
-  // ============= GENERAL MODE - Open domain, no database =============
-  if (assistantMode === 'general') {
-    console.log('Processing in GENERAL MODE - no database access');
-    
-    // Check for disallowed topics even in general mode
-    const lowerMsg = userMessage.toLowerCase();
-    for (const topic of DISALLOWED_TOPICS) {
-      if (lowerMsg.includes(topic)) {
-        const refuseMsg = lang === 'hi'
-          ? "Yeh topic mein help nahi kar sakta. Kuch aur puchna ho toh batao!"
-          : "I can't help with that topic. Feel free to ask something else!";
-        return {
-          response: refuseMsg,
-          context: {
-            intent: 'disallowed',
-            missingFields: [],
-            clarifyingQuestions: [],
-            matches: [],
-            recommendedAction: 'continue',
-            aiUsed: false,
-            dbQueried: false
-          }
-        };
-      }
-    }
-    
-    try {
-      const aiResponse = await callTextModel(userMessage, lang, 'general');
-      return {
-        response: aiResponse,
-        context: {
-          intent: 'general_query',
-          missingFields: [],
-          clarifyingQuestions: [],
-          matches: [],
-          recommendedAction: 'continue',
-          aiUsed: true,
-          dbQueried: false
-        }
-      };
-    } catch (error) {
-      return {
-        response: error instanceof Error ? error.message : 'General Mode AI is currently unavailable.',
-        context: {
-          intent: 'error',
-          missingFields: [],
-          clarifyingQuestions: [],
-          matches: [],
-          recommendedAction: 'retry',
-          aiUsed: false,
-          dbQueried: false
-        }
-      };
-    }
-  }
-  
-  // ============= NORMAL MODE - Strict Lost & Found Investigator =============
   
   // Initialize session context
   let sessionContext: SessionContext = existingSessionContext || { infoScore: 0, conversationTurn: 0 };
@@ -799,15 +697,11 @@ serve(async (req) => {
 
     switch (action) {
       case 'chat':
-        // Default to 'normal' if assistantMode is missing or invalid
-        const mode = params.assistantMode === 'general' ? 'general' : 'normal';
-        console.log('Assistant mode:', mode);
         result = await handleChat(
           supabase,
           params.message,
           params.history || [],
-          params.sessionContext,
-          mode
+          params.sessionContext
         );
         break;
 
