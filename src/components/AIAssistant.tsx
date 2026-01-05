@@ -11,57 +11,37 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { useAITabController, setLastIntent } from "@/hooks/useAITabControl";
-import { cn } from "@/lib/utils";
 
-// Session memory keys - separate for each mode
+// Session memory keys
 const MEMORY_KEYS = {
-  // Normal mode
-  normal_lastSearchCategory: 'ai_normal_last_search_category',
-  normal_lastSearchLocation: 'ai_normal_last_search_location',
-  normal_lastSearchDate: 'ai_normal_last_search_date',
-  normal_conversationHistory: 'ai_normal_conversation_history',
-  normal_sessionContext: 'ai_normal_session_context',
-  normal_messages: 'ai_normal_messages',
-  // General mode
-  general_conversationHistory: 'ai_general_conversation_history',
-  general_messages: 'ai_general_messages',
-  // Current mode
-  currentMode: 'ai_current_mode',
+  lastSearchCategory: 'ai_last_search_category',
+  lastSearchLocation: 'ai_last_search_location',
+  lastSearchDate: 'ai_last_search_date',
+  conversationHistory: 'ai_conversation_history',
+  sessionContext: 'ai_session_context',
+  messages: 'ai_messages',
 };
 
-// Helper to get session memory for specific mode
-const getSessionMemory = (mode: 'normal' | 'general') => {
+// Helper to get session memory
+const getSessionMemory = () => {
   try {
-    if (mode === 'normal') {
-      const storedContext = sessionStorage.getItem(MEMORY_KEYS.normal_sessionContext);
-      const storedMessages = sessionStorage.getItem(MEMORY_KEYS.normal_messages);
-      return {
-        lastCategory: sessionStorage.getItem(MEMORY_KEYS.normal_lastSearchCategory),
-        lastLocation: sessionStorage.getItem(MEMORY_KEYS.normal_lastSearchLocation),
-        lastDate: sessionStorage.getItem(MEMORY_KEYS.normal_lastSearchDate),
-        history: JSON.parse(sessionStorage.getItem(MEMORY_KEYS.normal_conversationHistory) || '[]'),
-        sessionContext: storedContext ? JSON.parse(storedContext) as SessionContext : undefined,
-        messages: storedMessages ? JSON.parse(storedMessages) : null,
-      };
-    } else {
-      const storedMessages = sessionStorage.getItem(MEMORY_KEYS.general_messages);
-      return {
-        lastCategory: null,
-        lastLocation: null,
-        lastDate: null,
-        history: JSON.parse(sessionStorage.getItem(MEMORY_KEYS.general_conversationHistory) || '[]'),
-        sessionContext: undefined,
-        messages: storedMessages ? JSON.parse(storedMessages) : null,
-      };
-    }
+    const storedContext = sessionStorage.getItem(MEMORY_KEYS.sessionContext);
+    const storedMessages = sessionStorage.getItem(MEMORY_KEYS.messages);
+    return {
+      lastCategory: sessionStorage.getItem(MEMORY_KEYS.lastSearchCategory),
+      lastLocation: sessionStorage.getItem(MEMORY_KEYS.lastSearchLocation),
+      lastDate: sessionStorage.getItem(MEMORY_KEYS.lastSearchDate),
+      history: JSON.parse(sessionStorage.getItem(MEMORY_KEYS.conversationHistory) || '[]'),
+      sessionContext: storedContext ? JSON.parse(storedContext) as SessionContext : undefined,
+      messages: storedMessages ? JSON.parse(storedMessages) : null,
+    };
   } catch {
     return { lastCategory: null, lastLocation: null, lastDate: null, history: [], sessionContext: undefined, messages: null };
   }
 };
 
-// Helper to save session memory for specific mode
+// Helper to save session memory
 const saveSessionMemory = (
-  mode: 'normal' | 'general',
   data: {
     category?: string;
     location?: string;
@@ -72,36 +52,26 @@ const saveSessionMemory = (
   }
 ) => {
   try {
-    if (mode === 'normal') {
-      if (data.category) sessionStorage.setItem(MEMORY_KEYS.normal_lastSearchCategory, data.category);
-      if (data.location) sessionStorage.setItem(MEMORY_KEYS.normal_lastSearchLocation, data.location);
-      if (data.date) sessionStorage.setItem(MEMORY_KEYS.normal_lastSearchDate, data.date);
-      if (data.history) sessionStorage.setItem(MEMORY_KEYS.normal_conversationHistory, JSON.stringify(data.history.slice(-10)));
-      if (data.sessionContext) sessionStorage.setItem(MEMORY_KEYS.normal_sessionContext, JSON.stringify(data.sessionContext));
-      if (data.messages) sessionStorage.setItem(MEMORY_KEYS.normal_messages, JSON.stringify(data.messages.slice(-20)));
-    } else {
-      if (data.history) sessionStorage.setItem(MEMORY_KEYS.general_conversationHistory, JSON.stringify(data.history.slice(-10)));
-      if (data.messages) sessionStorage.setItem(MEMORY_KEYS.general_messages, JSON.stringify(data.messages.slice(-20)));
-    }
+    if (data.category) sessionStorage.setItem(MEMORY_KEYS.lastSearchCategory, data.category);
+    if (data.location) sessionStorage.setItem(MEMORY_KEYS.lastSearchLocation, data.location);
+    if (data.date) sessionStorage.setItem(MEMORY_KEYS.lastSearchDate, data.date);
+    if (data.history) sessionStorage.setItem(MEMORY_KEYS.conversationHistory, JSON.stringify(data.history.slice(-10)));
+    if (data.sessionContext) sessionStorage.setItem(MEMORY_KEYS.sessionContext, JSON.stringify(data.sessionContext));
+    if (data.messages) sessionStorage.setItem(MEMORY_KEYS.messages, JSON.stringify(data.messages.slice(-20)));
   } catch {
     // Silently fail if storage is full
   }
 };
 
-// Clear session memory for specific mode
-const clearModeMemory = (mode: 'normal' | 'general') => {
+// Clear session memory
+const clearSessionMemory = () => {
   try {
-    if (mode === 'normal') {
-      sessionStorage.removeItem(MEMORY_KEYS.normal_lastSearchCategory);
-      sessionStorage.removeItem(MEMORY_KEYS.normal_lastSearchLocation);
-      sessionStorage.removeItem(MEMORY_KEYS.normal_lastSearchDate);
-      sessionStorage.removeItem(MEMORY_KEYS.normal_conversationHistory);
-      sessionStorage.removeItem(MEMORY_KEYS.normal_sessionContext);
-      sessionStorage.removeItem(MEMORY_KEYS.normal_messages);
-    } else {
-      sessionStorage.removeItem(MEMORY_KEYS.general_conversationHistory);
-      sessionStorage.removeItem(MEMORY_KEYS.general_messages);
-    }
+    sessionStorage.removeItem(MEMORY_KEYS.lastSearchCategory);
+    sessionStorage.removeItem(MEMORY_KEYS.lastSearchLocation);
+    sessionStorage.removeItem(MEMORY_KEYS.lastSearchDate);
+    sessionStorage.removeItem(MEMORY_KEYS.conversationHistory);
+    sessionStorage.removeItem(MEMORY_KEYS.sessionContext);
+    sessionStorage.removeItem(MEMORY_KEYS.messages);
   } catch {}
 };
 
@@ -121,47 +91,28 @@ export const AIAssistant = () => {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   
-  // Mode state - 'normal' | 'general'
-  const [assistantMode, setAssistantMode] = useState<'normal' | 'general'>(() => {
-    const saved = sessionStorage.getItem(MEMORY_KEYS.currentMode);
-    return (saved === 'general') ? 'general' : 'normal';
-  });
-  
   const { switchTab } = useAITabController();
   const location = useLocation();
   
-  // Get memory for current mode
-  const getNormalMemory = () => getSessionMemory('normal');
-  const getGeneralMemory = () => getSessionMemory('general');
+  const memory = getSessionMemory();
   
-  const [normalSessionContext, setNormalSessionContext] = useState<SessionContext | undefined>(() => getNormalMemory().sessionContext);
+  const [sessionContext, setSessionContext] = useState<SessionContext | undefined>(() => memory.sessionContext);
   
-  // Generate welcome message based on mode
-  const getWelcomeMessage = (mode: 'normal' | 'general') => {
-    if (mode === 'general') {
-      return "General Mode AI ready.\n\nAsk me anything – general knowledge, explanations, casual questions. No restrictions on topic!";
-    }
-    const normalMem = getNormalMemory();
-    if (normalMem.lastCategory && normalMem.lastLocation) {
-      return `Welcome back. Last: ${normalMem.lastCategory} in ${normalMem.lastLocation}.\n\nContinue or describe new item.`;
+  // Generate welcome message
+  const getWelcomeMessage = () => {
+    const mem = getSessionMemory();
+    if (mem.lastCategory && mem.lastLocation) {
+      return `Welcome back. Last: ${mem.lastCategory} in ${mem.lastLocation}.\n\nContinue or describe new item.`;
     }
     return "Lost & Found Investigator ready.\n\nDescribe what you lost or found naturally.";
   };
   
-  // Separate message states for each mode
-  const [normalMessages, setNormalMessages] = useState<Message[]>(() => {
-    const saved = getNormalMemory().messages;
-    return saved || [{ role: "assistant" as const, content: getWelcomeMessage('normal') }];
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = memory.messages;
+    return saved || [{ role: "assistant" as const, content: getWelcomeMessage() }];
   });
   
-  const [generalMessages, setGeneralMessages] = useState<Message[]>(() => {
-    const saved = getGeneralMemory().messages;
-    return saved || [{ role: "assistant" as const, content: getWelcomeMessage('general') }];
-  });
-  
-  // Separate conversation histories
-  const [normalHistory, setNormalHistory] = useState<ChatMessage[]>(() => getNormalMemory().history);
-  const [generalHistory, setGeneralHistory] = useState<ChatMessage[]>(() => getGeneralMemory().history);
+  const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>(() => memory.history);
   
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -169,16 +120,9 @@ export const AIAssistant = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  
-  // Get current messages/history based on mode
-  const currentMessages = assistantMode === 'normal' ? normalMessages : generalMessages;
-  const setCurrentMessages = assistantMode === 'normal' ? setNormalMessages : setGeneralMessages;
-  const currentHistory = assistantMode === 'normal' ? normalHistory : generalHistory;
-  const setCurrentHistory = assistantMode === 'normal' ? setNormalHistory : setGeneralHistory;
 
   // Handle viewing item details in dialog
   const handleViewItem = (item: any) => {
-    // Transform the item to match ItemDetailsDialog expected format
     const formattedItem = {
       id: item.id,
       title: item.title,
@@ -207,12 +151,11 @@ export const AIAssistant = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [currentMessages]);
+  }, [messages]);
 
   useEffect(() => {
     const fetchAutocomplete = async () => {
-      // Only show autocomplete in normal mode
-      if (assistantMode === 'general' || input.length < 2) {
+      if (input.length < 2) {
         setAutocomplete([]);
         return;
       }
@@ -225,25 +168,7 @@ export const AIAssistant = () => {
 
     const debounce = setTimeout(fetchAutocomplete, 300);
     return () => clearTimeout(debounce);
-  }, [input, assistantMode]);
-
-  // Handle mode switch
-  const handleModeSwitch = (newMode: 'normal' | 'general') => {
-    if (newMode === assistantMode) return;
-    
-    // Save current mode to session storage
-    sessionStorage.setItem(MEMORY_KEYS.currentMode, newMode);
-    setAssistantMode(newMode);
-    
-    // Clear input
-    setInput("");
-    setAutocomplete([]);
-    
-    toast.success(newMode === 'normal' 
-      ? "Switched to Normal Mode - Lost & Found focus" 
-      : "Switched to General Mode - Open questions welcome"
-    );
-  };
+  }, [input]);
 
   const handleSend = async (message?: string) => {
     const userMessage = message || input;
@@ -256,20 +181,18 @@ export const AIAssistant = () => {
       role: "user", 
       content: userMessage
     };
-    setCurrentMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    // Update conversation history for current mode
+    // Update conversation history
     const newHistory: ChatMessage[] = [
-      ...currentHistory,
+      ...conversationHistory,
       { role: "user", content: userMessage },
     ];
-    setCurrentHistory(newHistory);
+    setConversationHistory(newHistory);
 
     try {
-      // Pass mode-specific context
-      const sessionCtx = assistantMode === 'normal' ? normalSessionContext : undefined;
-      const { data, error } = await chat(userMessage, newHistory, sessionCtx, assistantMode);
+      const { data, error } = await chat(userMessage, newHistory, sessionContext);
 
       if (error) {
         throw new Error(error);
@@ -278,18 +201,18 @@ export const AIAssistant = () => {
       if (data) {
         const { response, context } = data;
 
-        // Update session context from backend (only for normal mode)
-        if (assistantMode === 'normal' && context.sessionContext) {
-          setNormalSessionContext(context.sessionContext);
+        // Update session context from backend
+        if (context.sessionContext) {
+          setSessionContext(context.sessionContext);
         }
 
-        // Save intent for reference (only for normal mode)
-        if (assistantMode === 'normal' && context.intent) {
+        // Save intent for reference
+        if (context.intent) {
           setLastIntent(context.intent);
         }
 
-        // Switch tabs based on detected intent (only on Browse page, only normal mode)
-        if (assistantMode === 'normal' && location.pathname === '/browse' && context.intent) {
+        // Switch tabs based on detected intent (only on Browse page)
+        if (location.pathname === '/browse' && context.intent) {
           if (context.intent === 'search' || context.intent === 'post_lost') {
             switchTab(context.intent);
           } else if (context.intent === 'post_found') {
@@ -302,41 +225,34 @@ export const AIAssistant = () => {
           ...newHistory,
           { role: "assistant", content: response },
         ];
-        setCurrentHistory(updatedHistory);
+        setConversationHistory(updatedHistory);
         
         // Create message with matches, context, and auto post
         const newMessage: Message = {
           role: "assistant",
           content: response,
-          matches: assistantMode === 'normal' ? context.matches : undefined,
+          matches: context.matches,
           recommendedAction: context.recommendedAction,
           intent: context.intent,
-          autoPost: assistantMode === 'normal' ? context.autoPost : undefined,
+          autoPost: context.autoPost,
           aiUsed: context.aiUsed,
-          needsLocation: assistantMode === 'normal' ? context.needsLocation : undefined,
+          needsLocation: context.needsLocation,
         };
 
-        setCurrentMessages((prev) => [...prev, newMessage]);
+        setMessages((prev) => [...prev, newMessage]);
         
-        // Save to session memory for current mode
-        if (assistantMode === 'normal') {
-          saveSessionMemory('normal', {
-            category: context.sessionContext?.category,
-            location: context.sessionContext?.location,
-            history: updatedHistory,
-            sessionContext: context.sessionContext,
-            messages: [...currentMessages, userMsg, newMessage],
-          });
-        } else {
-          saveSessionMemory('general', {
-            history: updatedHistory,
-            messages: [...currentMessages, userMsg, newMessage],
-          });
-        }
+        // Save to session memory
+        saveSessionMemory({
+          category: context.sessionContext?.category,
+          location: context.sessionContext?.location,
+          history: updatedHistory,
+          sessionContext: context.sessionContext,
+          messages: [...messages, userMsg, newMessage],
+        });
       }
     } catch (error) {
       console.error("AI Assistant error:", error);
-      setCurrentMessages((prev) => [
+      setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
@@ -350,28 +266,17 @@ export const AIAssistant = () => {
     }
   };
   
-  // Handle clearing conversation and memory for current mode
+  // Handle clearing conversation and memory
   const handleClearConversation = () => {
-    clearModeMemory(assistantMode);
-    
-    if (assistantMode === 'normal') {
-      setNormalSessionContext(undefined);
-      setNormalMessages([{
-        role: "assistant",
-        content: "Lost & Found Investigator ready.\n\nDescribe what you lost or found.",
-      }]);
-      setNormalHistory([]);
-    } else {
-      setGeneralMessages([{
-        role: "assistant",
-        content: "General Mode AI ready.\n\nAsk me anything!",
-      }]);
-      setGeneralHistory([]);
-    }
-    
+    clearSessionMemory();
+    setSessionContext(undefined);
+    setMessages([{
+      role: "assistant",
+      content: "Lost & Found Investigator ready.\n\nDescribe what you lost or found.",
+    }]);
+    setConversationHistory([]);
     toast.success("Conversation cleared");
   };
-
 
   const handleActionClick = (action: string, intent?: string) => {
     switch (action) {
@@ -394,7 +299,6 @@ export const AIAssistant = () => {
         setIsOpen(false);
         break;
       case "provide_location":
-        // Location input via chat text
         toast.info("Please type the location in chat");
         inputRef.current?.focus();
         break;
@@ -452,7 +356,7 @@ export const AIAssistant = () => {
       case "continue_conversation":
       case "continue":
       case "await_input":
-        return null; // Don't show button
+        return null;
       default:
         return null;
     }
@@ -488,68 +392,33 @@ export const AIAssistant = () => {
 
   return (
     <Card className="fixed bottom-6 right-6 w-[420px] h-[600px] shadow-2xl z-50 flex flex-col">
-      <CardHeader className="flex flex-col gap-2 py-3 px-4 border-b">
-        <div className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(0,191,166,0.3)] ring-1 ring-teal-400/20">
-              <img src={aiAssistantLogo} alt="AI Assistant" className="h-full w-full object-cover" />
-            </div>
-            <div>
-              <CardTitle className="text-base font-semibold tracking-tight">
-                {assistantMode === 'normal' ? 'Lost & Found Investigator' : 'General AI Assistant'}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground font-medium">
-                {assistantMode === 'normal' ? 'Smart search assistant' : 'Open domain questions'}
-              </p>
-            </div>
+      <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(0,191,166,0.3)] ring-1 ring-teal-400/20">
+            <img src={aiAssistantLogo} alt="AI Assistant" className="h-full w-full object-cover" />
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={handleClearConversation} title="Clear conversation">
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
+          <div>
+            <CardTitle className="text-base font-semibold tracking-tight">
+              Lost & Found Investigator
+            </CardTitle>
+            <p className="text-xs text-muted-foreground font-medium">
+              Smart search assistant
+            </p>
           </div>
         </div>
-        
-        {/* Mode Toggle Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant={assistantMode === 'normal' ? 'default' : 'outline'}
-            size="sm"
-            className={cn(
-              "flex-1 text-xs h-8",
-              assistantMode === 'normal' && "ring-2 ring-primary/30"
-            )}
-            onClick={() => handleModeSwitch('normal')}
-          >
-            Normal Mode
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={handleClearConversation} title="Clear conversation">
+            <RotateCcw className="h-4 w-4" />
           </Button>
-          <Button
-            variant={assistantMode === 'general' ? 'default' : 'outline'}
-            size="sm"
-            className={cn(
-              "flex-1 text-xs h-8",
-              assistantMode === 'general' && "ring-2 ring-primary/30"
-            )}
-            onClick={() => handleModeSwitch('general')}
-          >
-            General Mode
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
           </Button>
         </div>
-        
-        {/* Helper Text */}
-        <p className="text-[10px] text-muted-foreground text-center">
-          {assistantMode === 'normal' 
-            ? "Normal Mode helps with Lost & Found items only." 
-            : "General Mode allows open AI questions."}
-        </p>
       </CardHeader>
 
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4">
-          {currentMessages.map((message, index) => (
+          {messages.map((message, index) => (
             <div
               key={index}
               className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
@@ -608,7 +477,6 @@ export const AIAssistant = () => {
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                               {match.reasoning?.split('\n')[0]}
                             </p>
-                            {/* View Button */}
                             <Button
                               variant="outline"
                               size="sm"
@@ -627,8 +495,6 @@ export const AIAssistant = () => {
                     ))}
                   </div>
                 )}
-
-                {/* All action buttons removed - chat text only */}
               </div>
             </div>
           ))}
@@ -638,9 +504,7 @@ export const AIAssistant = () => {
               <div className="bg-muted rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">
-                    {assistantMode === 'normal' ? 'Investigating...' : 'Thinking...'}
-                  </span>
+                  <span className="text-sm text-muted-foreground">Investigating...</span>
                 </div>
               </div>
             </div>
@@ -649,8 +513,8 @@ export const AIAssistant = () => {
       </ScrollArea>
 
       <CardContent className="p-3 border-t">
-        {/* Autocomplete suggestions (only in normal mode) */}
-        {assistantMode === 'normal' && autocomplete.length > 0 && (
+        {/* Autocomplete suggestions */}
+        {autocomplete.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
             {autocomplete.map((suggestion, i) => (
               <Badge
@@ -679,10 +543,7 @@ export const AIAssistant = () => {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={assistantMode === 'normal' 
-              ? "Describe what you lost or found..." 
-              : "Ask me anything..."
-            }
+            placeholder="Describe what you lost or found..."
             className="flex-1"
             disabled={isLoading}
           />
@@ -705,8 +566,6 @@ export const AIAssistant = () => {
           setSelectedItem(null);
         }}
       />
-
-      {/* Location dialog removed - text-based location input only */}
     </Card>
   );
 };
