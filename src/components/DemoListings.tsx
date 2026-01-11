@@ -3,13 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Sparkles, Heart, Zap, MapPin, Calendar, Info } from "lucide-react";
+import { Eye, Sparkles, Heart, Zap, MapPin, Calendar, Info, Rocket } from "lucide-react";
 
 // Import demo images
 import lostHeartImg from "@/assets/demo/lost-heart.png";
 import pkRemote1 from "@/assets/demo/pk-remote-1.jpg";
 import pkRemote2 from "@/assets/demo/pk-remote-2.jpg";
 import pkRemote3 from "@/assets/demo/pk-remote-3.jpg";
+import jadoo1 from "@/assets/demo/jadoo-1.jpeg";
+import jadoo2 from "@/assets/demo/jadoo-2.jpeg";
+import jadoo3 from "@/assets/demo/jadoo-3.jpeg";
 
 interface DemoItem {
   id: string;
@@ -62,6 +65,30 @@ logon ke system, rules aur emotions samajhne me busy tha.
     photos: [pkRemote1, pkRemote2, pkRemote3],
     icon: <Zap className="w-4 h-4" />,
   },
+  {
+    id: "demo-jadoo",
+    title: "Jadoo (Lost Alien Friend) 🛸",
+    category: "Demo / Sample",
+    description: `Jadoo kho gaya hai 🛸
+
+Zyada bolta nahi hai,
+par bina bole sab kuch samajh leta hai.
+
+Aakhri baar use logon ki madad karte hue dekha gaya tha,
+bina kisi shart, bina kisi sawaal ke.
+
+'Dhooop dhooop' bolne par turant react karta hai ☀️😄
+
+Agar kahin halki si roshni dikhe
+ya bina wajah din thoda better lagne lage —
+ho sakta hai Jadoo aas-paas hi ho ✨
+
+📌 This is a fictional demo item added for presentation purposes only.`,
+    location: "Earth (Somewhere near Kasauli, India)",
+    date: "2003",
+    photos: [jadoo1, jadoo2, jadoo3],
+    icon: <Rocket className="w-4 h-4" />,
+  },
 ];
 
 export const DemoListings = () => {
@@ -94,7 +121,7 @@ export const DemoListings = () => {
       </div>
 
       {/* Demo Items Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {DEMO_ITEMS.map((item) => (
           <Card 
             key={item.id}
