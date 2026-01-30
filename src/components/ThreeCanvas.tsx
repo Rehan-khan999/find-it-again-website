@@ -76,8 +76,10 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
         
-        // 3/4 front facing (similar to reference image)
-        genie.rotation.y = -0.55;
+        // Face towards page content
+        const target = new THREE.Vector3(0, 1, 0);
+        genie.lookAt(target);
+        genie.rotateY(Math.PI);
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
