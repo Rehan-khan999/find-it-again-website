@@ -10,6 +10,7 @@ interface SceneState {
   renderer: THREE.WebGLRenderer;
   lamp: THREE.Group | null;
   genie: THREE.Group | null;
+  genieLight: THREE.PointLight | null;
   isOut: boolean;
   animating: boolean;
   animationId: number | null;
@@ -63,6 +64,7 @@ export const ThreeCanvas = () => {
       renderer,
       lamp: null,
       genie: null,
+      genieLight: null,
       isOut: false,
       animating: false,
       animationId: null
@@ -97,6 +99,12 @@ export const ThreeCanvas = () => {
         
         // Initial position
         genie.position.set(0.6, 0.2, 0.3);
+        
+        // Create blue magical light attached to genie tail area
+        const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
+        genieLight.position.set(0, -0.3, 0); // Position at tail area
+        genie.add(genieLight);
+        sceneRef.current.genieLight = genieLight;
         
         // Attach as child of lamp
         lamp.add(genie);
@@ -149,9 +157,9 @@ export const ThreeCanvas = () => {
           ease: 'power3.out'
         });
 
-        // Step 3: Bow forward - rotate X from 0 → -0.4 over 0.6s
+        // Step 3: Bow forward - rotate X from 0 → +0.4 over 0.6s
         tl.to(genie.rotation, {
-          x: -0.4,
+          x: 0.4,
           duration: 0.6,
           ease: 'power2.out'
         });
@@ -159,12 +167,22 @@ export const ThreeCanvas = () => {
         // Step 4: Hold bow pose for 2 seconds (empty tween)
         tl.to({}, { duration: 2 });
 
-        // Step 5: Return to upright - rotate X from -0.4 → 0 over 0.6s
+        // Step 5: Return to upright - rotate X from +0.4 → 0 over 0.6s
         tl.to(genie.rotation, {
           x: 0,
           duration: 0.6,
           ease: 'power2.in'
         });
+
+        // Animate blue magic light intensity 0 → 2 over 1s (starts with scale animation)
+        const light = sceneRef.current.genieLight;
+        if (light) {
+          gsap.to(light, {
+            intensity: 2,
+            duration: 1,
+            ease: 'power2.out'
+          });
+        }
 
       } else {
         // RETURN: Descend then shrink
@@ -194,6 +212,16 @@ export const ThreeCanvas = () => {
           duration: 1,
           ease: 'power2.in'
         });
+
+        // Animate blue magic light intensity 2 → 0 over 1s
+        const light = sceneRef.current.genieLight;
+        if (light) {
+          gsap.to(light, {
+            intensity: 0,
+            duration: 1,
+            ease: 'power2.in'
+          });
+        }
       }
     };
 
