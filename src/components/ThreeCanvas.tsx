@@ -90,7 +90,7 @@ export const ThreeCanvas = () => {
       
       // Lamp centered at bottom of view
       lamp.position.set(0, -0.6, 0);
-      lamp.scale.set(1, 1, 1);
+      lamp.scale.set(3, 3, 3);
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -169,9 +169,9 @@ export const ThreeCanvas = () => {
 
         // Scale up
         tl.to(genie.scale, {
-          x: 1,
-          y: 1,
-          z: 1,
+          x: 3,
+          y: 3,
+          z: 3,
           duration: 1.2,
           ease: 'power2.out'
         });
