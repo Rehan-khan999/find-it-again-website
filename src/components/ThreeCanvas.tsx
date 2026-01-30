@@ -1,111 +1,134 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import gsap from 'gsap';
-
-interface SceneState {
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  lamp: THREE.Group | null;
-  lid: THREE.Object3D | null;
-  genie: THREE.Group | null;
-  isOpen: boolean;
-  animationId: number | null;
-}
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 export const ThreeCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<SceneState | null>(null);
+  const sceneRef = useRef<{ animationId: number | null }>({ animationId: null });
 
   useEffect(() => {
-    if (!containerRef.current || sceneRef.current) return;
+    if (!containerRef.current) return;
 
+    console.log('=== THREE.JS INIT ===');
+
+    // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+    scene.background = new THREE.Color(0x111111);
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.5, 5);
+    // Camera - positioned to see origin
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 1, 5);
     camera.lookAt(0, 0, 0);
 
+    // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     containerRef.current.appendChild(renderer.domElement);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    // STRONG LIGHTS (mandatory for visibility)
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 3);
     dirLight.position.set(5, 5, 5);
     scene.add(dirLight);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-    sceneRef.current = {
-      scene, camera, renderer,
-      lamp: null, lid: null, genie: null,
-      isOpen: false, animationId: null
-    };
+    // Add a reference cube at origin to prove rendering works
+    const testCube = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.5, 0.5),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+    scene.add(testCube);
+    console.log('Green wireframe cube added at origin');
 
-    const loader = new GLTFLoader();
+    // Setup loaders with DRACO support
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
     
-    loader.load('/models/lamp.glb', (gltf) => {
-      if (!sceneRef.current) return;
-      const lamp = gltf.scene;
-      scene.add(lamp);
-      sceneRef.current.lamp = lamp;
-      sceneRef.current.lid = lamp.getObjectByName('Lid') || null;
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+    
+    console.log('Starting lamp.glb load...');
+    
+    loader.load(
+      '/models/lamp.glb',
+      (gltf) => {
+        console.log('=== LAMP ONLOAD CALLBACK FIRED ===');
+        const lamp = gltf.scene;
 
-      loader.load('/models/genie.glb', (gltf2) => {
-        if (!sceneRef.current) return;
-        const genie = gltf2.scene;
-        genie.scale.set(0, 0, 0);
-        genie.position.set(0, -0.6, 0);
-        lamp.add(genie);
-        sceneRef.current.genie = genie;
-      });
-    });
+        // Compute bounding box to understand model size
+        const box = new THREE.Box3().setFromObject(lamp);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        
+        console.log('RAW SIZE:', size.x.toFixed(2), size.y.toFixed(2), size.z.toFixed(2));
+        console.log('RAW CENTER:', center.x.toFixed(2), center.y.toFixed(2), center.z.toFixed(2));
+        
+        // Auto-scale to fit in view (target size ~2 units)
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scaleFactor = maxDim > 0 ? 2 / maxDim : 1;
+        lamp.scale.setScalar(scaleFactor);
+        
+        // Re-center after scaling
+        lamp.position.set(
+          -center.x * scaleFactor,
+          -center.y * scaleFactor + 0.5,
+          -center.z * scaleFactor
+        );
+        
+        console.log('APPLIED SCALE:', scaleFactor.toFixed(4));
 
-    const animate = () => {
-      if (!sceneRef.current) return;
-      sceneRef.current.animationId = requestAnimationFrame(animate);
-      if (sceneRef.current.genie && sceneRef.current.isOpen) {
-        sceneRef.current.genie.position.y += Math.sin(Date.now() * 0.002) * 0.002;
+        scene.add(lamp);
+        
+        // Remove test cube once lamp is loaded
+        scene.remove(testCube);
+        console.log('Lamp added to scene, test cube removed');
+        
+        // List all meshes
+        lamp.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            console.log('MESH:', child.name || '(unnamed)', 'visible:', child.visible);
+          }
+        });
+      },
+      (progress) => {
+        if (progress.total > 0) {
+          const pct = (progress.loaded / progress.total * 100).toFixed(1);
+          console.log('Loading lamp:', pct + '%');
+        }
+      },
+      (error) => {
+        console.error('LAMP LOAD ERROR:', error);
       }
+    );
+
+    // Animation loop
+    const animate = () => {
+      sceneRef.current.animationId = requestAnimationFrame(animate);
       renderer.render(scene, camera);
     };
     animate();
 
+    // Resize handler
     const handleResize = () => {
-      if (!sceneRef.current) return;
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener('resize', handleResize);
 
-    const handleClick = () => {
-      if (!sceneRef.current?.lid || !sceneRef.current?.genie) return;
-      const { lid, genie, isOpen } = sceneRef.current;
-      
-      if (!isOpen) {
-        gsap.timeline()
-          .to(lid.rotation, { x: -1.2, duration: 0.6, ease: 'power2.out' })
-          .to(genie.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: 'back.out(1.7)' })
-          .to(genie.position, { y: 1.5, duration: 1, ease: 'power3.out' });
-      } else {
-        gsap.timeline()
-          .to(genie.position, { y: -0.6, duration: 0.8, ease: 'power2.in' })
-          .to(genie.scale, { x: 0, y: 0, z: 0, duration: 0.4, ease: 'power2.in' })
-          .to(lid.rotation, { x: 0, duration: 0.6, ease: 'power2.inOut' });
-      }
-      sceneRef.current.isOpen = !isOpen;
-    };
-    
-    containerRef.current.addEventListener('click', handleClick);
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (sceneRef.current?.animationId) cancelAnimationFrame(sceneRef.current.animationId);
+      if (sceneRef.current.animationId) {
+        cancelAnimationFrame(sceneRef.current.animationId);
+      }
       renderer.dispose();
-      sceneRef.current = null;
+      containerRef.current?.removeChild(renderer.domElement);
     };
   }, []);
 
@@ -113,7 +136,7 @@ export const ThreeCanvas = () => {
     <div 
       ref={containerRef} 
       className="fixed inset-0"
-      style={{ cursor: 'pointer', zIndex: 50 }}
+      style={{ zIndex: 50 }}
       aria-hidden="true"
     />
   );
