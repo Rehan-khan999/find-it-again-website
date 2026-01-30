@@ -108,7 +108,7 @@ export const ThreeCanvas = () => {
         genie.scale.set(0, 0, 0);
         
         // Initial position - genie base (tail touches lamp)
-        genie.position.set(0.6, 0, 0.3);
+        genie.position.set(3.8, -0.3, 0.3);
         
         // Blue magical light
         const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
@@ -169,17 +169,17 @@ export const ThreeCanvas = () => {
 
         // Scale up
         tl.to(genie.scale, {
-          x: 3,
-          y: 3,
-          z: 3,
+          x: 1.6,
+          y: 1.6,
+          z: 1.6,
           duration: 1.2,
           ease: 'power2.out'
         });
 
         // Rise up - genie hovers from y=-0.6 to y=-0.1 in world space
         tl.to(genie.position, {
-          x: 0.6,
-          y: 0.5,
+          x: 3.8,
+          y: 0.2,
           z: 0.3,
           duration: 2.5,
           ease: 'power3.out'
@@ -225,8 +225,8 @@ export const ThreeCanvas = () => {
 
         // Descend back to base position
         tl.to(genie.position, {
-          x: 0.6,
-          y: 0,
+          x: 3.8,
+          y: -0.3,
           z: 0.3,
           duration: 2,
           ease: 'power2.in'
