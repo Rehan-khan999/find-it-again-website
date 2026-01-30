@@ -69,7 +69,7 @@ export const ThreeCanvas = () => {
       lamp.scale.set(1, 1, 1);
       
       // Fixed facing direction for lamp
-      lamp.rotation.set(0, Math.PI, 0);
+      lamp.rotation.y += Math.PI;
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -81,7 +81,7 @@ export const ThreeCanvas = () => {
         const genie = genieGltf.scene;
         
         // Fixed facing direction for genie
-        genie.rotation.set(0, Math.PI, 0);
+        genie.rotation.y += Math.PI;
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
