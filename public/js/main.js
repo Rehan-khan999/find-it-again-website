@@ -14,8 +14,8 @@ function initThreeJS() {
     0.1,
     100
   );
-  camera.position.set(0, 1.3, 3);
-  camera.lookAt(0, 0.6, 0);
+  camera.position.set(0, 2, 4);
+  camera.lookAt(0, 1, 0);
 
   // RENDERER
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -49,7 +49,7 @@ function initThreeJS() {
     lamp = gltf.scene;
 
     // FORCE orientation (this fixes your angle problem)
-    lamp.rotation.set(0, Math.PI, 0);
+    lamp.rotation.set(-Math.PI / 2, Math.PI, 0);
     lamp.position.set(0, 0, 0);
 
     // Normalize scale
@@ -69,6 +69,7 @@ function initThreeJS() {
       genie = gltf2.scene;
 
       genie.scale.set(0, 0, 0);
+      genie.rotation.set(-Math.PI / 2, Math.PI, 0);
       genie.position.set(0, -0.6, 0);
       lamp.add(genie);
 
@@ -98,21 +99,25 @@ function initThreeJS() {
       duration: 1
     });
 
-    tl.to(genie.position, {
-      y: 2.2,
-      duration: 2.5,
-      ease: "power3.out"
-    });
+   tl.to(genie.position, {
+  y: 1.8,
+  z: 0.6,
+  duration: 2.5,
+  ease: "power3.out"
+});
+
   }
 
   function closeLamp() {
     const tl = gsap.timeline();
 
-    tl.to(genie.position, {
-      y: -0.6,
-      duration: 2,
-      ease: "power3.in"
-    });
+   tl.to(genie.position, {
+  y: -0.6,
+  z: 0,
+  duration: 2,
+  ease: "power3.in"
+});
+
 
     tl.to(genie.scale, {
       x: 0, y: 0, z: 0,
