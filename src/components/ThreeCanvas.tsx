@@ -92,11 +92,11 @@ export const ThreeCanvas = () => {
         // EXPLICIT: Genie rotation to face camera
         genie.rotation.set(0, -Math.PI / 2, 0);
         
-        // Initial scale = 1 (always visible)
+        // Initial scale = (1, 1, 1) - always full size
         genie.scale.set(1, 1, 1);
         
-        // Initial position (hidden inside lamp)
-        genie.position.set(0.6, -0.4, 0.3);
+        // Initial position - fully hidden inside lamp body
+        genie.position.set(0.6, -0.8, 0.3);
         
         // Attach as child of lamp
         lamp.add(genie);
@@ -121,7 +121,7 @@ export const ThreeCanvas = () => {
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // EMERGE: Move genie up through lamp opening in two stages
+        // EMERGE: Genie rises from inside lamp through mouth
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -131,18 +131,18 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Stage 1: Rise from inside lamp to mouth level
-        // (0.6, -0.4, 0.3) → (0.6, 0.1, 0.3) over 1.5s
+        // Stage 1: Rise from deep inside to lamp mouth
+        // (0.6, -0.8, 0.3) → (0.6, 0.0, 0.3) over 2s
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.1,
+          y: 0.0,
           z: 0.3,
-          duration: 1.5,
+          duration: 2,
           ease: 'power2.out'
         });
 
         // Stage 2: Continue rising to full emerge position
-        // (0.6, 0.1, 0.3) → (0.6, 0.6, 0.3) over 2.5s
+        // (0.6, 0.0, 0.3) → (0.6, 0.6, 0.3) over 2.5s
         tl.to(genie.position, {
           x: 0.6,
           y: 0.6,
@@ -152,7 +152,7 @@ export const ThreeCanvas = () => {
         });
 
       } else {
-        // RETURN: Move genie back down into lamp in two stages
+        // RETURN: Genie descends back into lamp
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -163,20 +163,20 @@ export const ThreeCanvas = () => {
         });
 
         // Stage 1: Descend to lamp mouth level
-        // (0.6, 0.6, 0.3) → (0.6, 0.1, 0.3) over 2s
+        // (0.6, 0.6, 0.3) → (0.6, 0.0, 0.3) over 2s
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.1,
+          y: 0.0,
           z: 0.3,
           duration: 2,
           ease: 'power2.in'
         });
 
-        // Stage 2: Continue descending into lamp
-        // (0.6, 0.1, 0.3) → (0.6, -0.4, 0.3) over 2s
+        // Stage 2: Continue descending deep into lamp
+        // (0.6, 0.0, 0.3) → (0.6, -0.8, 0.3) over 2s
         tl.to(genie.position, {
           x: 0.6,
-          y: -0.4,
+          y: -0.8,
           z: 0.3,
           duration: 2,
           ease: 'power3.in'
