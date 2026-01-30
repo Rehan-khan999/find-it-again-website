@@ -16,6 +16,10 @@ interface SceneState {
   animationId: number | null;
 }
 
+// Widget dimensions
+const WIDGET_WIDTH = 300;
+const WIDGET_HEIGHT = 300;
+
 export const ThreeCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneState | null>(null);
@@ -25,21 +29,20 @@ export const ThreeCanvas = () => {
 
     // Scene - transparent background
     const scene = new THREE.Scene();
-    // No background color - transparent
 
-    // Camera - positioned to view bottom-right corner
+    // Camera - positioned for widget view
     const camera = new THREE.PerspectiveCamera(
       50,
-      window.innerWidth / window.innerHeight,
+      WIDGET_WIDTH / WIDGET_HEIGHT,
       0.1,
       1000
     );
-    camera.position.set(2.5, 0.8, 4);
-    camera.lookAt(2.2, -0.3, 0);
+    camera.position.set(0, 1, 3);
+    camera.lookAt(0, 0.6, 0);
 
-    // Renderer - transparent alpha
+    // Renderer - transparent alpha, sized to widget
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(WIDGET_WIDTH, WIDGET_HEIGHT);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.5;
@@ -76,15 +79,15 @@ export const ThreeCanvas = () => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Load lamp - positioned at bottom-right
+    // Load lamp - centered in widget
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
       
-      // Lamp at bottom-right corner
-      lamp.position.set(2.2, -0.8, 0);
-      lamp.scale.set(0.7, 0.7, 0.7);
+      // Lamp centered at bottom of widget view
+      lamp.position.set(0, -0.6, 0);
+      lamp.scale.set(0.6, 0.6, 0.6);
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -95,18 +98,18 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
         
-        // EXPLICIT: Genie rotation to face camera
+        // Genie rotation to face camera
         genie.rotation.set(0, -Math.PI / 2, 0);
         
         // Initial scale = (0, 0, 0) - fully invisible on load
         genie.scale.set(0, 0, 0);
         
-        // Initial position - relative to lamp, at bottom-right
-        genie.position.set(0.6, 0.6, 0.3);
+        // Initial position - relative to lamp
+        genie.position.set(0, 0.2, 0.2);
         
         // Create blue magical light attached to genie tail area
         const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
-        genieLight.position.set(0, -0.3, 0); // Position at tail area
+        genieLight.position.set(0, -0.3, 0);
         genie.add(genieLight);
         sceneRef.current.genieLight = genieLight;
         
@@ -154,31 +157,31 @@ export const ThreeCanvas = () => {
 
         // Step 2: Move genie up to emerge position
         tl.to(genie.position, {
-          x: 0.6,
-          y: 1.0,
-          z: 0.3,
+          x: 0,
+          y: 1.2,
+          z: 0.2,
           duration: 2.5,
           ease: 'power3.out'
         });
 
-        // Step 3: Bow forward - rotate X from 0 → +0.4 over 0.6s
+        // Step 3: Bow forward
         tl.to(genie.rotation, {
           x: 0.4,
           duration: 0.6,
           ease: 'power2.out'
         });
 
-        // Step 4: Hold bow pose for 2 seconds (empty tween)
+        // Step 4: Hold bow pose for 2 seconds
         tl.to({}, { duration: 2 });
 
-        // Step 5: Return to upright - rotate X from +0.4 → 0 over 0.6s
+        // Step 5: Return to upright
         tl.to(genie.rotation, {
           x: 0,
           duration: 0.6,
           ease: 'power2.in'
         });
 
-        // Animate blue magic light intensity 0 → 2 over 1s (starts with scale animation)
+        // Animate blue magic light
         const light = sceneRef.current.genieLight;
         if (light) {
           gsap.to(light, {
@@ -199,16 +202,16 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Step 1: Move genie back down to start position
+        // Step 1: Move genie back down
         tl.to(genie.position, {
-          x: 0.6,
-          y: 0.6,
-          z: 0.3,
+          x: 0,
+          y: 0.2,
+          z: 0.2,
           duration: 2,
           ease: 'power2.in'
         });
 
-        // Step 2: Scale from (1,1,1) → (0,0,0) over 1s
+        // Step 2: Scale to zero
         tl.to(genie.scale, {
           x: 0,
           y: 0,
@@ -217,7 +220,7 @@ export const ThreeCanvas = () => {
           ease: 'power2.in'
         });
 
-        // Animate blue magic light intensity 2 → 0 over 1s
+        // Fade out light
         const light = sceneRef.current.genieLight;
         if (light) {
           gsap.to(light, {
@@ -231,17 +234,7 @@ export const ThreeCanvas = () => {
 
     containerRef.current.addEventListener('click', handleClick);
 
-    // Resize
-    const handleResize = () => {
-      if (!sceneRef.current) return;
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
       containerRef.current?.removeEventListener('click', handleClick);
       if (sceneRef.current?.animationId) {
         cancelAnimationFrame(sceneRef.current.animationId);
@@ -254,13 +247,17 @@ export const ThreeCanvas = () => {
 
   return (
     <div 
+      id="genie-widget"
       ref={containerRef} 
-      className="fixed inset-0 cursor-pointer"
+      className="cursor-pointer"
       style={{ 
-        zIndex: 1,
-        pointerEvents: 'auto',
-        width: '100%',
-        height: '100%'
+        position: 'fixed',
+        bottom: '80px',
+        right: '40px',
+        width: `${WIDGET_WIDTH}px`,
+        height: `${WIDGET_HEIGHT}px`,
+        zIndex: 5,
+        pointerEvents: 'auto'
       }}
       aria-hidden="true"
     />
