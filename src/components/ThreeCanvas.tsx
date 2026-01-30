@@ -4,6 +4,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import gsap from 'gsap';
 
+const CONTAINER_WIDTH = 260;
+const CONTAINER_HEIGHT = 260;
+
 interface SceneState {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -26,19 +29,19 @@ export const ThreeCanvas = () => {
     // Scene - transparent background
     const scene = new THREE.Scene();
 
-    // Camera - positioned to view bottom-right area
+    // Camera - centered for the widget container
     const camera = new THREE.PerspectiveCamera(
       50,
-      window.innerWidth / window.innerHeight,
+      CONTAINER_WIDTH / CONTAINER_HEIGHT,
       0.1,
       1000
     );
-    camera.position.set(4.5, -0.5, 5);
-    camera.lookAt(4.0, -1.5, 0);
+    camera.position.set(0, 1, 3);
+    camera.lookAt(0, 0, 0);
 
-    // Renderer - full screen, transparent
+    // Renderer - sized to container
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(CONTAINER_WIDTH, CONTAINER_HEIGHT);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.5;
@@ -47,13 +50,13 @@ export const ThreeCanvas = () => {
     // Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const frontLight = new THREE.DirectionalLight(0xffffff, 2);
-    frontLight.position.set(3, 3, 5);
+    frontLight.position.set(0, 3, 5);
     scene.add(frontLight);
     const topLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    topLight.position.set(3, 5, 0);
+    topLight.position.set(0, 5, 0);
     scene.add(topLight);
     const fillLight = new THREE.DirectionalLight(0x8888ff, 0.8);
-    fillLight.position.set(0, 2, -2);
+    fillLight.position.set(-2, 2, -2);
     scene.add(fillLight);
 
     // State
@@ -79,14 +82,14 @@ export const ThreeCanvas = () => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // Load lamp - positioned at bottom-right where FindIt AI logo was
+    // Load lamp - centered in container
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
       
-      // Lamp positioned further bottom-right
-      lamp.position.set(4.0, -1.8, 0);
+      // Lamp centered at bottom of view
+      lamp.position.set(0, -0.6, 0);
       lamp.scale.set(1, 1, 1);
       
       scene.add(lamp);
@@ -127,13 +130,16 @@ export const ThreeCanvas = () => {
     };
     animate();
 
-    // Click handler - only triggers on lamp
+    // Click handler - triggers on any click within container
     const handleClick = (event: MouseEvent) => {
       if (!sceneRef.current || !sceneRef.current.lamp) return;
       
-      // Calculate mouse position in normalized device coordinates
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      // Calculate mouse position relative to container
+      mouse.x = ((event.clientX - rect.left) / CONTAINER_WIDTH) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / CONTAINER_HEIGHT) * 2 + 1;
       
       // Update raycaster
       raycaster.setFromCamera(mouse, camera);
@@ -249,17 +255,7 @@ export const ThreeCanvas = () => {
 
     containerRef.current.addEventListener('click', handleClick);
 
-    // Resize handler
-    const handleResize = () => {
-      if (!sceneRef.current) return;
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
       containerRef.current?.removeEventListener('click', handleClick);
       if (sceneRef.current?.animationId) {
         cancelAnimationFrame(sceneRef.current.animationId);
@@ -272,15 +268,16 @@ export const ThreeCanvas = () => {
 
   return (
     <div 
+      id="genie-container"
       ref={containerRef} 
       className="cursor-pointer"
       style={{ 
         position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 2,
+        bottom: 90,
+        right: 40,
+        width: CONTAINER_WIDTH,
+        height: CONTAINER_HEIGHT,
+        zIndex: 9999,
         pointerEvents: 'auto'
       }}
       aria-hidden="true"
