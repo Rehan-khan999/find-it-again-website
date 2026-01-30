@@ -68,13 +68,10 @@ export const ThreeCanvas = () => {
       lamp.position.set(2, -1.5, 0);
       lamp.scale.set(1, 1, 1);
       
-      // Fixed facing direction for lamp (rotate actual meshes)
-      const angle = Math.PI / 6; // 30 degrees toward right
-      lamp.traverse((child: any) => {
-        if (child.isMesh) {
-          child.rotation.y += angle;
-        }
-      });
+      // Face toward center of hero section with artistic offset
+      const target = new THREE.Vector3(0, 0, 0);
+      lamp.lookAt(target);
+      lamp.rotateY(-Math.PI / 6);
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -85,12 +82,9 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
         
-        // Fixed facing direction for genie (rotate actual meshes)
-        genie.traverse((child: any) => {
-          if (child.isMesh) {
-            child.rotation.y += angle;
-          }
-        });
+        // Face toward center of hero section with artistic offset
+        genie.lookAt(target);
+        genie.rotateY(-Math.PI / 6);
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
