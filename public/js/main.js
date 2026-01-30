@@ -17,6 +17,7 @@ function init() {
     100
   );
   camera.position.set(0, 1.5, 5);
+  camera.lookAt(0, 0, 0);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
