@@ -34,8 +34,9 @@ export const ThreeCanvas = () => {
       0.1,
       1000
     );
-    camera.position.set(0, 1.2, 3);
-    camera.lookAt(0, 0.5, 0);
+    // HARD-SET: Cinematic camera - wider, lower angle
+    camera.position.set(0, 1.0, 4);
+    camera.lookAt(0, 0.2, 0);
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -86,9 +87,13 @@ export const ThreeCanvas = () => {
       const scaleFactor = maxDim > 0 ? 2 / maxDim : 1;
       lamp.scale.setScalar(scaleFactor);
       
-      // HARD-SET: Force lamp position and rotation
-      lamp.position.set(0, 0, 0);
-      lamp.rotation.set(0, Math.PI, 0); // Front faces camera
+      // HARD-SET: Force lamp position and rotation for front-facing view
+      // Position lowered to center in viewport
+      lamp.position.set(0, -0.2, 0);
+      // Multi-axis rotation: slight X tilt + Y rotation for front-facing
+      // Test values: Y = 0, π/4, π/2, 3π/4, π, -π/2
+      lamp.rotation.set(-0.1, Math.PI / 2, 0);
+      console.log('Lamp rotation set to:', lamp.rotation.x, lamp.rotation.y, lamp.rotation.z);
 
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
