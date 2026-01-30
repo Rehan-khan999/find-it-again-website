@@ -20,6 +20,11 @@ function init() {
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.domElement.style.position = "fixed";
+  renderer.domElement.style.top = "0";
+  renderer.domElement.style.left = "0";
+  renderer.domElement.style.zIndex = "9999";
+  renderer.domElement.style.pointerEvents = "auto";
   document.body.appendChild(renderer.domElement);
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
