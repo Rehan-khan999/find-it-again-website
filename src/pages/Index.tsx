@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Shield, Sparkles, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { StarfieldBackground } from "@/components/StarfieldBackground";
+import { ThreeCanvas } from "@/components/ThreeCanvas";
 import { useTranslation } from 'react-i18next';
 
 export default function Index() {
@@ -12,11 +12,11 @@ export default function Index() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Dark background for hero with starfield */}
+      {/* Dark background for hero */}
       <div className="fixed inset-0 bg-background dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 -z-10" />
       
-      {/* Animated Starfield Background */}
-      <StarfieldBackground />
+      {/* Three.js Canvas Background */}
+      <ThreeCanvas />
       
       {/* Hero Section */}
       <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter">
