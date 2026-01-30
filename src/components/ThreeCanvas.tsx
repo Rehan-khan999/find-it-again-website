@@ -96,7 +96,7 @@ export const ThreeCanvas = () => {
         genie.scale.set(0, 0, 0);
         
         // Initial position (start position for emerge animation)
-        genie.position.set(0.6, 0.3, 0.3);
+        genie.position.set(0.6, 0.2, 0.3);
         
         // Attach as child of lamp
         lamp.add(genie);
@@ -121,7 +121,7 @@ export const ThreeCanvas = () => {
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // EMERGE: scale 0 → 1, move from (0.6, 0.3, 0.3) to (0.6, 1.2, 0.3) over 2.5s
+        // EMERGE: scale 0 → 1, move from (0.6, 0.2, 0.3) to (0.6, 0.6, 0.3) over 2.5s
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -141,14 +141,14 @@ export const ThreeCanvas = () => {
 
         tl.to(genie.position, {
           x: 0.6,
-          y: 1.2,
+          y: 0.6,
           z: 0.3,
           duration: 2.5,
           ease: 'power2.out'
         }, 0);
 
       } else {
-        // RETURN: move back to (0.6, 0.3, 0.3) over 2s, scale to 0
+        // RETURN: move back to (0.6, 0.2, 0.3) over 2s, scale to 0
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -160,7 +160,7 @@ export const ThreeCanvas = () => {
 
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.3,
+          y: 0.2,
           z: 0.3,
           duration: 2,
           ease: 'power2.in'
