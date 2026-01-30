@@ -33,8 +33,8 @@ export const ThreeCanvas = () => {
       0.1,
       1000
     );
-    camera.position.set(3.5, 0.2, 5);
-    camera.lookAt(3.2, -1, 0);
+    camera.position.set(3.5, 0.0, 5);
+    camera.lookAt(3.2, -1.0, 0);
 
     // Renderer - full screen, transparent
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -79,14 +79,14 @@ export const ThreeCanvas = () => {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // Load lamp - positioned at bottom-right of scene
+    // Load lamp - positioned at bottom-right where FindIt AI logo was
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
       
-      // Lamp at bottom-right
-      lamp.position.set(3.2, -1.4, 0);
+      // Lamp at bottom-right (replacing FindIt AI button position)
+      lamp.position.set(3.2, -1.2, 0);
       lamp.scale.set(1, 1, 1);
       
       scene.add(lamp);
@@ -104,8 +104,8 @@ export const ThreeCanvas = () => {
         // Initial scale = 0 (invisible)
         genie.scale.set(0, 0, 0);
         
-        // Initial position relative to lamp
-        genie.position.set(0.6, 0.8, 0.3);
+        // Initial position - genie base (tail touches lamp)
+        genie.position.set(0.6, 0.6, 0.3);
         
         // Blue magical light
         const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
@@ -170,10 +170,10 @@ export const ThreeCanvas = () => {
           ease: 'power2.out'
         });
 
-        // Rise up
+        // Rise up - genie emerges but tail stays touching lamp
         tl.to(genie.position, {
           x: 0.6,
-          y: 1.4,
+          y: 1.0,
           z: 0.3,
           duration: 2.5,
           ease: 'power3.out'
@@ -217,10 +217,10 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Descend
+        // Descend back to base position
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.8,
+          y: 0.6,
           z: 0.3,
           duration: 2,
           ease: 'power2.in'

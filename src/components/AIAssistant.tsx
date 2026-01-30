@@ -362,7 +362,15 @@ export const AIAssistant = () => {
     }
   };
 
+  // Hide floating button on homepage (lamp replaces it there)
+  const isHomePage = location.pathname === '/';
+
   if (!isOpen) {
+    // On homepage, hide the button - lamp acts as the assistant trigger
+    if (isHomePage) {
+      return null;
+    }
+    
     return (
       <button
         onClick={() => setIsOpen(true)}
