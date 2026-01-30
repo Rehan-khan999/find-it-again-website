@@ -9,11 +9,11 @@ interface SceneState {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   lamp: THREE.Group | null;
-  lid: THREE.Object3D | null;
   genie: THREE.Group | null;
-  isOpen: boolean;
+  isVisible: boolean;
   animating: boolean;
   animationId: number | null;
+  glowIntensity: { value: number };
 }
 
 export const ThreeCanvas = () => {
@@ -27,15 +27,14 @@ export const ThreeCanvas = () => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
 
-    // Camera - cinematic front view
+    // Fixed camera - no movement
     const camera = new THREE.PerspectiveCamera(
       45,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    // HARD-SET: Camera position and lookAt
-    camera.position.set(0, 2, 4);
+    camera.position.set(0, 2, 5);
     camera.lookAt(0, 1, 0);
 
     // Renderer
@@ -46,7 +45,7 @@ export const ThreeCanvas = () => {
     renderer.toneMappingExposure = 1.2;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Strong lighting
+    // Lighting
     scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
     const dirLight = new THREE.DirectionalLight(0xffffff, 3);
     dirLight.position.set(5, 5, 5);
@@ -55,17 +54,20 @@ export const ThreeCanvas = () => {
     backLight.position.set(-3, 2, -3);
     scene.add(backLight);
 
+    // Glow intensity tracker for animation
+    const glowIntensity = { value: 0 };
+
     // Initialize state
     sceneRef.current = {
       scene,
       camera,
       renderer,
       lamp: null,
-      lid: null,
       genie: null,
-      isOpen: false,
+      isVisible: false,
       animating: false,
-      animationId: null
+      animationId: null,
+      glowIntensity
     };
 
     // Setup loaders with DRACO support
@@ -74,161 +76,148 @@ export const ThreeCanvas = () => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Load lamp first
+    // Load lamp - fixed front-facing pose, no rotations
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
-
-      // HARD-SET: Explicit lamp values - no auto-calculations
+      
+      // Fixed position - no rotations or transforms
       lamp.scale.set(1, 1, 1);
       lamp.position.set(0, 0, 0);
-      lamp.rotation.set(-Math.PI / 2, Math.PI, 0);
+      // No rotation - keep model's native front-facing orientation
 
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
 
-      // Find the lid (try common naming conventions)
-      let lid: THREE.Object3D | null = null;
-      lamp.traverse((child) => {
-        const name = child.name.toLowerCase();
-        if (name.includes('lid') || name.includes('cap') || name.includes('top') || name.includes('cover')) {
-          lid = child;
-        }
-      });
-      
-      // If no lid found, use the first child as a fallback for animation
-      if (!lid && lamp.children.length > 0) {
-        lamp.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh && !lid) {
-            lid = child.parent || child;
-          }
-        });
-      }
-      sceneRef.current.lid = lid;
-
-      // Load genie and attach to lamp
+      // Load genie
       loader.load('/models/genie.glb', (genieGltf) => {
         if (!sceneRef.current) return;
         
         const genie = genieGltf.scene;
 
-        // HARD-SET: Explicit genie values - no auto-calculations
-        genie.rotation.set(-Math.PI / 2, Math.PI, 0);
+        // Fixed position above lamp - no rotations
         genie.scale.set(0, 0, 0); // Hidden initially
-        genie.position.set(0, -0.6, 0);
-        genie.userData.targetScale = 1;
-        genie.userData.emergePosition = { x: 0, y: 1.8, z: 0.6 };
-        genie.userData.startPosition = { x: 0, y: -0.6, z: 0 };
-        
-        // Attach genie to lamp so it moves with it
-        lamp.add(genie);
+        genie.position.set(0, 2, 0); // Fixed position above lamp
+
+        // Apply emissive glow material to genie meshes
+        genie.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            if (mesh.material) {
+              const originalMaterial = mesh.material as THREE.MeshStandardMaterial;
+              const glowMaterial = new THREE.MeshStandardMaterial({
+                color: originalMaterial.color || new THREE.Color(0x4488ff),
+                emissive: new THREE.Color(0x0066ff),
+                emissiveIntensity: 0,
+                metalness: 0.3,
+                roughness: 0.5,
+                transparent: true,
+                opacity: 1
+              });
+              mesh.material = glowMaterial;
+              mesh.userData.glowMaterial = glowMaterial;
+            }
+          }
+        });
+
+        scene.add(genie);
         sceneRef.current.genie = genie;
       });
     });
 
-    // Animation loop with genie floating effect
+    // Animation loop - update glow effect
     const animate = () => {
       if (!sceneRef.current) return;
       sceneRef.current.animationId = requestAnimationFrame(animate);
       
-      // Floating animation for genie when visible
-      const { genie, isOpen } = sceneRef.current;
-      if (genie && isOpen && genie.scale.x > 0.1) {
-        genie.position.y += Math.sin(Date.now() * 0.003) * 0.001;
-        genie.rotation.y += 0.002;
+      const { genie, glowIntensity } = sceneRef.current;
+      
+      // Update glow intensity on all genie materials
+      if (genie) {
+        genie.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            const material = mesh.userData.glowMaterial as THREE.MeshStandardMaterial;
+            if (material) {
+              material.emissiveIntensity = glowIntensity.value;
+            }
+          }
+        });
       }
       
       renderer.render(scene, camera);
     };
     animate();
 
-    // Click handler for open/close animation
+    // Click handler - simple fade in/out
     const handleClick = () => {
       if (!sceneRef.current) return;
-      const { lid, genie, isOpen, animating } = sceneRef.current;
+      const { genie, isVisible, animating, glowIntensity } = sceneRef.current;
       
       if (animating || !genie) return;
       sceneRef.current.animating = true;
 
-      const targetScale = genie.userData.targetScale || 1;
-
-      if (!isOpen) {
-        // OPEN: Rotate lid and emerge genie - CINEMATIC TIMING
+      if (!isVisible) {
+        // FADE IN: Scale 0 → 1 over 2s with glow
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
               sceneRef.current.animating = false;
-              sceneRef.current.isOpen = true;
+              sceneRef.current.isVisible = true;
             }
           }
         });
 
-        // Open lid slowly (rotate on X axis)
-        if (lid) {
-          tl.to(lid.rotation, {
-            x: -1.2,
-            duration: 1.2,
-            ease: 'power2.out'
-          }, 0);
-        }
-
-        // Scale up and rise genie cinematically
+        // Scale up genie
         tl.to(genie.scale, {
-          x: targetScale,
-          y: targetScale,
-          z: targetScale,
-          duration: 2.5,
-          ease: 'power3.out'
-        }, 0.8);
-
-        // HARD-SET: Emerge to explicit position (0, 1.8, 0.6) over 2.5s
-        const emergePos = genie.userData.emergePosition;
-        tl.to(genie.position, {
-          x: emergePos.x,
-          y: emergePos.y,
-          z: emergePos.z,
-          duration: 2.5,
-          ease: 'power3.out'
-        }, 0.8);
-
-      } else {
-        // CLOSE: Return genie and close lid - CINEMATIC TIMING
-        const tl = gsap.timeline({
-          onComplete: () => {
-            if (sceneRef.current) {
-              sceneRef.current.animating = false;
-              sceneRef.current.isOpen = false;
-            }
-          }
-        });
-
-        // HARD-SET: Return to start position (0, -0.6, 0) over 2s
-        const startPos = genie.userData.startPosition;
-        tl.to(genie.position, {
-          x: startPos.x,
-          y: startPos.y,
-          z: startPos.z,
+          x: 1,
+          y: 1,
+          z: 1,
           duration: 2,
-          ease: 'power3.in'
+          ease: 'power2.out'
         }, 0);
 
+        // Fade in glow effect
+        tl.to(glowIntensity, {
+          value: 1.5,
+          duration: 1.5,
+          ease: 'power2.out'
+        }, 0);
+
+        // Pulse glow after appearing
+        tl.to(glowIntensity, {
+          value: 0.8,
+          duration: 0.5,
+          ease: 'power2.inOut'
+        }, 1.5);
+
+      } else {
+        // FADE OUT: Scale 1 → 0 over 2s
+        const tl = gsap.timeline({
+          onComplete: () => {
+            if (sceneRef.current) {
+              sceneRef.current.animating = false;
+              sceneRef.current.isVisible = false;
+            }
+          }
+        });
+
+        // Fade out glow first
+        tl.to(glowIntensity, {
+          value: 0,
+          duration: 1,
+          ease: 'power2.in'
+        }, 0);
+
+        // Scale down genie
         tl.to(genie.scale, {
           x: 0,
           y: 0,
           z: 0,
           duration: 2,
-          ease: 'power3.in'
-        }, 0.5);
-
-        // Close lid slowly
-        if (lid) {
-          tl.to(lid.rotation, {
-            x: 0,
-            duration: 1.2,
-            ease: 'power2.inOut'
-          }, 2);
-        }
+          ease: 'power2.in'
+        }, 0);
       }
     };
 
