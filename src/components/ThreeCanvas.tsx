@@ -69,7 +69,7 @@ export const ThreeCanvas = () => {
       lamp.scale.set(1, 1, 1);
       
       // Fixed facing direction for lamp (rotate actual meshes)
-      const angle = -Math.PI / 6; // 30 degrees toward left
+      const angle = Math.PI / 6; // 30 degrees toward right
       lamp.traverse((child: any) => {
         if (child.isMesh) {
           child.rotation.y += angle;
