@@ -33,8 +33,8 @@ export const ThreeCanvas = () => {
       0.1,
       1000
     );
-    camera.position.set(3.5, 0.0, 5);
-    camera.lookAt(3.2, -1.0, 0);
+    camera.position.set(4.5, -0.5, 5);
+    camera.lookAt(4.0, -1.5, 0);
 
     // Renderer - full screen, transparent
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -85,8 +85,8 @@ export const ThreeCanvas = () => {
       
       const lamp = lampGltf.scene;
       
-      // Lamp at bottom-right (replacing FindIt AI button position)
-      lamp.position.set(3.2, -1.2, 0);
+      // Lamp positioned further bottom-right
+      lamp.position.set(4.0, -1.8, 0);
       lamp.scale.set(1, 1, 1);
       
       scene.add(lamp);
