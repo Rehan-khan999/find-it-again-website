@@ -76,8 +76,8 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
         
-        // Face towards page center
-        genie.rotation.y = -Math.PI / 2 + Math.PI / 4 + 0.4;
+        // Face towards page content
+        genie.lookAt(0, 1.2, 0);
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
