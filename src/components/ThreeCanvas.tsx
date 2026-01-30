@@ -69,9 +69,10 @@ export const ThreeCanvas = () => {
       lamp.scale.set(1, 1, 1);
       
       // Fixed facing direction for lamp (rotate actual meshes)
+      const angle = -Math.PI / 6; // 30 degrees toward left
       lamp.traverse((child: any) => {
         if (child.isMesh) {
-          child.rotation.y += Math.PI;
+          child.rotation.y += angle;
         }
       });
       
@@ -87,7 +88,7 @@ export const ThreeCanvas = () => {
         // Fixed facing direction for genie (rotate actual meshes)
         genie.traverse((child: any) => {
           if (child.isMesh) {
-            child.rotation.y += Math.PI;
+            child.rotation.y += angle;
           }
         });
         
