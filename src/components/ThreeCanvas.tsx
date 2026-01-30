@@ -8,18 +8,20 @@ export const ThreeCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
     renderer: THREE.WebGLRenderer;
+    camera: THREE.PerspectiveCamera;
+    lamp: THREE.Group | null;
     genie: THREE.Group | null;
     isOut: boolean;
     animating: boolean;
+    raycaster: THREE.Raycaster;
+    mouse: THREE.Vector2;
   } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || sceneRef.current) return;
 
-    // Scene
     const scene = new THREE.Scene();
 
-    // Camera - fullscreen
     const camera = new THREE.PerspectiveCamera(
       50,
       window.innerWidth / window.innerHeight,
@@ -29,61 +31,67 @@ export const ThreeCanvas = () => {
     camera.position.set(0, 1, 5);
     camera.lookAt(0, 0, 0);
 
-    // Renderer - fullscreen
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     containerRef.current.appendChild(renderer.domElement);
 
-    // Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const mainLight = new THREE.DirectionalLight(0xffffff, 2);
     mainLight.position.set(2, 4, 3);
     scene.add(mainLight);
 
-    // State
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     sceneRef.current = {
       renderer,
+      camera,
+      lamp: null,
       genie: null,
       isOut: false,
-      animating: false
+      animating: false,
+      raycaster,
+      mouse
     };
 
-    // Loaders
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Load lamp
+    // Load lamp - positioned at bottom-right
     loader.load('/models/lamp.glb', (lampGltf) => {
+      if (!sceneRef.current) return;
+      
       const lamp = lampGltf.scene;
-      lamp.position.set(0, -1, 0);
+      lamp.position.set(2, -1.5, 0); // Bottom-right position
       lamp.scale.set(1, 1, 1);
       scene.add(lamp);
+      sceneRef.current.lamp = lamp;
 
-      // Load genie
+      // Load genie as child of lamp
       loader.load('/models/genie.glb', (genieGltf) => {
-        if (!sceneRef.current) return;
+        if (!sceneRef.current || !sceneRef.current.lamp) return;
         
         const genie = genieGltf.scene;
         genie.rotation.set(0, -Math.PI / 2, 0);
         genie.scale.set(1, 1, 1);
-        // Hidden below lamp
-        genie.position.set(0.5, -2, 0);
-        scene.add(genie);
+        // Position relative to lamp (hidden below)
+        genie.position.set(0.6, -0.8, 0.3);
+        
+        // Attach genie as child of lamp
+        lamp.add(genie);
         sceneRef.current.genie = genie;
       });
     });
 
-    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
       renderer.render(scene, camera);
     };
     animate();
 
-    // Resize handler
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -91,20 +99,33 @@ export const ThreeCanvas = () => {
     };
     window.addEventListener('resize', handleResize);
 
-    // Click handler
-    const handleClick = () => {
+    // Raycasting click handler - only lamp is clickable
+    const handleClick = (event: MouseEvent) => {
       if (!sceneRef.current) return;
-      const { genie, isOut, animating } = sceneRef.current;
-      if (!genie || animating) return;
+      const { lamp, genie, isOut, animating, raycaster, mouse, camera } = sceneRef.current;
+      if (!lamp || !genie || animating) return;
+
+      // Calculate mouse position in normalized device coordinates
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      // Update raycaster
+      raycaster.setFromCamera(mouse, camera);
+
+      // Check intersection with lamp (not genie)
+      const intersects = raycaster.intersectObject(lamp, true);
+      
+      // Only proceed if lamp was clicked
+      if (intersects.length === 0) return;
 
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // Rise up
+        // Emerge: move genie up (relative to lamp)
         gsap.to(genie.position, {
-          y: 0.5,
-          duration: 2,
-          ease: 'power2.out',
+          y: -0.3,
+          duration: 2.5,
+          ease: 'power3.out',
           onComplete: () => {
             if (sceneRef.current) {
               sceneRef.current.animating = false;
@@ -113,10 +134,10 @@ export const ThreeCanvas = () => {
           }
         });
       } else {
-        // Go back down
+        // Return: move genie back down (relative to lamp)
         gsap.to(genie.position, {
-          y: -2,
-          duration: 1.5,
+          y: -0.8,
+          duration: 2,
           ease: 'power2.in',
           onComplete: () => {
             if (sceneRef.current) {
@@ -127,11 +148,12 @@ export const ThreeCanvas = () => {
         });
       }
     };
-    containerRef.current.addEventListener('click', handleClick);
+    
+    renderer.domElement.addEventListener('click', handleClick);
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      containerRef.current?.removeEventListener('click', handleClick);
+      renderer.domElement.removeEventListener('click', handleClick);
       renderer.dispose();
       dracoLoader.dispose();
       sceneRef.current = null;
