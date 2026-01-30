@@ -95,7 +95,7 @@ export const ThreeCanvas = () => {
         sceneRef.current.genie = genie;
         
         // Now rotate the rig only for unified orientation
-        genieRig.rotation.y = -Math.PI / 6; // 30 degrees toward center
+        genieRig.rotation.y = Math.PI / 9; // 20 degrees left centered
       });
     });
 
