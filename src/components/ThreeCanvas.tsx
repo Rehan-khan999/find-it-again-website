@@ -35,7 +35,7 @@ export const ThreeCanvas = () => {
       1000
     );
     camera.position.set(0, 1.2, 3);
-    camera.lookAt(0, 0.3, 0);
+    camera.lookAt(0, 0.5, 0);
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -79,21 +79,16 @@ export const ThreeCanvas = () => {
       
       const lamp = lampGltf.scene;
 
-      // Auto-scale lamp to fit view
+      // Hard-set scale to normalize the model
       const box = new THREE.Box3().setFromObject(lamp);
       const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z);
       const scaleFactor = maxDim > 0 ? 2 / maxDim : 1;
-      
       lamp.scale.setScalar(scaleFactor);
-      // Center lamp and ensure it faces the camera directly
-      lamp.position.set(
-        -center.x * scaleFactor,
-        -center.y * scaleFactor - 0.3,
-        -center.z * scaleFactor
-      );
-      lamp.rotation.set(0, 0, 0); // Face camera directly
+      
+      // HARD-SET: Force lamp position and rotation
+      lamp.position.set(0, 0, 0);
+      lamp.rotation.set(0, Math.PI, 0); // Front faces camera
 
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -129,12 +124,14 @@ export const ThreeCanvas = () => {
         const genieMaxDim = Math.max(genieSize.x, genieSize.y, genieSize.z);
         const genieScale = genieMaxDim > 0 ? 1.5 / genieMaxDim : 1;
         
-        // Apply scale and hide initially
+        // Hide initially (scale 0)
         genie.scale.set(0, 0, 0);
         genie.userData.targetScale = genieScale;
+        genie.userData.startY = 0.5; // Start position inside lamp
+        genie.userData.emergeY = 2.2; // HARD-SET: Emerge target clearly above lamp
         
-        // Position genie at lamp opening (will emerge from here)
-        genie.position.set(0, 0.3 / scaleFactor, 0);
+        // Position genie at lamp opening
+        genie.position.set(0, 0.5, 0);
         
         // Attach genie to lamp so it moves with it
         lamp.add(genie);
@@ -197,9 +194,10 @@ export const ThreeCanvas = () => {
           ease: 'power3.out'
         }, 0.8);
 
-        // Emerge higher for dramatic effect
+        // Emerge to hard-set target position
+        const emergeY = genie.userData.emergeY || 2.2;
         tl.to(genie.position, {
-          y: genie.position.y + 2.5,
+          y: emergeY,
           duration: 2.5,
           ease: 'power3.out'
         }, 0.8);
@@ -215,9 +213,10 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Lower and shrink genie slowly
+        // Lower genie back to start position
+        const startY = genie.userData.startY || 0.5;
         tl.to(genie.position, {
-          y: genie.position.y - 2.5,
+          y: startY,
           duration: 2.5,
           ease: 'power3.in'
         }, 0);
