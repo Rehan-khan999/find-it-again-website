@@ -1,3 +1,5 @@
+alert("THREE JS FILE IS RUNNING");
+
 let scene, camera, renderer;
 let lamp, lid, genie;
 let isOpen = false;
