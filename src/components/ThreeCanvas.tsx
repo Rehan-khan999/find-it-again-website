@@ -149,6 +149,23 @@ export const ThreeCanvas = () => {
           ease: 'power3.out'
         });
 
+        // Step 3: Bow forward - rotate X from 0 → -0.4 over 0.6s
+        tl.to(genie.rotation, {
+          x: -0.4,
+          duration: 0.6,
+          ease: 'power2.out'
+        });
+
+        // Step 4: Hold bow pose for 2 seconds (empty tween)
+        tl.to({}, { duration: 2 });
+
+        // Step 5: Return to upright - rotate X from -0.4 → 0 over 0.6s
+        tl.to(genie.rotation, {
+          x: 0,
+          duration: 0.6,
+          ease: 'power2.in'
+        });
+
       } else {
         // RETURN: Descend then shrink
         const tl = gsap.timeline({
