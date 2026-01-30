@@ -121,7 +121,7 @@ export const ThreeCanvas = () => {
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // EMERGE: scale 0 → 1, move from (0.6, 0.2, 0.3) to (0.6, 0.6, 0.3) over 2.5s
+        // EMERGE: First scale up, THEN rise out of lamp
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -131,24 +131,26 @@ export const ThreeCanvas = () => {
           }
         });
 
+        // Step 1: Scale from 0 → 1 over 1.2s
         tl.to(genie.scale, {
           x: 1,
           y: 1,
           z: 1,
-          duration: 2.5,
+          duration: 1.2,
           ease: 'power2.out'
-        }, 0);
+        });
 
+        // Step 2: Move from (0.6, 0.2, 0.3) → (0.6, 0.6, 0.3) over 2.5s
         tl.to(genie.position, {
           x: 0.6,
           y: 0.6,
           z: 0.3,
           duration: 2.5,
-          ease: 'power2.out'
-        }, 0);
+          ease: 'power3.out'
+        });
 
       } else {
-        // RETURN: move back to (0.6, 0.2, 0.3) over 2s, scale to 0
+        // RETURN: First descend into lamp, THEN shrink
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -158,21 +160,23 @@ export const ThreeCanvas = () => {
           }
         });
 
+        // Step 1: Move from (0.6, 0.6, 0.3) → (0.6, 0.2, 0.3) over 2.2s
         tl.to(genie.position, {
           x: 0.6,
           y: 0.2,
           z: 0.3,
-          duration: 2,
-          ease: 'power2.in'
-        }, 0);
+          duration: 2.2,
+          ease: 'power3.in'
+        });
 
+        // Step 2: Scale from 1 → 0 over 1s
         tl.to(genie.scale, {
           x: 0,
           y: 0,
           z: 0,
-          duration: 2,
+          duration: 1,
           ease: 'power2.in'
-        }, 0);
+        });
       }
     };
 
