@@ -1,5 +1,3 @@
-alert("THREE JS FILE IS RUNNING");
-
 let scene, camera, renderer;
 let lamp, lid, genie;
 let isOpen = false;
@@ -33,6 +31,13 @@ function init() {
 
   window.addEventListener("resize", onResize);
   window.addEventListener("click", toggleLamp);
+
+  // Test cube - truth detector
+  const testCube = new THREE.Mesh(
+    new THREE.BoxGeometry(1,1,1),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  );
+  scene.add(testCube);
 }
 
 function loadModels() {
