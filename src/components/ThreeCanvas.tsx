@@ -4,72 +4,49 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import gsap from 'gsap';
 
-const CONTAINER_WIDTH = 380;
-const CONTAINER_HEIGHT = 380;
-
-interface SceneState {
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  renderer: THREE.WebGLRenderer;
-  lamp: THREE.Group | null;
-  genie: THREE.Group | null;
-  genieLight: THREE.PointLight | null;
-  isOut: boolean;
-  animating: boolean;
-  animationId: number | null;
-}
-
 export const ThreeCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<SceneState | null>(null);
+  const sceneRef = useRef<{
+    renderer: THREE.WebGLRenderer;
+    genie: THREE.Group | null;
+    isOut: boolean;
+    animating: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || sceneRef.current) return;
 
-    // Scene - transparent background
+    // Scene
     const scene = new THREE.Scene();
 
-    // Camera - centered for the widget container
+    // Camera - fullscreen
     const camera = new THREE.PerspectiveCamera(
       50,
-      CONTAINER_WIDTH / CONTAINER_HEIGHT,
+      window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 1.4, 4.8);
-    camera.lookAt(0, 0.6, 0);
+    camera.position.set(0, 1, 5);
+    camera.lookAt(0, 0, 0);
 
-    // Renderer - sized to container
+    // Renderer - fullscreen
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(CONTAINER_WIDTH, CONTAINER_HEIGHT);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.5;
     containerRef.current.appendChild(renderer.domElement);
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const frontLight = new THREE.DirectionalLight(0xffffff, 2);
-    frontLight.position.set(0, 3, 5);
-    scene.add(frontLight);
-    const topLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    topLight.position.set(0, 5, 0);
-    scene.add(topLight);
-    const fillLight = new THREE.DirectionalLight(0x8888ff, 0.8);
-    fillLight.position.set(-2, 2, -2);
-    scene.add(fillLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const mainLight = new THREE.DirectionalLight(0xffffff, 2);
+    mainLight.position.set(2, 4, 3);
+    scene.add(mainLight);
 
     // State
     sceneRef.current = {
-      scene,
-      camera,
       renderer,
-      lamp: null,
       genie: null,
-      genieLight: null,
       isOut: false,
-      animating: false,
-      animationId: null
+      animating: false
     };
 
     // Loaders
@@ -78,92 +55,56 @@ export const ThreeCanvas = () => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Raycaster for click detection
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    // Load lamp - centered in container
+    // Load lamp
     loader.load('/models/lamp.glb', (lampGltf) => {
-      if (!sceneRef.current) return;
-      
       const lamp = lampGltf.scene;
-      
-      // Lamp centered at bottom of view
-      lamp.position.set(0, -0.6, 0);
-      lamp.scale.set(3, 3, 3);
-      
+      lamp.position.set(0, -1, 0);
+      lamp.scale.set(1, 1, 1);
       scene.add(lamp);
-      sceneRef.current.lamp = lamp;
 
-      // Load genie as child of lamp
+      // Load genie
       loader.load('/models/genie.glb', (genieGltf) => {
-        if (!sceneRef.current || !sceneRef.current.lamp) return;
+        if (!sceneRef.current) return;
         
         const genie = genieGltf.scene;
-        
-        // Genie rotation to face camera
         genie.rotation.set(0, -Math.PI / 2, 0);
-        
-        // Static scale (no animation)
-        genie.scale.set(1.6, 1.6, 1.6);
-        
-        // Initial position - hidden below lamp
-        genie.position.set(3.8, -1.0, 0.3);
-        
-        // Blue magical light
-        const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
-        genieLight.position.set(0, -0.3, 0);
-        genie.add(genieLight);
-        sceneRef.current.genieLight = genieLight;
-        
-        // Attach to lamp
-        lamp.add(genie);
+        genie.scale.set(1, 1, 1);
+        // Hidden below lamp
+        genie.position.set(0.5, -2, 0);
+        scene.add(genie);
         sceneRef.current.genie = genie;
       });
     });
 
     // Animation loop
     const animate = () => {
-      if (!sceneRef.current) return;
-      sceneRef.current.animationId = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
       renderer.render(scene, camera);
     };
     animate();
 
-    // Click handler - triggers on any click within container
-    const handleClick = (event: MouseEvent) => {
-      if (!sceneRef.current || !sceneRef.current.lamp) return;
-      
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      
-      // Calculate mouse position relative to container
-      mouse.x = ((event.clientX - rect.left) / CONTAINER_WIDTH) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / CONTAINER_HEIGHT) * 2 + 1;
-      
-      // Update raycaster
-      raycaster.setFromCamera(mouse, camera);
-      
-      // Check for lamp intersection
-      const lampObjects: THREE.Object3D[] = [];
-      sceneRef.current.lamp.traverse((child) => lampObjects.push(child));
-      const intersects = raycaster.intersectObjects(lampObjects, true);
-      
-      if (intersects.length === 0) return; // Click not on lamp
-      
+    // Resize handler
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Click handler
+    const handleClick = () => {
+      if (!sceneRef.current) return;
       const { genie, isOut, animating } = sceneRef.current;
-      if (animating || !genie) return;
-      
+      if (!genie || animating) return;
+
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // EMERGE - position only animation
+        // Rise up
         gsap.to(genie.position, {
-          x: 3.8,
-          y: -0.3,
-          z: 0.3,
-          duration: 2.5,
-          ease: 'power3.out',
+          y: 0.5,
+          duration: 2,
+          ease: 'power2.out',
           onComplete: () => {
             if (sceneRef.current) {
               sceneRef.current.animating = false;
@@ -171,24 +112,11 @@ export const ThreeCanvas = () => {
             }
           }
         });
-
-        // Light up
-        const light = sceneRef.current.genieLight;
-        if (light) {
-          gsap.to(light, {
-            intensity: 2,
-            duration: 1,
-            ease: 'power2.out'
-          });
-        }
-
       } else {
-        // RETURN - position only animation
+        // Go back down
         gsap.to(genie.position, {
-          x: 3.8,
-          y: -1.0,
-          z: 0.3,
-          duration: 2,
+          y: -2,
+          duration: 1.5,
           ease: 'power2.in',
           onComplete: () => {
             if (sceneRef.current) {
@@ -197,26 +125,13 @@ export const ThreeCanvas = () => {
             }
           }
         });
-
-        // Fade light
-        const light = sceneRef.current.genieLight;
-        if (light) {
-          gsap.to(light, {
-            intensity: 0,
-            duration: 1,
-            ease: 'power2.in'
-          });
-        }
       }
     };
-
     containerRef.current.addEventListener('click', handleClick);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
       containerRef.current?.removeEventListener('click', handleClick);
-      if (sceneRef.current?.animationId) {
-        cancelAnimationFrame(sceneRef.current.animationId);
-      }
       renderer.dispose();
       dracoLoader.dispose();
       sceneRef.current = null;
@@ -225,19 +140,9 @@ export const ThreeCanvas = () => {
 
   return (
     <div 
-      id="genie-container"
       ref={containerRef} 
-      className="cursor-pointer"
-      style={{ 
-        position: 'fixed',
-        bottom: 90,
-        right: 40,
-        width: CONTAINER_WIDTH,
-        height: CONTAINER_HEIGHT,
-        zIndex: 9999,
-        pointerEvents: 'auto'
-      }}
-      aria-hidden="true"
+      className="fixed inset-0 z-10 cursor-pointer"
+      style={{ pointerEvents: 'auto' }}
     />
   );
 };
