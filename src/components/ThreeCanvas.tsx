@@ -27,15 +27,15 @@ export const ThreeCanvas = () => {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
 
-    // Camera
+    // Camera - cinematic front view
     const camera = new THREE.PerspectiveCamera(
-      50,
+      45,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 1, 5);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, 1.2, 3);
+    camera.lookAt(0, 0.3, 0);
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -87,11 +87,13 @@ export const ThreeCanvas = () => {
       const scaleFactor = maxDim > 0 ? 2 / maxDim : 1;
       
       lamp.scale.setScalar(scaleFactor);
+      // Center lamp and ensure it faces the camera directly
       lamp.position.set(
         -center.x * scaleFactor,
-        -center.y * scaleFactor,
+        -center.y * scaleFactor - 0.3,
         -center.z * scaleFactor
       );
+      lamp.rotation.set(0, 0, 0); // Face camera directly
 
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -167,7 +169,7 @@ export const ThreeCanvas = () => {
       const targetScale = genie.userData.targetScale || 1;
 
       if (!isOpen) {
-        // OPEN: Rotate lid and emerge genie
+        // OPEN: Rotate lid and emerge genie - CINEMATIC TIMING
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -177,32 +179,33 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Open lid (rotate on X axis)
+        // Open lid slowly (rotate on X axis)
         if (lid) {
           tl.to(lid.rotation, {
             x: -1.2,
-            duration: 0.6,
+            duration: 1.2,
             ease: 'power2.out'
           }, 0);
         }
 
-        // Scale up and rise genie
+        // Scale up and rise genie cinematically
         tl.to(genie.scale, {
           x: targetScale,
           y: targetScale,
           z: targetScale,
-          duration: 0.8,
-          ease: 'back.out(1.7)'
-        }, 0.3);
-
-        tl.to(genie.position, {
-          y: genie.position.y + 1.5,
-          duration: 1,
+          duration: 2.5,
           ease: 'power3.out'
-        }, 0.3);
+        }, 0.8);
+
+        // Emerge higher for dramatic effect
+        tl.to(genie.position, {
+          y: genie.position.y + 2.5,
+          duration: 2.5,
+          ease: 'power3.out'
+        }, 0.8);
 
       } else {
-        // CLOSE: Return genie and close lid
+        // CLOSE: Return genie and close lid - CINEMATIC TIMING
         const tl = gsap.timeline({
           onComplete: () => {
             if (sceneRef.current) {
@@ -212,28 +215,28 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Lower and shrink genie
+        // Lower and shrink genie slowly
         tl.to(genie.position, {
-          y: genie.position.y - 1.5,
-          duration: 0.8,
-          ease: 'power2.in'
+          y: genie.position.y - 2.5,
+          duration: 2.5,
+          ease: 'power3.in'
         }, 0);
 
         tl.to(genie.scale, {
           x: 0,
           y: 0,
           z: 0,
-          duration: 0.5,
-          ease: 'power2.in'
-        }, 0.4);
+          duration: 2,
+          ease: 'power3.in'
+        }, 0.5);
 
-        // Close lid
+        // Close lid slowly
         if (lid) {
           tl.to(lid.rotation, {
             x: 0,
-            duration: 0.5,
+            duration: 1.2,
             ease: 'power2.inOut'
-          }, 0.7);
+          }, 2);
         }
       }
     };
