@@ -4,8 +4,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import gsap from 'gsap';
 
-const CONTAINER_WIDTH = 260;
-const CONTAINER_HEIGHT = 260;
+const CONTAINER_WIDTH = 380;
+const CONTAINER_HEIGHT = 380;
 
 interface SceneState {
   scene: THREE.Scene;
@@ -36,8 +36,8 @@ export const ThreeCanvas = () => {
       0.1,
       1000
     );
-    camera.position.set(0, 1, 3);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, 1.4, 4.8);
+    camera.lookAt(0, 0.6, 0);
 
     // Renderer - sized to container
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -108,7 +108,7 @@ export const ThreeCanvas = () => {
         genie.scale.set(0, 0, 0);
         
         // Initial position - genie base (tail touches lamp)
-        genie.position.set(0.6, 0.6, 0.3);
+        genie.position.set(0.6, 0, 0.3);
         
         // Blue magical light
         const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
@@ -176,10 +176,10 @@ export const ThreeCanvas = () => {
           ease: 'power2.out'
         });
 
-        // Rise up - genie emerges but tail stays touching lamp
+        // Rise up - genie hovers from y=-0.6 to y=-0.1 in world space
         tl.to(genie.position, {
           x: 0.6,
-          y: 1.0,
+          y: 0.5,
           z: 0.3,
           duration: 2.5,
           ease: 'power3.out'
@@ -226,7 +226,7 @@ export const ThreeCanvas = () => {
         // Descend back to base position
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.6,
+          y: 0,
           z: 0.3,
           duration: 2,
           ease: 'power2.in'
