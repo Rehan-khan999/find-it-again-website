@@ -68,8 +68,12 @@ export const ThreeCanvas = () => {
       lamp.position.set(2, -1.5, 0);
       lamp.scale.set(1, 1, 1);
       
-      // Fixed facing direction for lamp (Z-forward model)
-      lamp.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI);
+      // Fixed facing direction for lamp (rotate actual meshes)
+      lamp.traverse((child: any) => {
+        if (child.isMesh) {
+          child.rotation.y += Math.PI;
+        }
+      });
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -80,8 +84,12 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
         
-        // Fixed facing direction for genie (Z-forward model)
-        genie.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI);
+        // Fixed facing direction for genie (rotate actual meshes)
+        genie.traverse((child: any) => {
+          if (child.isMesh) {
+            child.rotation.y += Math.PI;
+          }
+        });
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
