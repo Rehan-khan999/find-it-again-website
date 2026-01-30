@@ -83,7 +83,7 @@ export const ThreeCanvas = () => {
         genie.scale.set(0, 0, 0);
         
         // Position relative to lamp (hidden below)
-        genie.position.set(0.6, -0.8, 0.3);
+        genie.position.set(0.25, -0.8, 0.3);
         
         // Attach genie as child of lamp
         lamp.add(genie);
