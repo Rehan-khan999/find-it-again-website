@@ -67,6 +67,7 @@ export const ThreeCanvas = () => {
       const lamp = lampGltf.scene;
       lamp.position.set(2, -1.5, 0);
       lamp.scale.set(1, 1, 1);
+      lamp.rotation.y = -Math.PI / 4;
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
 
@@ -76,8 +77,8 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
         
-        // Face towards page content
-        genie.lookAt(0, 1.2, 0);
+        // No rotation - inherits facing from lamp
+        genie.rotation.set(0, 0, 0);
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
