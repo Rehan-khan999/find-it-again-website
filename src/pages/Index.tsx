@@ -11,13 +11,13 @@ export default function Index() {
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen relative" style={{ background: 'transparent' }}>
-      {/* Three.js Canvas Background - renders behind everything */}
+    <div className="min-h-screen relative" style={{ background: 'transparent', position: 'relative', zIndex: 1 }}>
+      {/* Three.js Canvas - renders as overlay but only lamp is clickable */}
       <ThreeCanvas />
       
-      {/* Hero Section - transparent background to show Three.js */}
-      <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter" style={{ zIndex: 10 }}>
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Hero Section */}
+      <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter" style={{ zIndex: 1, pointerEvents: 'none' }}>
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center" style={{ pointerEvents: 'auto' }}>
           <div className="animate-fade-in">
             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tight leading-tight text-foreground dark:text-white dark:drop-shadow-lg">
               Find What's
@@ -83,7 +83,7 @@ export default function Index() {
       </section>
 
       {/* Content sections with solid background */}
-      <div className="relative bg-background" style={{ zIndex: 10 }}>
+      <div className="relative bg-background" style={{ zIndex: 1, position: 'relative' }}>
         {/* How It Works Section */}
         <section className="py-24 lg:py-32">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
