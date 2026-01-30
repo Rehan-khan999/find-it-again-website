@@ -34,9 +34,9 @@ export const ThreeCanvas = () => {
       0.1,
       1000
     );
-    // HARD-SET: Cinematic camera - wider, lower angle
-    camera.position.set(0, 1.0, 4);
-    camera.lookAt(0, 0.2, 0);
+    // HARD-SET: Camera position and lookAt
+    camera.position.set(0, 2, 4);
+    camera.lookAt(0, 1, 0);
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -80,20 +80,10 @@ export const ThreeCanvas = () => {
       
       const lamp = lampGltf.scene;
 
-      // Hard-set scale to normalize the model
-      const box = new THREE.Box3().setFromObject(lamp);
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const scaleFactor = maxDim > 0 ? 2 / maxDim : 1;
-      lamp.scale.setScalar(scaleFactor);
-      
-      // HARD-SET: Force lamp position and rotation for front-facing view
-      // Position lowered to center in viewport
-      lamp.position.set(0, -0.2, 0);
-      // Multi-axis rotation: slight X tilt + Y rotation for front-facing
-      // Test values: Y = 0, π/4, π/2, 3π/4, π, -π/2
-      lamp.rotation.set(-0.1, Math.PI / 2, 0);
-      console.log('Lamp rotation set to:', lamp.rotation.x, lamp.rotation.y, lamp.rotation.z);
+      // HARD-SET: Explicit lamp values - no auto-calculations
+      lamp.scale.set(1, 1, 1);
+      lamp.position.set(0, 0, 0);
+      lamp.rotation.set(-Math.PI / 2, Math.PI, 0);
 
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -123,25 +113,13 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
 
-        // HARD-SET: Force genie orientation - flip backward and tilt down
-        genie.rotation.set(0, Math.PI, 0);     // flip backward
-        genie.rotation.x = -Math.PI / 2;       // tilt down
-        console.log('Genie rotation set to:', genie.rotation.x, genie.rotation.y, genie.rotation.z);
-
-        // Auto-scale genie relative to lamp
-        const genieBox = new THREE.Box3().setFromObject(genie);
-        const genieSize = genieBox.getSize(new THREE.Vector3());
-        const genieMaxDim = Math.max(genieSize.x, genieSize.y, genieSize.z);
-        const genieScale = genieMaxDim > 0 ? 1.5 / genieMaxDim : 1;
-        
-        // Hide initially (scale 0)
-        genie.scale.set(0, 0, 0);
-        genie.userData.targetScale = genieScale;
-        genie.userData.startY = 0.5; // Start position inside lamp
-        genie.userData.emergeY = 2.2; // HARD-SET: Emerge target clearly above lamp
-        
-        // Position genie at lamp opening
-        genie.position.set(0, 0.5, 0);
+        // HARD-SET: Explicit genie values - no auto-calculations
+        genie.rotation.set(-Math.PI / 2, Math.PI, 0);
+        genie.scale.set(0, 0, 0); // Hidden initially
+        genie.position.set(0, -0.6, 0);
+        genie.userData.targetScale = 1;
+        genie.userData.emergePosition = { x: 0, y: 1.8, z: 0.6 };
+        genie.userData.startPosition = { x: 0, y: -0.6, z: 0 };
         
         // Attach genie to lamp so it moves with it
         lamp.add(genie);
@@ -204,10 +182,12 @@ export const ThreeCanvas = () => {
           ease: 'power3.out'
         }, 0.8);
 
-        // Emerge to hard-set target position
-        const emergeY = genie.userData.emergeY || 2.2;
+        // HARD-SET: Emerge to explicit position (0, 1.8, 0.6) over 2.5s
+        const emergePos = genie.userData.emergePosition;
         tl.to(genie.position, {
-          y: emergeY,
+          x: emergePos.x,
+          y: emergePos.y,
+          z: emergePos.z,
           duration: 2.5,
           ease: 'power3.out'
         }, 0.8);
@@ -223,11 +203,13 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Lower genie back to start position
-        const startY = genie.userData.startY || 0.5;
+        // HARD-SET: Return to start position (0, -0.6, 0) over 2s
+        const startPos = genie.userData.startPosition;
         tl.to(genie.position, {
-          y: startY,
-          duration: 2.5,
+          x: startPos.x,
+          y: startPos.y,
+          z: startPos.z,
+          duration: 2,
           ease: 'power3.in'
         }, 0);
 
