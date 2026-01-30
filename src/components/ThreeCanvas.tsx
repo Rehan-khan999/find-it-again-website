@@ -104,11 +104,11 @@ export const ThreeCanvas = () => {
         // Genie rotation to face camera
         genie.rotation.set(0, -Math.PI / 2, 0);
         
-        // Initial scale = 0 (invisible)
-        genie.scale.set(0, 0, 0);
+        // Static scale (no animation)
+        genie.scale.set(1.6, 1.6, 1.6);
         
-        // Initial position - genie base (tail touches lamp)
-        genie.position.set(3.8, -0.3, 0.3);
+        // Initial position - hidden below lamp
+        genie.position.set(3.8, -1.0, 0.3);
         
         // Blue magical light
         const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
@@ -157,49 +157,19 @@ export const ThreeCanvas = () => {
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // EMERGE
-        const tl = gsap.timeline({
+        // EMERGE - position only animation
+        gsap.to(genie.position, {
+          x: 3.8,
+          y: -0.3,
+          z: 0.3,
+          duration: 2.5,
+          ease: 'power3.out',
           onComplete: () => {
             if (sceneRef.current) {
               sceneRef.current.animating = false;
               sceneRef.current.isOut = true;
             }
           }
-        });
-
-        // Scale up
-        tl.to(genie.scale, {
-          x: 1.6,
-          y: 1.6,
-          z: 1.6,
-          duration: 1.2,
-          ease: 'power2.out'
-        });
-
-        // Rise up - genie hovers from y=-0.6 to y=-0.1 in world space
-        tl.to(genie.position, {
-          x: 3.8,
-          y: 0.2,
-          z: 0.3,
-          duration: 2.5,
-          ease: 'power3.out'
-        });
-
-        // Bow forward
-        tl.to(genie.rotation, {
-          x: 0.4,
-          duration: 0.6,
-          ease: 'power2.out'
-        });
-
-        // Hold
-        tl.to({}, { duration: 2 });
-
-        // Return upright
-        tl.to(genie.rotation, {
-          x: 0,
-          duration: 0.6,
-          ease: 'power2.in'
         });
 
         // Light up
@@ -213,32 +183,19 @@ export const ThreeCanvas = () => {
         }
 
       } else {
-        // RETURN
-        const tl = gsap.timeline({
+        // RETURN - position only animation
+        gsap.to(genie.position, {
+          x: 3.8,
+          y: -1.0,
+          z: 0.3,
+          duration: 2,
+          ease: 'power2.in',
           onComplete: () => {
             if (sceneRef.current) {
               sceneRef.current.animating = false;
               sceneRef.current.isOut = false;
             }
           }
-        });
-
-        // Descend back to base position
-        tl.to(genie.position, {
-          x: 3.8,
-          y: -0.3,
-          z: 0.3,
-          duration: 2,
-          ease: 'power2.in'
-        });
-
-        // Shrink
-        tl.to(genie.scale, {
-          x: 0,
-          y: 0,
-          z: 0,
-          duration: 1,
-          ease: 'power2.in'
         });
 
         // Fade light
