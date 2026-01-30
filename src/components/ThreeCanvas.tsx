@@ -61,19 +61,20 @@ export const ThreeCanvas = () => {
     loader.setDRACOLoader(dracoLoader);
 
     // Load lamp - positioned at bottom-right
+    // Create parent rig for unified rotation control
+    const genieRig = new THREE.Group();
+    genieRig.position.set(2, -1.5, 0);
+    scene.add(genieRig);
+    
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
-      lamp.position.set(2, -1.5, 0);
+      lamp.position.set(0, 0, 0);
       lamp.scale.set(1, 1, 1);
+      lamp.rotation.set(0, 0, 0); // Reset model rotation
       
-      // Face toward center of hero section with artistic offset
-      const target = new THREE.Vector3(0, 0, 0);
-      lamp.lookAt(target);
-      lamp.rotateY(-Math.PI / 6);
-      
-      scene.add(lamp);
+      genieRig.add(lamp);
       sceneRef.current.lamp = lamp;
 
       // Load genie as child of lamp
@@ -81,10 +82,7 @@ export const ThreeCanvas = () => {
         if (!sceneRef.current || !sceneRef.current.lamp) return;
         
         const genie = genieGltf.scene;
-        
-        // Face toward center of hero section with artistic offset
-        genie.lookAt(target);
-        genie.rotateY(-Math.PI / 6);
+        genie.rotation.set(0, 0, 0); // Reset model rotation
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
@@ -95,6 +93,9 @@ export const ThreeCanvas = () => {
         // Attach genie as child of lamp
         lamp.add(genie);
         sceneRef.current.genie = genie;
+        
+        // Now rotate the rig only for unified orientation
+        genieRig.rotation.y = -Math.PI / 6; // 30 degrees toward center
       });
     });
 
