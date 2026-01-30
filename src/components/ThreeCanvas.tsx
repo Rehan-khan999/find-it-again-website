@@ -65,7 +65,7 @@ export const ThreeCanvas = () => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
-      lamp.position.set(2, -1.5, 0); // Bottom-right position
+      lamp.position.set(2, -1.5, 0);
       lamp.scale.set(1, 1, 1);
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
@@ -75,8 +75,13 @@ export const ThreeCanvas = () => {
         if (!sceneRef.current || !sceneRef.current.lamp) return;
         
         const genie = genieGltf.scene;
+        
+        // Face camera directly
         genie.rotation.set(0, -Math.PI / 2, 0);
-        genie.scale.set(1, 1, 1);
+        
+        // Start completely hidden
+        genie.scale.set(0, 0, 0);
+        
         // Position relative to lamp (hidden below)
         genie.position.set(0.6, -0.8, 0.3);
         
@@ -112,8 +117,15 @@ export const ThreeCanvas = () => {
       // Update raycaster
       raycaster.setFromCamera(mouse, camera);
 
-      // Check intersection with lamp (not genie)
-      const intersects = raycaster.intersectObject(lamp, true);
+      // Check intersection with lamp only (exclude genie by checking lamp children minus genie)
+      const lampMeshes: THREE.Object3D[] = [];
+      lamp.traverse((child) => {
+        if (child !== genie && !genie.children.includes(child)) {
+          lampMeshes.push(child);
+        }
+      });
+      
+      const intersects = raycaster.intersectObjects(lampMeshes, true);
       
       // Only proceed if lamp was clicked
       if (intersects.length === 0) return;
@@ -121,7 +133,17 @@ export const ThreeCanvas = () => {
       sceneRef.current.animating = true;
 
       if (!isOut) {
-        // Emerge: move genie up (relative to lamp)
+        // Emerge animation
+        // Scale from 0 to 1.6 over 1.2s
+        gsap.to(genie.scale, {
+          x: 1.6,
+          y: 1.6,
+          z: 1.6,
+          duration: 1.2,
+          ease: 'back.out(1.7)'
+        });
+        
+        // Move from -0.8 to -0.3 over 2.5s
         gsap.to(genie.position, {
           y: -0.3,
           duration: 2.5,
@@ -134,10 +156,21 @@ export const ThreeCanvas = () => {
           }
         });
       } else {
-        // Return: move genie back down (relative to lamp)
+        // Return animation
+        // Move from -0.3 to -0.8 over 2s
         gsap.to(genie.position, {
           y: -0.8,
           duration: 2,
+          ease: 'power2.in'
+        });
+        
+        // Scale from 1.6 to 0 over 1s (starts after position animation)
+        gsap.to(genie.scale, {
+          x: 0,
+          y: 0,
+          z: 0,
+          duration: 1,
+          delay: 1,
           ease: 'power2.in',
           onComplete: () => {
             if (sceneRef.current) {
