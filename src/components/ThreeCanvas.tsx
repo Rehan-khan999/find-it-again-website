@@ -27,15 +27,15 @@ export const ThreeCanvas = () => {
     const scene = new THREE.Scene();
     // No background color - transparent
 
-    // Camera - exact values
+    // Camera - positioned to view bottom-right corner
     const camera = new THREE.PerspectiveCamera(
       50,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 1.5, 4);
-    camera.lookAt(0, 0.8, 0);
+    camera.position.set(2.5, 0.8, 4);
+    camera.lookAt(2.2, -0.3, 0);
 
     // Renderer - transparent alpha
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -76,12 +76,16 @@ export const ThreeCanvas = () => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Load lamp - NO rotation, NO scaling, NO normalization
+    // Load lamp - positioned at bottom-right
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
-      // Keep original orientation - no transforms
+      
+      // Lamp at bottom-right corner
+      lamp.position.set(2.2, -0.8, 0);
+      lamp.scale.set(0.7, 0.7, 0.7);
+      
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
 
@@ -97,8 +101,8 @@ export const ThreeCanvas = () => {
         // Initial scale = (0, 0, 0) - fully invisible on load
         genie.scale.set(0, 0, 0);
         
-        // Initial position
-        genie.position.set(0.6, 0.2, 0.3);
+        // Initial position - relative to lamp, at bottom-right
+        genie.position.set(0.6, 0.6, 0.3);
         
         // Create blue magical light attached to genie tail area
         const genieLight = new THREE.PointLight(0x00aaff, 0, 3);
@@ -148,10 +152,10 @@ export const ThreeCanvas = () => {
           ease: 'power2.out'
         });
 
-        // Step 2: Move from (0.6, 0.2, 0.3) → (0.6, 0.6, 0.3) over 2.5s
+        // Step 2: Move genie up to emerge position
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.6,
+          y: 1.0,
           z: 0.3,
           duration: 2.5,
           ease: 'power3.out'
@@ -195,10 +199,10 @@ export const ThreeCanvas = () => {
           }
         });
 
-        // Step 1: Move from (0.6, 0.6, 0.3) → (0.6, 0.2, 0.3) over 2s
+        // Step 1: Move genie back down to start position
         tl.to(genie.position, {
           x: 0.6,
-          y: 0.2,
+          y: 0.6,
           z: 0.3,
           duration: 2,
           ease: 'power2.in'
@@ -253,8 +257,10 @@ export const ThreeCanvas = () => {
       ref={containerRef} 
       className="fixed inset-0 cursor-pointer"
       style={{ 
-        zIndex: 0,
-        pointerEvents: 'auto'
+        zIndex: 1,
+        pointerEvents: 'auto',
+        width: '100%',
+        height: '100%'
       }}
       aria-hidden="true"
     />
