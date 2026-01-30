@@ -12,13 +12,10 @@ export default function Index() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Dark background for hero */}
-      <div className="fixed inset-0 bg-background dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 -z-10" />
-      
-      {/* Three.js Canvas Background */}
+      {/* Three.js Canvas Background - renders behind everything */}
       <ThreeCanvas />
       
-      {/* Hero Section */}
+      {/* Hero Section - transparent background to show Three.js */}
       <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter">
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="animate-fade-in">
