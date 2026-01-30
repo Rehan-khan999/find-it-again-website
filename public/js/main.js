@@ -1,93 +1,123 @@
-// Three.js Scene - Custom Logic
-// This file is loaded after Three.js and GSAP are available globally
+let scene, camera, renderer;
+let lamp, lid, genie;
+let isOpen = false;
 
-(function() {
-  'use strict';
+init();
+loadModels();
+animate();
 
-  // Wait for the canvas to be available
-  const canvas = document.getElementById('three-canvas');
-  if (!canvas) {
-    console.warn('Three.js canvas not found. Make sure #three-canvas exists.');
-    return;
-  }
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
 
-  // Check if Three.js is loaded
-  if (typeof THREE === 'undefined') {
-    console.error('Three.js is not loaded. Check your script includes.');
-    return;
-  }
-
-  console.log('🚀 Three.js scene initialized');
-  console.log('📦 Three.js version:', THREE.REVISION);
-  console.log('🎬 GSAP available:', typeof gsap !== 'undefined');
-
-  // ============================================
-  // YOUR CUSTOM THREE.JS SCENE CODE GOES HERE
-  // ============================================
-
-  // Example: Basic scene setup (you can replace this)
-  const scene = new THREE.Scene();
-  
-  const camera = new THREE.PerspectiveCamera(
-    75,
+  camera = new THREE.PerspectiveCamera(
+    45,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    100
   );
-  camera.position.z = 5;
+  camera.position.set(0, 1.5, 5);
 
-  const renderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    antialias: true,
-    alpha: true // Transparent background
-  });
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
 
-  // Example: Simple rotating cube (replace with your own geometry)
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshBasicMaterial({ 
-    color: 0x00d4ff,
-    wireframe: true 
-  });
-  const cube = new THREE.Mesh(geometry, material);
-  scene.add(cube);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(5, 5, 5);
+  scene.add(dirLight);
 
-  // Handle window resize
-  function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-  window.addEventListener('resize', onWindowResize);
+  const ambLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambLight);
 
-  // Animation loop
-  function animate() {
-    requestAnimationFrame(animate);
-    
-    // Example animation (customize as needed)
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-    
-    renderer.render(scene, camera);
-  }
-  animate();
+  window.addEventListener("resize", onResize);
+  window.addEventListener("click", toggleLamp);
+}
 
-  // Example GSAP animation (if GSAP is loaded)
-  if (typeof gsap !== 'undefined') {
-    gsap.to(cube.scale, {
-      x: 1.5,
-      y: 1.5,
-      z: 1.5,
-      duration: 2,
-      repeat: -1,
-      yoyo: true,
-      ease: 'power2.inOut'
+function loadModels() {
+  const loader = new THREE.GLTFLoader();
+
+  loader.load("/models/lamp.glb", (gltf) => {
+    lamp = gltf.scene;
+    scene.add(lamp);
+
+    lid = lamp.getObjectByName("Lid");
+
+    loader.load("/models/genie.glb", (gltf2) => {
+      genie = gltf2.scene;
+      genie.scale.set(0, 0, 0);
+      genie.position.set(0, -0.6, 0);
+      lamp.add(genie);
+      addGlow();
     });
+  });
+}
+
+function toggleLamp() {
+  if (!lid || !genie) return;
+  if (!isOpen) openLamp();
+  else closeLamp();
+  isOpen = !isOpen;
+}
+
+function openLamp() {
+  const tl = gsap.timeline();
+  tl.to(lid.rotation, {
+    x: -1.2,
+    duration: 0.6,
+    ease: "power2.out"
+  });
+  tl.to(genie.scale, {
+    x: 1, y: 1, z: 1,
+    duration: 0.5
+  });
+  tl.to(genie.position, {
+    y: 1.5,
+    duration: 1,
+    ease: "power3.out"
+  });
+}
+
+function closeLamp() {
+  const tl = gsap.timeline();
+  tl.to(genie.position, {
+    y: -0.6,
+    duration: 0.8
+  });
+  tl.to(genie.scale, {
+    x: 0, y: 0, z: 0,
+    duration: 0.4
+  });
+  tl.to(lid.rotation, {
+    x: 0,
+    duration: 0.6
+  });
+}
+
+function addGlow() {
+  genie.traverse(obj => {
+    if (obj.isMesh) {
+      obj.material.emissive = new THREE.Color(0x00aaff);
+      obj.material.emissiveIntensity = 1;
+    }
+  });
+  gsap.to(genie.children[0].material, {
+    emissiveIntensity: 2,
+    duration: 1,
+    yoyo: true,
+    repeat: -1
+  });
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (genie && isOpen) {
+    genie.position.y += Math.sin(Date.now() * 0.002) * 0.002;
   }
+  renderer.render(scene, camera);
+}
 
-  // ============================================
-  // END OF EXAMPLE CODE
-  // ============================================
-
-})();
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
