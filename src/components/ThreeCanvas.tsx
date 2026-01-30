@@ -23,9 +23,9 @@ export const ThreeCanvas = () => {
   useEffect(() => {
     if (!containerRef.current || sceneRef.current) return;
 
-    // Scene
+    // Scene - transparent background
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0a);
+    // No background color - transparent
 
     // Camera - exact values
     const camera = new THREE.PerspectiveCamera(
@@ -37,8 +37,8 @@ export const ThreeCanvas = () => {
     camera.position.set(0, 1.5, 4);
     camera.lookAt(0, 0.8, 0);
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Renderer - transparent alpha
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -252,7 +252,10 @@ export const ThreeCanvas = () => {
     <div 
       ref={containerRef} 
       className="fixed inset-0 cursor-pointer"
-      style={{ zIndex: 50 }}
+      style={{ 
+        zIndex: 0,
+        pointerEvents: 'auto'
+      }}
       aria-hidden="true"
     />
   );
