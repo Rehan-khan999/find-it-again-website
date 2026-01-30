@@ -77,7 +77,7 @@ export const ThreeCanvas = () => {
         const genie = genieGltf.scene;
         
         // Face camera directly
-        genie.rotation.set(0, -Math.PI / 2, 0);
+        genie.rotation.set(0, Math.PI / 2, 0);
         
         // Start completely hidden
         genie.scale.set(0, 0, 0);
