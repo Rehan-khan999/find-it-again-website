@@ -123,6 +123,11 @@ export const ThreeCanvas = () => {
         
         const genie = genieGltf.scene;
 
+        // HARD-SET: Force genie orientation - flip backward and tilt down
+        genie.rotation.set(0, Math.PI, 0);     // flip backward
+        genie.rotation.x = -Math.PI / 2;       // tilt down
+        console.log('Genie rotation set to:', genie.rotation.x, genie.rotation.y, genie.rotation.z);
+
         // Auto-scale genie relative to lamp
         const genieBox = new THREE.Box3().setFromObject(genie);
         const genieSize = genieBox.getSize(new THREE.Vector3());
