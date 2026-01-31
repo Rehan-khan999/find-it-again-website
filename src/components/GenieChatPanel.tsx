@@ -18,34 +18,26 @@ export const GenieChatPanel = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [handPosition, setHandPosition] = useState<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const reactionIndex = useRef(0);
 
-  // Listen for genie emergence/hiding and hand position
+  // Listen for genie emergence/hiding
   useEffect(() => {
     const handleEmerged = () => {
       setIsVisible(true);
-      setTimeout(() => inputRef.current?.focus(), 600);
+      setTimeout(() => inputRef.current?.focus(), 500);
     };
 
     const handleHidden = () => {
       setIsVisible(false);
     };
 
-    const handleHandPosition = (event: CustomEvent<{ x: number; y: number }>) => {
-      setHandPosition(event.detail);
-    };
-
     window.addEventListener(GENIE_EVENTS.EMERGED, handleEmerged);
     window.addEventListener(GENIE_EVENTS.HIDDEN, handleHidden);
-    window.addEventListener(GENIE_EVENTS.HAND_POSITION as any, handleHandPosition);
 
     return () => {
       window.removeEventListener(GENIE_EVENTS.EMERGED, handleEmerged);
       window.removeEventListener(GENIE_EVENTS.HIDDEN, handleHidden);
-      window.removeEventListener(GENIE_EVENTS.HAND_POSITION as any, handleHandPosition);
     };
   }, []);
 
@@ -56,14 +48,6 @@ export const GenieChatPanel = () => {
     }
   }, [messages]);
 
-  // Cycle through reactions for each response
-  const getNextReaction = useCallback((): 'nod' | 'thumbsUp' | 'sparkle' | 'wink' | 'blink' => {
-    const reactions: ('nod' | 'thumbsUp' | 'sparkle' | 'wink' | 'blink')[] = ['nod', 'thumbsUp', 'sparkle', 'wink', 'blink'];
-    const reaction = reactions[reactionIndex.current % reactions.length];
-    reactionIndex.current++;
-    return reaction;
-  }, []);
-
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
@@ -72,7 +56,7 @@ export const GenieChatPanel = () => {
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
-    // Trigger genie nod reaction on user message
+    // Trigger genie nod reaction
     triggerGenieReaction('nod');
 
     try {
@@ -101,23 +85,17 @@ export const GenieChatPanel = () => {
         content: data.response || "I sense a disturbance in the cosmic winds. Please try again." 
       }]);
 
-      // Trigger micro-animation on response
-      const reaction = getNextReaction();
-      triggerGenieReaction(reaction);
-      
-      // Additional blink after a short delay
-      setTimeout(() => triggerGenieReaction('blink'), 800);
+      triggerGenieReaction('thumbsUp');
     } catch (error) {
       console.error('Chat error:', error);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: "The mystical connection wavers... Please try your request again." 
       }]);
-      triggerGenieReaction('wink');
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, messages, getNextReaction]);
+  }, [input, isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -128,42 +106,19 @@ export const GenieChatPanel = () => {
 
   if (!isVisible) return null;
 
-  // Position chat panel at genie's hand using worldToScreen projection
-  // Fallback to default position if hand position not available
-  const panelStyle: React.CSSProperties = handPosition ? {
-    position: 'fixed',
-    left: `${Math.max(20, handPosition.x - 380)}px`,
-    top: `${Math.max(100, Math.min(window.innerHeight - 500, handPosition.y - 200))}px`,
-    width: '360px',
-    maxHeight: '420px',
-  } : {
-    position: 'fixed',
-    bottom: '200px',
-    right: '460px',
-    width: '360px',
-    maxHeight: '420px',
-  };
-
   return (
     <div 
       className={cn(
-        "z-50 transition-all duration-500 ease-out",
-        isVisible ? "opacity-100 translate-x-0 scale-100" : "opacity-0 translate-x-10 scale-95"
+        "fixed z-50 transition-all duration-500 ease-out",
+        isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-10"
       )}
-      style={panelStyle}
+      style={{
+        bottom: '180px',
+        right: '460px',
+        width: '360px',
+        maxHeight: '420px',
+      }}
     >
-      {/* Connecting line to genie hand */}
-      {handPosition && (
-        <div 
-          className="absolute w-16 h-0.5 bg-gradient-to-r from-cyan-400/60 to-transparent pointer-events-none"
-          style={{
-            top: '50%',
-            right: '-60px',
-            transform: 'translateY(-50%)',
-          }}
-        />
-      )}
-      
       {/* Glassmorphism cosmic panel */}
       <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/95 backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.6),0_0_80px_rgba(100,150,255,0.2)]">
         {/* Cosmic stars overlay */}
@@ -173,7 +128,6 @@ export const GenieChatPanel = () => {
           <div className="absolute w-1 h-1 bg-purple-200 rounded-full animate-pulse" style={{ bottom: '28%', left: '8%', animationDelay: '0.9s' }} />
           <div className="absolute w-0.5 h-0.5 bg-cyan-200 rounded-full animate-pulse" style={{ top: '55%', right: '12%', animationDelay: '1.3s' }} />
           <div className="absolute w-1 h-1 bg-white rounded-full animate-pulse" style={{ bottom: '12%', right: '22%', animationDelay: '1.8s' }} />
-          <div className="absolute w-0.5 h-0.5 bg-indigo-200 rounded-full animate-pulse" style={{ top: '40%', left: '25%', animationDelay: '2.2s' }} />
         </div>
 
         {/* Header */}
