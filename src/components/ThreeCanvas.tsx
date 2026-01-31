@@ -9,10 +9,12 @@ export const GENIE_EVENTS = {
   EMERGED: 'genie-emerged',
   HIDDEN: 'genie-hidden',
   GENIE_POSITION: 'genie-position',
+  PRESENT_CHAT: 'genie-present-chat',
 };
 
 export const ThreeCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const breathingTweenRef = useRef<gsap.core.Tween | null>(null);
   const sceneRef = useRef<{
     scene: THREE.Scene;
     renderer: THREE.WebGLRenderer;
@@ -21,9 +23,11 @@ export const ThreeCanvas = () => {
     genie: THREE.Group | null;
     parentGroup: THREE.Group | null;
     isOut: boolean;
+    isPresentingChat: boolean;
     animating: boolean;
     raycaster: THREE.Raycaster;
     mouse: THREE.Vector2;
+    originalGeniePos: { x: number; y: number; z: number };
   } | null>(null);
 
   // Broadcast genie screen position for chat panel positioning
@@ -49,6 +53,154 @@ export const ThreeCanvas = () => {
     window.dispatchEvent(new CustomEvent(GENIE_EVENTS.GENIE_POSITION, {
       detail: { x: screenX, y: screenY, canvasRect: rect }
     }));
+  }, []);
+
+  // Present chat animation - genie gestures toward the chat interface
+  const presentChatAnimation = useCallback(() => {
+    if (!sceneRef.current?.genie || !sceneRef.current?.isOut || sceneRef.current?.isPresentingChat) return;
+    
+    const { genie } = sceneRef.current;
+    sceneRef.current.isPresentingChat = true;
+    
+    // Store original position for potential reset
+    sceneRef.current.originalGeniePos = {
+      x: genie.position.x,
+      y: genie.position.y,
+      z: genie.position.z,
+    };
+
+    // 1. Move genie slightly left (local x: -0.25)
+    gsap.to(genie.position, {
+      x: genie.position.x - 0.25,
+      duration: 0.6,
+      ease: 'power2.out',
+    });
+
+    // 2. Rotate body toward chat (rotation.y = -2.2 radians)
+    gsap.to(genie.rotation, {
+      y: -2.2,
+      duration: 0.6,
+      ease: 'power2.out',
+    });
+
+    // 3. Find and animate arms + head
+    genie.traverse((child) => {
+      const name = child.name.toLowerCase();
+      
+      // Arm bones - raise in presentation pose
+      if (name.includes('arm') || name.includes('shoulder')) {
+        if (name.includes('left') || name.includes('_l')) {
+          // Left arm raised, palm facing chat
+          gsap.to(child.rotation, {
+            x: -0.7,  // Raise arm
+            z: 0.8,   // Elbow bent ~45°
+            duration: 0.6,
+            ease: 'power2.out',
+          });
+        } else if (name.includes('right') || name.includes('_r')) {
+          // Right arm raised
+          gsap.to(child.rotation, {
+            x: -0.7,
+            z: -0.8,
+            duration: 0.6,
+            ease: 'power2.out',
+          });
+        }
+      }
+      
+      // Head turns toward chat
+      if (name.includes('head') || name.includes('face') || name.includes('skull')) {
+        gsap.to(child.rotation, {
+          y: -0.3,
+          duration: 0.6,
+          ease: 'power2.out',
+        });
+      }
+    });
+
+    // 4. Start subtle breathing idle loop
+    if (breathingTweenRef.current) {
+      breathingTweenRef.current.kill();
+    }
+    
+    const baseScale = { x: genie.scale.x, y: genie.scale.y, z: genie.scale.z };
+    breathingTweenRef.current = gsap.to(genie.scale, {
+      x: baseScale.x * 1.02,
+      y: baseScale.y * 1.02,
+      z: baseScale.z * 1.02,
+      duration: 1.5,
+      ease: 'sine.inOut',
+      yoyo: true,
+      repeat: -1, // Infinite loop
+    });
+
+    console.log('Genie presenting chat');
+  }, []);
+
+  // Reset present chat animation when chat closes
+  const resetPresentChatAnimation = useCallback(() => {
+    if (!sceneRef.current?.genie || !sceneRef.current?.isPresentingChat) return;
+    
+    const { genie, originalGeniePos } = sceneRef.current;
+    sceneRef.current.isPresentingChat = false;
+
+    // Stop breathing animation
+    if (breathingTweenRef.current) {
+      breathingTweenRef.current.kill();
+      breathingTweenRef.current = null;
+    }
+
+    // Reset scale to base
+    gsap.to(genie.scale, {
+      x: 1.8,
+      y: 1.8,
+      z: 1.8,
+      duration: 0.4,
+      ease: 'power2.out',
+    });
+
+    // Reset position
+    if (originalGeniePos) {
+      gsap.to(genie.position, {
+        x: originalGeniePos.x,
+        y: originalGeniePos.y,
+        z: originalGeniePos.z,
+        duration: 0.4,
+        ease: 'power2.out',
+      });
+    }
+
+    // Reset body rotation
+    gsap.to(genie.rotation, {
+      y: -Math.PI / 2,
+      duration: 0.4,
+      ease: 'power2.out',
+    });
+
+    // Reset arms and head
+    genie.traverse((child) => {
+      const name = child.name.toLowerCase();
+      
+      if (name.includes('arm') || name.includes('shoulder')) {
+        gsap.to(child.rotation, {
+          x: 0,
+          z: 0,
+          duration: 0.4,
+          ease: 'power2.out',
+        });
+      }
+      
+      if (name.includes('head') || name.includes('face') || name.includes('skull')) {
+        gsap.to(child.rotation, {
+          x: -0.4,
+          y: 0,
+          duration: 0.4,
+          ease: 'power2.out',
+        });
+      }
+    });
+
+    console.log('Genie reset from presenting');
   }, []);
 
   useEffect(() => {
@@ -97,9 +249,11 @@ export const ThreeCanvas = () => {
       genie: null,
       parentGroup,
       isOut: false,
+      isPresentingChat: false,
       animating: false,
       raycaster,
       mouse,
+      originalGeniePos: { x: 0, y: 0, z: 0 },
     };
 
     const dracoLoader = new DRACOLoader();
@@ -161,31 +315,39 @@ export const ThreeCanvas = () => {
     });
 
     // Animation loop
-    let floatOffset = 0;
     const animate = () => {
       requestAnimationFrame(animate);
       
       // Broadcast genie position when out
       if (sceneRef.current?.isOut) {
         broadcastGeniePosition();
-        
-        // Subtle floating animation for genie
-        if (sceneRef.current.genie && !sceneRef.current.animating) {
-          floatOffset = Math.sin(Date.now() * 0.002) * 0.03;
-          // Don't override the y position, just add float
-        }
       }
       
       renderer.render(scene, camera);
     };
     animate();
 
+    // Listen for present chat event from chat panel
+    const handlePresentChat = (e: CustomEvent) => {
+      if (e.detail?.presenting) {
+        presentChatAnimation();
+      } else {
+        resetPresentChatAnimation();
+      }
+    };
+
+    window.addEventListener(GENIE_EVENTS.PRESENT_CHAT, handlePresentChat as EventListener);
+
     return () => {
+      window.removeEventListener(GENIE_EVENTS.PRESENT_CHAT, handlePresentChat as EventListener);
+      if (breathingTweenRef.current) {
+        breathingTweenRef.current.kill();
+      }
       renderer.dispose();
       dracoLoader.dispose();
       sceneRef.current = null;
     };
-  }, [broadcastGeniePosition]);
+  }, [broadcastGeniePosition, presentChatAnimation, resetPresentChatAnimation]);
 
   // Click handler via raycaster - ONLY lamp mesh is clickable
   const handleContainerClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -271,6 +433,9 @@ export const ThreeCanvas = () => {
       });
     } else {
       // ========== RETURN ==========
+      // Reset present chat state first
+      resetPresentChatAnimation();
+      
       window.dispatchEvent(new CustomEvent(GENIE_EVENTS.HIDDEN));
 
       gsap.to(genie.scale, {
@@ -292,12 +457,13 @@ export const ThreeCanvas = () => {
           if (sceneRef.current) {
             sceneRef.current.animating = false;
             sceneRef.current.isOut = false;
+            sceneRef.current.isPresentingChat = false;
             console.log('Genie hidden');
           }
         },
       });
     }
-  }, []);
+  }, [resetPresentChatAnimation]);
 
   return (
     <div 
@@ -320,4 +486,9 @@ export const ThreeCanvas = () => {
 // Utility function to trigger genie reactions from outside
 export const triggerGenieReaction = (type: 'nod' | 'thumbsUp' | 'sparkle' | 'wink' | 'blink') => {
   window.dispatchEvent(new CustomEvent('genie-react', { detail: { type } }));
+};
+
+// Utility function to trigger present chat animation
+export const triggerPresentChat = (presenting: boolean) => {
+  window.dispatchEvent(new CustomEvent(GENIE_EVENTS.PRESENT_CHAT, { detail: { presenting } }));
 };
