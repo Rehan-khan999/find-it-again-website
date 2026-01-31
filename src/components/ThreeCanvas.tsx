@@ -216,6 +216,8 @@ export const ThreeCanvas = () => {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(420, 420);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.domElement.style.pointerEvents = 'auto';
+    renderer.domElement.style.cursor = 'pointer';
     containerRef.current.appendChild(renderer.domElement);
 
     // Strong lighting for visibility
@@ -470,13 +472,13 @@ export const ThreeCanvas = () => {
       id="genie-container"
       ref={containerRef} 
       onClick={handleContainerClick}
-      className="fixed cursor-pointer"
+      className="fixed"
       style={{ 
         bottom: '10px',
         right: '10px',
         width: '420px',
         height: '420px',
-        pointerEvents: 'auto',
+        pointerEvents: 'none',
         zIndex: 10,
       }}
     />
