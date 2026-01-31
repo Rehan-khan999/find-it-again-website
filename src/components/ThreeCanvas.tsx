@@ -84,9 +84,9 @@ export const ThreeCanvas = () => {
     const mouse = new THREE.Vector2();
 
     // Create parent group for rotation control
-    // This group will be rotated 90 degrees right (40 + 50 = 90 degrees)
+    // This group will be rotated 150 degrees right (90 + 60 = 150 degrees)
     const parentGroup = new THREE.Group();
-    parentGroup.rotation.y = (90 * Math.PI) / 180; // 90 degrees right
+    parentGroup.rotation.y = (150 * Math.PI) / 180; // 150 degrees right
     scene.add(parentGroup);
 
     sceneRef.current = {
@@ -137,9 +137,17 @@ export const ThreeCanvas = () => {
         // Start position at lamp spout (tail position)
         genie.position.set(-0.5, -0.8, 0);
         
-        // Genie faces RIGHT and looks UPWARD
-        // X rotation tilts head up, Y rotation faces right toward chat
-        genie.rotation.set(-0.3, -Math.PI / 2, 0); // -0.3 rad (~17 deg) looking up
+        // Genie body faces RIGHT toward the chat panel
+        genie.rotation.set(0, -Math.PI / 2, 0);
+        
+        // Find and rotate only the head/face to look upward
+        genie.traverse((child) => {
+          const name = child.name.toLowerCase();
+          if (name.includes('head') || name.includes('face') || name.includes('skull')) {
+            child.rotation.x = -0.4; // Tilt head upward (~23 degrees)
+            console.log('Found head bone:', child.name);
+          }
+        });
         
         parentGroup.add(genie);
         sceneRef.current.genie = genie;
@@ -234,11 +242,11 @@ export const ThreeCanvas = () => {
       // Start at lamp spout position (tail touches lamp)
       genie.position.set(-0.5, -0.8, 0);
 
-      // Animate scale
+      // Animate scale - larger genie
       gsap.to(genie.scale, {
-        x: 1.2,
-        y: 1.2,
-        z: 1.2,
+        x: 1.8,
+        y: 1.8,
+        z: 1.8,
         duration: 1.2,
         ease: 'elastic.out(1, 0.5)',
       });
