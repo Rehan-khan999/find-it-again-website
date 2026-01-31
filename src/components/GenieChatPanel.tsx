@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Send, X, Sparkles } from 'lucide-react';
-import { GENIE_EVENTS, triggerGenieReaction } from './ThreeCanvas';
+import { GENIE_EVENTS, triggerGenieReaction, triggerPresentChat } from './ThreeCanvas';
 import { cn } from '@/lib/utils';
 
 interface Message {
@@ -27,11 +27,17 @@ export const GenieChatPanel = () => {
     const handleEmerged = () => {
       console.log('GenieChatPanel: Received EMERGED event');
       setIsVisible(true);
-      setTimeout(() => inputRef.current?.focus(), 500);
+      // Trigger presentChat animation when chat opens
+      setTimeout(() => {
+        triggerPresentChat(true);
+        inputRef.current?.focus();
+      }, 100);
     };
 
     const handleHidden = () => {
       console.log('GenieChatPanel: Received HIDDEN event');
+      // Reset presentChat animation when genie hides
+      triggerPresentChat(false);
       setIsVisible(false);
     };
 
