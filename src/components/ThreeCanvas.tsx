@@ -8,6 +8,7 @@ import gsap from 'gsap';
 export const GENIE_EVENTS = {
   EMERGED: 'genie-emerged',
   HIDDEN: 'genie-hidden',
+  HAND_POSITION: 'genie-hand-position',
 };
 
 export const ThreeCanvas = () => {
@@ -24,6 +25,32 @@ export const ThreeCanvas = () => {
     mouse: THREE.Vector2;
   } | null>(null);
 
+  // Broadcast genie hand position for chat panel positioning
+  const broadcastHandPosition = useCallback(() => {
+    if (!sceneRef.current?.genie || !sceneRef.current?.isOut) return;
+    
+    const { genie, camera, renderer } = sceneRef.current;
+    
+    // Get genie world position and project to screen
+    const genieWorldPos = new THREE.Vector3();
+    genie.getWorldPosition(genieWorldPos);
+    
+    // Offset for "hand" position (slightly to the left and up from genie center)
+    const handOffset = new THREE.Vector3(-0.3, 0.4, 0);
+    const handWorldPos = genieWorldPos.add(handOffset);
+    
+    // Project to screen coordinates
+    const handScreen = handWorldPos.clone().project(camera);
+    const rect = renderer.domElement.getBoundingClientRect();
+    
+    const screenX = rect.left + (handScreen.x + 1) * rect.width / 2;
+    const screenY = rect.top + (-handScreen.y + 1) * rect.height / 2;
+    
+    window.dispatchEvent(new CustomEvent(GENIE_EVENTS.HAND_POSITION, {
+      detail: { x: screenX, y: screenY }
+    }));
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current || sceneRef.current) return;
 
@@ -31,8 +58,8 @@ export const ThreeCanvas = () => {
 
     // Fixed 420x420 canvas
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-    camera.position.set(0, 0.8, 3.5);
-    camera.lookAt(0, 0.2, 0);
+    camera.position.set(0, 0.5, 4);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(420, 420);
@@ -40,10 +67,15 @@ export const ThreeCanvas = () => {
     containerRef.current.appendChild(renderer.domElement);
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    mainLight.position.set(2, 4, 3);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    const mainLight = new THREE.DirectionalLight(0xffffff, 2);
+    mainLight.position.set(3, 5, 4);
     scene.add(mainLight);
+    
+    // Add fill light for better visibility
+    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.8);
+    fillLight.position.set(-2, 2, -1);
+    scene.add(fillLight);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -65,49 +97,53 @@ export const ThreeCanvas = () => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Load lamp - anchored at bottom-right position (1.1, -0.8, 0)
+    // Load lamp - positioned bottom-right in view
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
-      lamp.position.set(1.1, -0.8, 0);
-      lamp.scale.set(2.2, 2.2, 2.2);
-      lamp.rotation.set(0, 0, 0);
+      lamp.position.set(0.8, -1.2, 0);
+      lamp.scale.set(2.5, 2.5, 2.5);
+      lamp.rotation.set(0, -0.3, 0); // Slight rotation to face camera
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
 
-      // Find spout object or create marker at spout position
-      let spout = lamp.getObjectByName('spout') || lamp.getObjectByName('Spout');
-      if (!spout) {
-        // Create spout marker if not found
-        spout = new THREE.Object3D();
-        spout.name = 'spout';
-        spout.position.set(0.1, 0.35, 0.15);
-        lamp.add(spout);
-      }
+      console.log('Lamp loaded successfully');
 
-      // Load genie - parented directly to spout
+      // Load genie - add directly to lamp (not scene)
       loader.load('/models/genie.glb', (genieGltf) => {
-        if (!sceneRef.current) return;
+        if (!sceneRef.current || !sceneRef.current.lamp) return;
         
         const genie = genieGltf.scene;
         
-        // Initial state
+        // Initial state - hidden inside lamp
         genie.visible = false;
         genie.scale.set(0, 0, 0);
-        genie.position.set(0, 0, 0); // Local to spout
-        genie.rotation.set(0, -2.6, 0); // Only Y rotation: -2.6 radians
+        genie.position.set(0, 0.2, 0.1); // Start position at lamp spout area
+        genie.rotation.set(0, -2.6, 0); // Face toward user
         
-        // Parent genie directly to spout
-        spout.add(genie);
+        // Add genie as child of lamp
+        lamp.add(genie);
         sceneRef.current.genie = genie;
+        
+        console.log('Genie loaded and attached to lamp');
+      }, undefined, (error) => {
+        console.error('Error loading genie:', error);
       });
+    }, undefined, (error) => {
+      console.error('Error loading lamp:', error);
     });
 
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
+      
+      // Broadcast hand position when genie is out
+      if (sceneRef.current?.isOut) {
+        broadcastHandPosition();
+      }
+      
       renderer.render(scene, camera);
     };
     animate();
@@ -117,7 +153,7 @@ export const ThreeCanvas = () => {
       dracoLoader.dispose();
       sceneRef.current = null;
     };
-  }, []);
+  }, [broadcastHandPosition]);
 
   // Click handler via raycaster - ONLY lamp mesh is clickable
   const handleContainerClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -157,33 +193,35 @@ export const ThreeCanvas = () => {
     const intersects = raycaster.intersectObjects(lampMeshes, false);
     if (intersects.length === 0) return;
 
+    console.log('Lamp clicked!', isOut ? 'Closing genie' : 'Opening genie');
     sceneRef.current.animating = true;
 
     if (!isOut) {
       // ========== EMERGE ==========
       genie.visible = true;
-      genie.scale.set(0, 0, 0);
-      genie.position.set(0, 0, 0);
+      genie.scale.set(0.01, 0.01, 0.01); // Start very small but not zero
+      genie.position.set(0, 0.2, 0.1); // Start at lamp spout
 
-      // Clean emerge: scale 0 → 1.3, y 0 → 1.05
+      // Animate scale and position
       gsap.to(genie.scale, {
         x: 1.3,
         y: 1.3,
         z: 1.3,
-        duration: 1.2,
-        ease: 'back.out(1.4)',
+        duration: 1.5,
+        ease: 'elastic.out(1, 0.5)',
       });
 
       gsap.to(genie.position, {
-        x: -0.35,
-        y: 1.05,
-        z: 0.15,
+        x: -0.2,
+        y: 0.9,
+        z: 0.2,
         duration: 1.2,
         ease: 'power2.out',
         onComplete: () => {
           if (sceneRef.current) {
             sceneRef.current.animating = false;
             sceneRef.current.isOut = true;
+            console.log('Genie emerged, dispatching event');
             window.dispatchEvent(new CustomEvent(GENIE_EVENTS.EMERGED));
           }
         },
@@ -202,8 +240,8 @@ export const ThreeCanvas = () => {
 
       gsap.to(genie.position, {
         x: 0,
-        y: 0,
-        z: 0,
+        y: 0.2,
+        z: 0.1,
         duration: 0.8,
         ease: 'power2.in',
         onComplete: () => {
@@ -211,6 +249,7 @@ export const ThreeCanvas = () => {
           if (sceneRef.current) {
             sceneRef.current.animating = false;
             sceneRef.current.isOut = false;
+            console.log('Genie hidden');
           }
         },
       });
@@ -228,7 +267,7 @@ export const ThreeCanvas = () => {
         right: '20px',
         width: '420px',
         height: '420px',
-        pointerEvents: 'auto', // Container captures clicks for raycasting
+        pointerEvents: 'auto',
         zIndex: 10,
       }}
     />

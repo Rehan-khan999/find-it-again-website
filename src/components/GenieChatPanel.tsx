@@ -18,26 +18,35 @@ export const GenieChatPanel = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [handPosition, setHandPosition] = useState<{ x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Listen for genie emergence/hiding
+  // Listen for genie emergence/hiding and hand position updates
   useEffect(() => {
     const handleEmerged = () => {
+      console.log('GenieChatPanel: Received EMERGED event');
       setIsVisible(true);
       setTimeout(() => inputRef.current?.focus(), 500);
     };
 
     const handleHidden = () => {
+      console.log('GenieChatPanel: Received HIDDEN event');
       setIsVisible(false);
+    };
+
+    const handleHandPosition = (event: CustomEvent<{ x: number; y: number }>) => {
+      setHandPosition(event.detail);
     };
 
     window.addEventListener(GENIE_EVENTS.EMERGED, handleEmerged);
     window.addEventListener(GENIE_EVENTS.HIDDEN, handleHidden);
+    window.addEventListener(GENIE_EVENTS.HAND_POSITION as any, handleHandPosition);
 
     return () => {
       window.removeEventListener(GENIE_EVENTS.EMERGED, handleEmerged);
       window.removeEventListener(GENIE_EVENTS.HIDDEN, handleHidden);
+      window.removeEventListener(GENIE_EVENTS.HAND_POSITION as any, handleHandPosition);
     };
   }, []);
 
@@ -106,19 +115,42 @@ export const GenieChatPanel = () => {
 
   if (!isVisible) return null;
 
+  // Calculate panel position based on hand position (anchored to genie's hand)
+  // If hand position available, position panel to the left of the hand
+  // Otherwise fallback to fixed position
+  const panelLeft = handPosition 
+    ? Math.max(20, handPosition.x - 380) 
+    : window.innerWidth - 460 - 360;
+  
+  const panelTop = handPosition
+    ? Math.max(80, Math.min(window.innerHeight - 480, handPosition.y - 180))
+    : window.innerHeight - 200 - 420;
+
   return (
     <div 
       className={cn(
         "fixed z-50 transition-all duration-500 ease-out",
-        isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-10"
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
       )}
       style={{
-        bottom: '180px',
-        right: '460px',
+        left: `${panelLeft}px`,
+        top: `${panelTop}px`,
         width: '360px',
         maxHeight: '420px',
       }}
     >
+      {/* Connecting line to genie */}
+      {handPosition && (
+        <div 
+          className="absolute w-12 h-0.5 bg-gradient-to-r from-cyan-400/70 to-transparent pointer-events-none"
+          style={{
+            top: '50%',
+            right: '-48px',
+            transform: 'translateY(-50%)',
+          }}
+        />
+      )}
+
       {/* Glassmorphism cosmic panel */}
       <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/95 backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.6),0_0_80px_rgba(100,150,255,0.2)]">
         {/* Cosmic stars overlay */}
