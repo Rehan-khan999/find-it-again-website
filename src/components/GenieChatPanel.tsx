@@ -68,13 +68,14 @@ export const GenieChatPanel = () => {
     triggerGenieReaction('nod');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`, {
+      const response = await fetch('https://dmarkaigzovaqwpigtxe.supabase.co/functions/v1/ai-assistant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtYXJrYWlnem92YXF3cGlndHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzNzEzMDEsImV4cCI6MjA2Njk0NzMwMX0.IJ01ugvnjFNp4YT0mODR2IwzD337H3rWTuQRfONA_To`,
         },
         body: JSON.stringify({
+          action: 'chat',
           message: userMessage,
           history: messages.map(m => ({ role: m.role, content: m.content })),
         }),
