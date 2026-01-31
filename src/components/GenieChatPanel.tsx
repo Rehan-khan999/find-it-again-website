@@ -22,7 +22,7 @@ export const GenieChatPanel = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Listen for genie emergence/hiding and position updates
+  // Listen for genie events
   useEffect(() => {
     const handleEmerged = () => {
       console.log('GenieChatPanel: Received EMERGED event');
@@ -80,9 +80,7 @@ export const GenieChatPanel = () => {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
+      if (!response.ok) throw new Error('Failed to get response');
 
       const data = await response.json();
       
@@ -112,16 +110,35 @@ export const GenieChatPanel = () => {
 
   if (!isVisible) return null;
 
-  // Position chat panel to the LEFT of the genie (genie is on the right side)
-  // The chat appears like a scroll the genie is presenting
-  const panelWidth = 340;
-  const panelHeight = 400;
+  // Chat panel positioned to the RIGHT of the genie
+  // Layout: LAMP (far left) - GENIE (center-left, adjacent to lamp) - CHAT (right, genie holding it)
+  // 
+  // The 3D canvas is at bottom-right: 10px from right, 10px from bottom, 420x420
+  // The chat should appear directly to the LEFT of the canvas (since genie faces right toward chat)
+  // But user wants: lamp LEFT of genie, chat on RIGHT of genie
+  // So chat should appear overlapping/adjacent to the RIGHT edge of the genie within the canvas
   
-  // Position: to the left of the genie canvas
-  // Canvas is at bottom: 20px, right: 20px, size: 420x420
-  // Chat should be to the left of the canvas, aligned with the genie
-  const panelRight = 20 + 420 + 15; // 15px gap from canvas
-  const panelBottom = 20 + 50; // Slightly above lamp level
+  // Position chat to overlap with right side of canvas (where genie's hands would be)
+  const panelWidth = 320;
+  const panelHeight = 380;
+  
+  // Dynamic positioning based on genie's projected position
+  // If we have genie position, place chat near it
+  // Otherwise use default position adjacent to canvas
+  let panelRight = 10; // Default: aligned with canvas right edge
+  let panelBottom = 60;
+  
+  if (geniePos && geniePos.canvasRect) {
+    // Position chat so its left edge is near genie's hand position
+    // Genie is in the left-center of canvas, facing right
+    // Chat should be to the right of genie
+    panelRight = window.innerWidth - geniePos.x - panelWidth / 2;
+    panelBottom = window.innerHeight - geniePos.y - panelHeight / 2;
+    
+    // Clamp to screen bounds
+    panelRight = Math.max(10, Math.min(panelRight, window.innerWidth - panelWidth - 10));
+    panelBottom = Math.max(10, Math.min(panelBottom, window.innerHeight - panelHeight - 10));
+  }
 
   return (
     <div 
@@ -136,57 +153,58 @@ export const GenieChatPanel = () => {
         maxHeight: `${panelHeight}px`,
       }}
     >
-      {/* Connecting line to genie */}
+      {/* Connecting line from genie's hand to chat (appears to hold it) */}
       <div 
-        className="absolute w-16 h-1 pointer-events-none"
+        className="absolute w-8 h-1 pointer-events-none hidden md:block"
         style={{
-          top: '30%',
-          right: '-64px',
-          background: 'linear-gradient(to right, rgba(34, 211, 238, 0.6), transparent)',
+          top: '35%',
+          left: '-32px',
+          background: 'linear-gradient(to left, rgba(34, 211, 238, 0.7), transparent)',
+          borderRadius: '2px',
         }}
       />
 
       {/* Glassmorphism cosmic panel - styled like a magical scroll */}
-      <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/30 bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/95 backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.6),0_0_60px_rgba(34,211,238,0.2)]">
+      <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/30 bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/95 backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.6),0_0_60px_rgba(34,211,238,0.25)]">
         {/* Scroll-like decorative edges */}
-        <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-900/30 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-amber-900/30 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-b from-amber-700/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t from-amber-700/20 to-transparent" />
         
         {/* Cosmic stars overlay */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute w-1 h-1 bg-white rounded-full animate-pulse" style={{ top: '8%', left: '12%' }} />
-          <div className="absolute w-0.5 h-0.5 bg-cyan-200 rounded-full animate-pulse" style={{ top: '22%', right: '18%', animationDelay: '0.4s' }} />
-          <div className="absolute w-1 h-1 bg-purple-200 rounded-full animate-pulse" style={{ bottom: '28%', left: '8%', animationDelay: '0.9s' }} />
-          <div className="absolute w-0.5 h-0.5 bg-blue-200 rounded-full animate-pulse" style={{ top: '55%', right: '12%', animationDelay: '1.3s' }} />
+          <div className="absolute w-1 h-1 bg-white rounded-full animate-pulse" style={{ top: '10%', left: '15%' }} />
+          <div className="absolute w-0.5 h-0.5 bg-cyan-200 rounded-full animate-pulse" style={{ top: '25%', right: '20%', animationDelay: '0.4s' }} />
+          <div className="absolute w-1 h-1 bg-purple-200 rounded-full animate-pulse" style={{ bottom: '30%', left: '10%', animationDelay: '0.9s' }} />
+          <div className="absolute w-0.5 h-0.5 bg-blue-200 rounded-full animate-pulse" style={{ top: '60%', right: '15%', animationDelay: '1.3s' }} />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-white/10">
+        <div className="flex items-center justify-between p-2.5 border-b border-white/10">
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Sparkles className="h-5 w-5 text-cyan-400" />
+              <Sparkles className="h-4 w-4 text-cyan-400" />
               <div className="absolute inset-0 animate-ping">
-                <Sparkles className="h-5 w-5 text-cyan-400 opacity-25" />
+                <Sparkles className="h-4 w-4 text-cyan-400 opacity-20" />
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Genie Assistant</h3>
-              <p className="text-[10px] text-cyan-300/70">Lost & Found Oracle</p>
+              <h3 className="text-xs font-semibold text-white">Genie Assistant</h3>
+              <p className="text-[9px] text-cyan-300/70">Lost & Found Oracle</p>
             </div>
           </div>
           <Button 
             variant="ghost" 
             size="icon"
             onClick={() => setIsVisible(false)}
-            className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
+            className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </Button>
         </div>
 
         {/* Messages */}
-        <ScrollArea className="h-[240px] p-3" ref={scrollRef}>
-          <div className="space-y-3">
+        <ScrollArea className="h-[220px] p-2.5" ref={scrollRef}>
+          <div className="space-y-2.5">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -197,9 +215,9 @@ export const GenieChatPanel = () => {
               >
                 <div
                   className={cn(
-                    "max-w-[88%] rounded-xl px-3 py-2 text-[13px]",
+                    "max-w-[90%] rounded-lg px-3 py-1.5 text-xs",
                     message.role === 'user'
-                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20'
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md shadow-cyan-500/20'
                       : 'bg-white/10 text-white/90 border border-white/10'
                   )}
                 >
@@ -209,10 +227,10 @@ export const GenieChatPanel = () => {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white/10 rounded-xl px-3 py-2 border border-white/10">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
-                    <span className="text-xs text-white/70">Consulting the cosmos...</span>
+                <div className="bg-white/10 rounded-lg px-3 py-2 border border-white/10">
+                  <div className="flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                    <span className="text-[10px] text-white/70">Consulting the cosmos...</span>
                   </div>
                 </div>
               </div>
@@ -221,8 +239,8 @@ export const GenieChatPanel = () => {
         </ScrollArea>
 
         {/* Input */}
-        <div className="p-3 border-t border-white/10">
-          <div className="flex gap-2">
+        <div className="p-2.5 border-t border-white/10">
+          <div className="flex gap-1.5">
             <Input
               ref={inputRef}
               value={input}
@@ -230,26 +248,26 @@ export const GenieChatPanel = () => {
               onKeyDown={handleKeyDown}
               placeholder="Ask the Genie..."
               disabled={isLoading}
-              className="flex-1 h-9 text-sm bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-cyan-400/50 focus:ring-cyan-400/20"
+              className="flex-1 h-8 text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-cyan-400/50 focus:ring-cyan-400/20"
             />
             <Button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
               size="sm"
-              className="h-9 px-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-lg shadow-cyan-500/20"
+              className="h-8 px-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-md shadow-cyan-500/20"
             >
               {isLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Send className="h-3.5 w-3.5" />
+                <Send className="h-3 w-3" />
               )}
             </Button>
           </div>
         </div>
 
         {/* Decorative glow effects */}
-        <div className="absolute -bottom-12 -right-12 w-28 h-28 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -top-6 -left-6 w-20 h-20 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-6 -left-6 w-16 h-16 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
       </div>
     </div>
   );
