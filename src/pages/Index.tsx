@@ -3,6 +3,7 @@ import { Search, MapPin, Shield, Sparkles, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { ThreeCanvas } from "@/components/ThreeCanvas";
+import { GenieChatPanel } from "@/components/GenieChatPanel";
 import { useTranslation } from 'react-i18next';
 
 export default function Index() {
@@ -12,8 +13,11 @@ export default function Index() {
 
   return (
     <div className="min-h-screen relative" style={{ background: 'transparent', position: 'relative', zIndex: 1 }}>
-      {/* Three.js Canvas - renders as overlay but only lamp is clickable */}
+      {/* Three.js Canvas - fixed bottom-right, only lamp is clickable */}
       <ThreeCanvas />
+      
+      {/* Cosmic Chat Panel - appears when genie emerges */}
+      <GenieChatPanel />
       
       {/* Hero Section */}
       <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter" style={{ zIndex: 1, pointerEvents: 'none' }}>
