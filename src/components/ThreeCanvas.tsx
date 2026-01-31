@@ -84,9 +84,9 @@ export const ThreeCanvas = () => {
     const mouse = new THREE.Vector2();
 
     // Create parent group for rotation control
-    // This group will be rotated 40 degrees right (positive Y rotation)
+    // This group will be rotated 90 degrees right (40 + 50 = 90 degrees)
     const parentGroup = new THREE.Group();
-    parentGroup.rotation.y = (40 * Math.PI) / 180; // 40 degrees right
+    parentGroup.rotation.y = (90 * Math.PI) / 180; // 90 degrees right
     scene.add(parentGroup);
 
     sceneRef.current = {
@@ -137,9 +137,9 @@ export const ThreeCanvas = () => {
         // Start position at lamp spout (tail position)
         genie.position.set(-0.5, -0.8, 0);
         
-        // Genie faces RIGHT (toward the chat panel)
-        // -90 degrees so genie looks to the right where chat will appear
-        genie.rotation.set(0, -Math.PI / 2, 0);
+        // Genie faces RIGHT and looks UPWARD
+        // X rotation tilts head up, Y rotation faces right toward chat
+        genie.rotation.set(-0.3, -Math.PI / 2, 0); // -0.3 rad (~17 deg) looking up
         
         parentGroup.add(genie);
         sceneRef.current.genie = genie;
