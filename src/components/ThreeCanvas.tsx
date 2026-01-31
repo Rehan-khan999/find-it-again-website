@@ -84,9 +84,9 @@ export const ThreeCanvas = () => {
     const mouse = new THREE.Vector2();
 
     // Create parent group for rotation control
-    // This group will be rotated 80 degrees right (positive Y rotation)
+    // This group will be rotated 40 degrees right (positive Y rotation)
     const parentGroup = new THREE.Group();
-    parentGroup.rotation.y = (80 * Math.PI) / 180; // 80 degrees right
+    parentGroup.rotation.y = (40 * Math.PI) / 180; // 40 degrees right
     scene.add(parentGroup);
 
     sceneRef.current = {
