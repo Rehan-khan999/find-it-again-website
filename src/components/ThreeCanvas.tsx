@@ -32,11 +32,11 @@ export const ThreeCanvas = () => {
     
     const { genie, camera, renderer } = sceneRef.current;
     
-    // Get genie world position (hand area - right side)
+    // Get genie world position (left hand area - for chat on left side)
     const genieWorldPos = new THREE.Vector3();
     genie.getWorldPosition(genieWorldPos);
-    // Offset to right hand position
-    genieWorldPos.x += 0.3;
+    // Offset to LEFT hand position (negative x)
+    genieWorldPos.x -= 0.5;
     genieWorldPos.y += 0.2;
     
     // Project to screen coordinates
@@ -84,9 +84,9 @@ export const ThreeCanvas = () => {
     const mouse = new THREE.Vector2();
 
     // Create parent group for rotation control
-    // This group will be rotated 325 degrees right (285 + 40 = 325 degrees)
+    // This group will be rotated 335 degrees right (325 + 10 = 335 degrees)
     const parentGroup = new THREE.Group();
-    parentGroup.rotation.y = (325 * Math.PI) / 180; // 325 degrees right
+    parentGroup.rotation.y = (335 * Math.PI) / 180; // 335 degrees right
     scene.add(parentGroup);
 
     sceneRef.current = {
