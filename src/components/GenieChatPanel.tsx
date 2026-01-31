@@ -117,28 +117,28 @@ export const GenieChatPanel = () => {
 
   if (!isVisible) return null;
 
-  // Chat panel positioned to the LEFT of the genie
-  // Layout: CHAT (left) - GENIE (center) - LAMP (right)
+  // Chat panel positioned to the RIGHT side, adjacent to the genie
+  // Layout: LAMP (left) - GENIE (center) - CHAT (right)
   // 
   // The 3D canvas is at bottom-right: 10px from right, 10px from bottom, 420x420
-  // The chat should appear to the LEFT of the genie within/outside the canvas
+  // The chat should appear to the RIGHT of the genie, adjacent to it
   
   const panelWidth = 320;
   const panelHeight = 380;
   
   // Dynamic positioning based on genie's projected position
-  // Position chat to the LEFT of genie (genie's left hand holding it)
-  let panelRight = 440; // Default: to the left of the canvas
+  // Position chat to the RIGHT of genie, adjacent
+  let panelRight = 20; // Close to right edge, adjacent to genie
   let panelBottom = 60;
   
   if (geniePos && geniePos.canvasRect) {
-    // Position chat so its right edge is near genie's left hand position
-    // Chat appears on the LEFT side of the genie
-    panelRight = window.innerWidth - geniePos.x + panelWidth / 2;
+    // Position chat so its left edge is near genie's right side
+    // Chat appears on the RIGHT side of the genie, adjacent
+    panelRight = window.innerWidth - geniePos.x - panelWidth - 40;
     panelBottom = window.innerHeight - geniePos.y - panelHeight / 2;
     
-    // Clamp to screen bounds
-    panelRight = Math.max(10, Math.min(panelRight, window.innerWidth - panelWidth - 10));
+    // Clamp to screen bounds - keep it close to genie on right
+    panelRight = Math.max(10, Math.min(panelRight, 180));
     panelBottom = Math.max(10, Math.min(panelBottom, window.innerHeight - panelHeight - 10));
   }
 
@@ -155,13 +155,13 @@ export const GenieChatPanel = () => {
         maxHeight: `${panelHeight}px`,
       }}
     >
-      {/* Connecting line from genie's right hand to chat on left (appears to hold it) */}
+      {/* Connecting line from genie to chat on right (appears to present it) */}
       <div 
         className="absolute w-8 h-1 pointer-events-none hidden md:block"
         style={{
           top: '35%',
-          right: '-32px',
-          background: 'linear-gradient(to right, rgba(34, 211, 238, 0.7), transparent)',
+          left: '-32px',
+          background: 'linear-gradient(to left, rgba(34, 211, 238, 0.7), transparent)',
           borderRadius: '2px',
         }}
       />
