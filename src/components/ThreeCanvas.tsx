@@ -84,9 +84,9 @@ export const ThreeCanvas = () => {
     const mouse = new THREE.Vector2();
 
     // Create parent group for rotation control
-    // This group will be rotated 195 degrees right (150 + 45 = 195 degrees)
+    // This group will be rotated 240 degrees right (195 + 45 = 240 degrees)
     const parentGroup = new THREE.Group();
-    parentGroup.rotation.y = (195 * Math.PI) / 180; // 195 degrees right
+    parentGroup.rotation.y = (240 * Math.PI) / 180; // 240 degrees right
     scene.add(parentGroup);
 
     sceneRef.current = {
