@@ -8,7 +8,7 @@ import gsap from 'gsap';
 export const GENIE_EVENTS = {
   EMERGED: 'genie-emerged',
   HIDDEN: 'genie-hidden',
-  HAND_POSITION: 'genie-hand-position',
+  GENIE_POSITION: 'genie-position',
 };
 
 export const ThreeCanvas = () => {
@@ -25,29 +25,25 @@ export const ThreeCanvas = () => {
     mouse: THREE.Vector2;
   } | null>(null);
 
-  // Broadcast genie hand position for chat panel positioning
-  const broadcastHandPosition = useCallback(() => {
+  // Broadcast genie screen position for chat panel positioning
+  const broadcastGeniePosition = useCallback(() => {
     if (!sceneRef.current?.genie || !sceneRef.current?.isOut) return;
     
     const { genie, camera, renderer } = sceneRef.current;
     
-    // Get genie world position and project to screen
+    // Get genie world position
     const genieWorldPos = new THREE.Vector3();
     genie.getWorldPosition(genieWorldPos);
     
-    // Offset for "hand" position (slightly to the left and up from genie center)
-    const handOffset = new THREE.Vector3(-0.3, 0.4, 0);
-    const handWorldPos = genieWorldPos.add(handOffset);
-    
     // Project to screen coordinates
-    const handScreen = handWorldPos.clone().project(camera);
+    const screenPos = genieWorldPos.clone().project(camera);
     const rect = renderer.domElement.getBoundingClientRect();
     
-    const screenX = rect.left + (handScreen.x + 1) * rect.width / 2;
-    const screenY = rect.top + (-handScreen.y + 1) * rect.height / 2;
+    const screenX = rect.left + (screenPos.x + 1) * rect.width / 2;
+    const screenY = rect.top + (-screenPos.y + 1) * rect.height / 2;
     
-    window.dispatchEvent(new CustomEvent(GENIE_EVENTS.HAND_POSITION, {
-      detail: { x: screenX, y: screenY }
+    window.dispatchEvent(new CustomEvent(GENIE_EVENTS.GENIE_POSITION, {
+      detail: { x: screenX, y: screenY, canvasRect: rect }
     }));
   }, []);
 
@@ -56,26 +52,29 @@ export const ThreeCanvas = () => {
 
     const scene = new THREE.Scene();
 
-    // Fixed 420x420 canvas
-    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
-    camera.position.set(0, 0.5, 4);
-    camera.lookAt(0, 0, 0);
+    // Camera positioned to see both lamp at bottom and genie above
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    camera.position.set(0, 1, 4.5);
+    camera.lookAt(0, 0.3, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(420, 420);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     containerRef.current.appendChild(renderer.domElement);
 
-    // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-    const mainLight = new THREE.DirectionalLight(0xffffff, 2);
-    mainLight.position.set(3, 5, 4);
+    // Strong lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+    const mainLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    mainLight.position.set(2, 5, 4);
     scene.add(mainLight);
     
-    // Add fill light for better visibility
-    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.8);
-    fillLight.position.set(-2, 2, -1);
+    const fillLight = new THREE.DirectionalLight(0x88ccff, 1);
+    fillLight.position.set(-3, 2, 2);
     scene.add(fillLight);
+    
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    backLight.position.set(0, 2, -3);
+    scene.add(backLight);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -97,37 +96,40 @@ export const ThreeCanvas = () => {
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
 
-    // Load lamp - positioned bottom-right in view
+    // Load lamp - positioned at bottom center of canvas view
     loader.load('/models/lamp.glb', (lampGltf) => {
       if (!sceneRef.current) return;
       
       const lamp = lampGltf.scene;
-      lamp.position.set(0.8, -1.2, 0);
-      lamp.scale.set(2.5, 2.5, 2.5);
-      lamp.rotation.set(0, -0.3, 0); // Slight rotation to face camera
+      lamp.position.set(0.5, -0.8, 0); // Center-right, at bottom
+      lamp.scale.set(2.0, 2.0, 2.0);
+      lamp.rotation.set(0, -0.5, 0); // Slight angle facing left
       
       scene.add(lamp);
       sceneRef.current.lamp = lamp;
 
-      console.log('Lamp loaded successfully');
+      console.log('Lamp loaded at position:', lamp.position);
 
-      // Load genie - add directly to lamp (not scene)
+      // Load genie - will be positioned above lamp when emerged
       loader.load('/models/genie.glb', (genieGltf) => {
-        if (!sceneRef.current || !sceneRef.current.lamp) return;
+        if (!sceneRef.current) return;
         
         const genie = genieGltf.scene;
         
-        // Initial state - hidden inside lamp
+        // Initial state - hidden
         genie.visible = false;
         genie.scale.set(0, 0, 0);
-        genie.position.set(0, 0.2, 0.1); // Start position at lamp spout area
-        genie.rotation.set(0, -2.6, 0); // Face toward user
+        // Start at lamp spout position
+        genie.position.set(0.3, 0.3, 0.1);
+        // Genie faces LEFT (toward where chat will appear)
+        // Rotation: facing -X direction (left side of screen)
+        genie.rotation.set(0, Math.PI * 0.3, 0); // ~55 degrees, facing toward chat
         
-        // Add genie as child of lamp
-        lamp.add(genie);
+        // Add genie to scene (not lamp, for easier positioning)
+        scene.add(genie);
         sceneRef.current.genie = genie;
         
-        console.log('Genie loaded and attached to lamp');
+        console.log('Genie loaded, initial state set');
       }, undefined, (error) => {
         console.error('Error loading genie:', error);
       });
@@ -139,9 +141,15 @@ export const ThreeCanvas = () => {
     const animate = () => {
       requestAnimationFrame(animate);
       
-      // Broadcast hand position when genie is out
+      // Broadcast genie position when out
       if (sceneRef.current?.isOut) {
-        broadcastHandPosition();
+        broadcastGeniePosition();
+        
+        // Subtle floating animation
+        if (sceneRef.current.genie && !sceneRef.current.animating) {
+          const time = Date.now() * 0.001;
+          sceneRef.current.genie.position.y = 1.2 + Math.sin(time * 1.5) * 0.05;
+        }
       }
       
       renderer.render(scene, camera);
@@ -153,7 +161,7 @@ export const ThreeCanvas = () => {
       dracoLoader.dispose();
       sceneRef.current = null;
     };
-  }, [broadcastHandPosition]);
+  }, [broadcastGeniePosition]);
 
   // Click handler via raycaster - ONLY lamp mesh is clickable
   const handleContainerClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -174,19 +182,7 @@ export const ThreeCanvas = () => {
     const lampMeshes: THREE.Mesh[] = [];
     lamp.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        // Check if this mesh is part of genie
-        let isGenieChild = false;
-        let current: THREE.Object3D | null = child;
-        while (current) {
-          if (current === genie) {
-            isGenieChild = true;
-            break;
-          }
-          current = current.parent;
-        }
-        if (!isGenieChild) {
-          lampMeshes.push(child);
-        }
+        lampMeshes.push(child);
       }
     });
     
@@ -199,29 +195,29 @@ export const ThreeCanvas = () => {
     if (!isOut) {
       // ========== EMERGE ==========
       genie.visible = true;
-      genie.scale.set(0.01, 0.01, 0.01); // Start very small but not zero
-      genie.position.set(0, 0.2, 0.1); // Start at lamp spout
+      genie.scale.set(0.01, 0.01, 0.01);
+      genie.position.set(0.5, -0.3, 0);
 
-      // Animate scale and position
+      // Scale up and move to final position (standing above lamp, facing left toward chat)
       gsap.to(genie.scale, {
-        x: 1.3,
-        y: 1.3,
-        z: 1.3,
-        duration: 1.5,
-        ease: 'elastic.out(1, 0.5)',
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        duration: 1.0,
+        ease: 'back.out(1.5)',
       });
 
       gsap.to(genie.position, {
-        x: -0.2,
-        y: 0.9,
-        z: 0.2,
-        duration: 1.2,
+        x: 0.5,   // Right side (adjacent to chat on left)
+        y: 0.8,   // Above lamp
+        z: 0.3,
+        duration: 1.0,
         ease: 'power2.out',
         onComplete: () => {
           if (sceneRef.current) {
             sceneRef.current.animating = false;
             sceneRef.current.isOut = true;
-            console.log('Genie emerged, dispatching event');
+            console.log('Genie emerged');
             window.dispatchEvent(new CustomEvent(GENIE_EVENTS.EMERGED));
           }
         },
@@ -234,15 +230,15 @@ export const ThreeCanvas = () => {
         x: 0,
         y: 0,
         z: 0,
-        duration: 0.8,
+        duration: 0.7,
         ease: 'power2.in',
       });
 
       gsap.to(genie.position, {
-        x: 0,
-        y: 0.2,
+        x: 0.3,
+        y: 0.3,
         z: 0.1,
-        duration: 0.8,
+        duration: 0.7,
         ease: 'power2.in',
         onComplete: () => {
           genie.visible = false;
