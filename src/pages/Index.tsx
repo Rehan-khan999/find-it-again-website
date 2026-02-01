@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ThreeCanvas } from "@/components/ThreeCanvas";
 import { GenieChatPanel } from "@/components/GenieChatPanel";
 import { useTranslation } from 'react-i18next';
+import { HomepageBackground } from "@/components/HomepageBackground";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -13,6 +14,9 @@ export default function Index() {
 
   return (
     <div className="min-h-screen relative" style={{ background: 'transparent', position: 'relative', zIndex: 1 }}>
+      {/* Homepage Background - fixed, behind everything */}
+      <HomepageBackground />
+      
       {/* Three.js Canvas - fixed bottom-right, only lamp is clickable */}
       <ThreeCanvas />
       
