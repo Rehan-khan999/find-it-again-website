@@ -12,7 +12,7 @@ import pkRemote2 from "@/assets/demo/pk-remote-2.jpg";
 import pkRemote3 from "@/assets/demo/pk-remote-3.jpg";
 import jadoo1 from "@/assets/demo/jadoo-1.jpeg";
 import jadoo2 from "@/assets/demo/jadoo-2.jpeg";
-import jadoo3 from "@/assets/demo/jadoo-3.jpeg";
+import jadoo3 from "@/assets/demo/jadoo-4.jpeg";
 
 interface DemoItem {
   id: string;

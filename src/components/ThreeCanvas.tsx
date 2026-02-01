@@ -240,7 +240,7 @@ export const ThreeCanvas = () => {
     // Create parent group for rotation control
     // This group will be rotated 395 degrees right (385 + 10 = 395 degrees)
     const parentGroup = new THREE.Group();
-    parentGroup.rotation.y = (395 * Math.PI) / 180; // 395 degrees right
+    parentGroup.rotation.y = (400 * Math.PI) / 180; // 395 degrees right
     scene.add(parentGroup);
 
     sceneRef.current = {
