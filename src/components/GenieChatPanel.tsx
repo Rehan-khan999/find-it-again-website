@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, X, Sparkles } from 'lucide-react';
+import { Loader2, Send, X, Sparkles, Wifi, WifiOff } from 'lucide-react';
 import { GENIE_EVENTS, triggerGenieReaction, triggerPresentChat } from './ThreeCanvas';
 import { cn } from '@/lib/utils';
+import { genieChat, checkOllamaConnection } from '@/services/genieAI';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -19,8 +20,23 @@ export const GenieChatPanel = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [geniePos, setGeniePos] = useState<{ x: number; y: number; canvasRect?: DOMRect } | null>(null);
+  const [ollamaConnected, setOllamaConnected] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Check Ollama connection on mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      const connected = await checkOllamaConnection();
+      setOllamaConnected(connected);
+      console.log('[GenieChatPanel] Ollama connection:', connected);
+    };
+    checkConnection();
+    
+    // Re-check periodically
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Listen for genie events
   useEffect(() => {
@@ -74,34 +90,23 @@ export const GenieChatPanel = () => {
     triggerGenieReaction('nod');
 
     try {
-      const response = await fetch('https://dmarkaigzovaqwpigtxe.supabase.co/functions/v1/ai-assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtYXJrYWlnem92YXF3cGlndHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzNzEzMDEsImV4cCI6MjA2Njk0NzMwMX0.IJ01ugvnjFNp4YT0mODR2IwzD337H3rWTuQRfONA_To`,
-        },
-        body: JSON.stringify({
-          action: 'chat',
-          message: userMessage,
-          history: messages.map(m => ({ role: m.role, content: m.content })),
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to get response');
-
-      const data = await response.json();
+      // Use the new dual-model Genie AI service
+      const response = await genieChat(
+        userMessage,
+        messages.map(m => ({ role: m.role, content: m.content }))
+      );
       
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: data.response || "I sense a disturbance in the cosmic winds. Please try again." 
+        content: response || "✨ The mystical connection wavers... Please try again, seeker." 
       }]);
 
       triggerGenieReaction('thumbsUp');
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error('Genie chat error:', error);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "The mystical connection wavers... Please try your request again." 
+        content: "✨ Ah seeker, the cosmic winds carry your message, but I sense a disturbance. Ensure the mystical Ollama spirits are awakened (running locally), then try again!" 
       }]);
     } finally {
       setIsLoading(false);
@@ -191,7 +196,18 @@ export const GenieChatPanel = () => {
             </div>
             <div>
               <h3 className="text-xs font-semibold text-white">Genie Assistant</h3>
-              <p className="text-[9px] text-cyan-300/70">Lost & Found Oracle</p>
+              <div className="flex items-center gap-1">
+                <p className="text-[9px] text-cyan-300/70">Lost & Found Oracle</p>
+                {ollamaConnected !== null && (
+                  <span className="flex items-center gap-0.5">
+                    {ollamaConnected ? (
+                      <Wifi className="h-2 w-2 text-green-400" />
+                    ) : (
+                      <WifiOff className="h-2 w-2 text-red-400" />
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <Button 
