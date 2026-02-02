@@ -90,7 +90,8 @@ export const GenieChatPanel = () => {
     triggerGenieReaction('nod');
 
     try {
-      // Use the new dual-model Genie AI service
+      // Use the dual-model Genie AI service
+      // CRITICAL: Phi3 is called for all LOST_FOUND queries
       const response = await genieChat(
         userMessage,
         messages.map(m => ({ role: m.role, content: m.content }))
@@ -98,15 +99,20 @@ export const GenieChatPanel = () => {
       
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: response || "✨ The mystical connection wavers... Please try again, seeker." 
+        content: response
       }]);
 
-      triggerGenieReaction('thumbsUp');
+      // Only show positive reaction if no error in response
+      if (!response.includes('⚠️')) {
+        triggerGenieReaction('thumbsUp');
+      }
     } catch (error) {
       console.error('Genie chat error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Show REAL error - no roleplay
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "✨ Ah seeker, the cosmic winds carry your message, but I sense a disturbance. Ensure the mystical Ollama spirits are awakened (running locally), then try again!" 
+        content: `⚠️ Search engine offline. Error: ${errorMessage}. Please ensure Ollama is running with both qwen2.5:3b and phi3:mini models.`
       }]);
     } finally {
       setIsLoading(false);
