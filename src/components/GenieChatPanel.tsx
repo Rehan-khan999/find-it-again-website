@@ -90,20 +90,19 @@ export const GenieChatPanel = () => {
     triggerGenieReaction('nod');
 
     try {
-      // Use the dual-model Genie AI service
-      // CRITICAL: Phi3 is called for all LOST_FOUND queries
-      const response = await genieChat(
+      // Use phi3:mini ONLY Genie AI service (same as FindIt AI)
+      const result = await genieChat(
         userMessage,
         messages.map(m => ({ role: m.role, content: m.content }))
       );
       
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: response
+        content: result.response
       }]);
 
       // Only show positive reaction if no error in response
-      if (!response.includes('⚠️')) {
+      if (!result.error && !result.response.includes('⚠️')) {
         triggerGenieReaction('thumbsUp');
       }
     } catch (error) {
@@ -112,7 +111,7 @@ export const GenieChatPanel = () => {
       // Show REAL error - no roleplay
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `⚠️ Search engine offline. Error: ${errorMessage}. Please ensure Ollama is running with both qwen2.5:3b and phi3:mini models.`
+        content: `⚠️ Search engine offline. Error: ${errorMessage}. Please ensure Ollama is running with phi3:mini model.`
       }]);
     } finally {
       setIsLoading(false);
