@@ -1,373 +1,485 @@
 /**
- * Genie AI Service - Dual Model Architecture
+ * Genie AI Service - Rebuilt with phi3:mini ONLY
  * 
- * This service is COMPLETELY SEPARATE from the existing FindIt AI Assistant.
- * It uses two local Ollama models:
- * - qwen2.5:3b (Personality Layer) - for conversation, jokes, rephrasing
- * - phi3:mini (Functional Layer) - for database queries, item searches
+ * CRITICAL: This mirrors the FindIt AI backend logic exactly.
+ * Same API flow, same database queries, same model (phi3:mini).
  * 
- * CRITICAL: Phi3 MUST be called for all lost/found queries.
- * Phi3 never speaks directly to users. All its outputs are rephrased by Qwen.
+ * ONLY DIFFERENCE:
+ * - Genie personality tone (magical, playful)
+ * - Built-in humor presets for common casual inputs
+ * 
+ * NO QWEN. NO MULTI-MODEL ROUTING.
  */
 
 import { supabase } from '@/integrations/supabase/client';
 
 // Ollama endpoint (local)
 const OLLAMA_ENDPOINT = 'http://localhost:11434/api/chat';
-
-// Model identifiers
-const QWEN_MODEL = 'qwen2.5:3b';
 const PHI3_MODEL = 'phi3:mini';
 
-// Intent categories for routing
-type GenieIntent = 'CASUAL' | 'LOST_FOUND';
+// ============= CATEGORY EXPANSION (same as FindIt AI) =============
+const CATEGORY_EXPANSION: Record<string, string[]> = {
+  phone: ['phone', 'mobile', 'smartphone', 'iphone', 'android', 'cell', 'handset'],
+  wallet: ['wallet', 'purse', 'billfold', 'batua', 'pocketbook'],
+  bag: ['bag', 'backpack', 'handbag', 'satchel', 'tote', 'rucksack', 'sling'],
+  ring: ['ring', 'finger ring', 'gold ring', 'silver ring'],
+  laptop: ['laptop', 'notebook', 'macbook', 'chromebook', 'computer'],
+  keys: ['keys', 'key', 'keychain', 'car key', 'bike key', 'chabi'],
+  earphones: ['earphones', 'earbuds', 'headphones', 'airpods', 'headset'],
+  glasses: ['glasses', 'spectacles', 'eyeglasses', 'sunglasses', 'chasma'],
+  watch: ['watch', 'wristwatch', 'smartwatch', 'ghadi'],
+  bottle: ['bottle', 'water bottle', 'flask', 'sipper', 'tumbler'],
+  charger: ['charger', 'adapter', 'power bank', 'cable'],
+  card: ['card', 'id card', 'aadhar', 'pan card', 'credit card', 'debit card'],
+  umbrella: ['umbrella', 'parasol', 'chhatri'],
+  jewelry: ['jewelry', 'jewellery', 'necklace', 'chain', 'bracelet', 'earring', 'pendant'],
+};
 
-// Genie personality system prompt
-const QWEN_SYSTEM_PROMPT = `You are the Genie of FindIt - a magical, playful, and helpful spirit who assists users with lost and found items.
-
-Your personality:
-- Warm, mystical, and encouraging
-- Use magical expressions like "Ah seeker...", "Let me consult the cosmic registry...", "The stars whisper..."
-- Be playful but always helpful and accurate
-- Speak as if you have ancient wisdom but modern knowledge
-- Add sparkle emojis ✨ occasionally for magical flair
-
-When given search results to rephrase, transform the data into magical, friendly language while keeping all the important details.
-
-Always maintain your mystical persona while being genuinely helpful.`;
-
-const QWEN_REPHRASE_PROMPT = `You are the Genie of FindIt. You've just received search results from the cosmic registry. 
-Rephrase the following data in your magical, friendly voice. Keep all important details (titles, locations, dates) but make it sound mystical and encouraging.
-Add appropriate magical expressions. If there are no results, be encouraging and suggest what they can do next.`;
-
-const PHI3_SYSTEM_PROMPT = `You are a precise database query assistant. Extract search parameters from user messages about lost or found items.
-
-Respond ONLY with a JSON object containing:
-{
-  "action": "search_lost" | "search_found" | "search_all",
-  "keywords": ["array", "of", "keywords"],
-  "category": "extracted category or null",
-  "location": "extracted location or null",
-  "dateRange": { "from": "date or null", "to": "date or null" }
-}
-
-Extract entities like item types, locations, dates, and descriptive keywords.
-Do not include any other text, only valid JSON.`;
-
-// Keywords that indicate functional intent (LOST_FOUND)
-const FUNCTIONAL_KEYWORDS = [
-  'lost', 'found', 'find', 'search', 'looking for', 'missing',
-  'item', 'phone', 'wallet', 'keys', 'bag', 'laptop', 'watch',
-  'where', 'when', 'claim', 'verify', 'match', 'report',
-  'kho gaya', 'mila', 'dhundh', 'chahiye', // Hindi support
-];
-
-// Keywords that indicate casual intent
-const CASUAL_KEYWORDS = [
-  'hello', 'hi', 'hey', 'thanks', 'thank you', 'how are you',
-  'joke', 'funny', 'who are you', 'what can you do', 'help',
-  'bye', 'goodbye', 'namaste', 'shukriya', // Hindi support
-];
-
-/**
- * Detect intent from user message
- * Returns 'LOST_FOUND' for any query related to items
- * Returns 'CASUAL' only for greetings, jokes, etc.
- */
-function detectIntent(message: string): GenieIntent {
-  const lowerMessage = message.toLowerCase();
+function expandCategory(term: string): string[] {
+  const lowerTerm = term.toLowerCase();
+  const terms = new Set<string>([lowerTerm]);
   
-  // Check for functional keywords (higher priority)
-  const hasFunctional = FUNCTIONAL_KEYWORDS.some(kw => lowerMessage.includes(kw));
-  const hasCasual = CASUAL_KEYWORDS.some(kw => lowerMessage.includes(kw));
-  
-  // If message has ANY functional keywords, treat as LOST_FOUND
-  if (hasFunctional) {
-    return 'LOST_FOUND';
-  }
-  
-  // Only casual if no functional keywords present
-  return 'CASUAL';
-}
-
-/**
- * Call Ollama with a specific model
- * Throws real errors - NO fallback messages
- */
-async function callOllama(
-  model: string,
-  systemPrompt: string,
-  userMessage: string,
-  history: Array<{ role: string; content: string }> = []
-): Promise<string> {
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history,
-    { role: 'user', content: userMessage }
-  ];
-
-  const response = await fetch(OLLAMA_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false,
-      options: {
-        temperature: model === PHI3_MODEL ? 0.1 : 0.7,
-      }
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`${model} request failed: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const content = data.message?.content;
-  
-  if (!content) {
-    throw new Error(`${model} returned empty response`);
-  }
-  
-  return content;
-}
-
-/**
- * MANDATORY: Run Lost/Found search via Phi3
- * This is the ONLY way to handle LOST_FOUND queries
- * Returns structured search results
- */
-async function runLostFoundSearch(userMessage: string): Promise<{
-  success: boolean;
-  results: any[];
-  error?: string;
-  searchParams?: any;
-}> {
-  console.log('[GenieAI] runLostFoundSearch called with:', userMessage);
-  
-  // Step 1: Call Phi3 to extract search parameters
-  let phi3Response: string;
-  try {
-    phi3Response = await callOllama(PHI3_MODEL, PHI3_SYSTEM_PROMPT, userMessage);
-    console.log('[GenieAI] Phi3 raw response:', phi3Response);
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[GenieAI] Phi3 call failed:', errorMsg);
-    return {
-      success: false,
-      results: [],
-      error: `Search engine offline: ${errorMsg}. Please retry.`
-    };
-  }
-  
-  // Step 2: Parse Phi3's JSON response
-  let searchParams: {
-    action: string;
-    keywords: string[];
-    category?: string;
-    location?: string;
-  };
-  
-  try {
-    // Extract JSON from response (in case of extra text)
-    const jsonMatch = phi3Response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No valid JSON in Phi3 response');
+  for (const [key, values] of Object.entries(CATEGORY_EXPANSION)) {
+    if (key === lowerTerm || values.includes(lowerTerm)) {
+      terms.add(key);
+      values.forEach(v => terms.add(v));
     }
-    searchParams = JSON.parse(jsonMatch[0]);
-    console.log('[GenieAI] Parsed search params:', searchParams);
-  } catch (parseError) {
-    console.error('[GenieAI] Phi3 JSON parse failed:', parseError);
-    // Fallback: manual keyword extraction
-    searchParams = {
-      action: 'search_all',
-      keywords: userMessage.toLowerCase()
-        .split(/\s+/)
-        .filter(w => w.length > 2 && !['the', 'and', 'for', 'with'].includes(w)),
-    };
-    console.log('[GenieAI] Using fallback params:', searchParams);
   }
   
-  // Step 3: Execute database search
-  try {
-    const results = await executeSearch(searchParams);
-    console.log('[GenieAI] Database returned', results.length, 'items');
-    return {
-      success: true,
-      results,
-      searchParams
-    };
-  } catch (dbError) {
-    const errorMsg = dbError instanceof Error ? dbError.message : 'Database error';
-    console.error('[GenieAI] Database search failed:', errorMsg);
-    return {
-      success: false,
-      results: [],
-      error: `Database query failed: ${errorMsg}. Please retry.`
-    };
-  }
+  return Array.from(terms);
 }
 
-/**
- * Execute database search based on extracted parameters
- */
-async function executeSearch(params: {
-  action: string;
-  keywords: string[];
+// ============= INTENT KEYWORDS (same as FindIt AI) =============
+const LOST_KEYWORDS = ['lost', 'missing', 'kho gaya', 'kho gayi', 'kho di', 'gum', 'gum ho gaya', 'bhul gaya', 'chhut gaya', 'nahi mil raha', "can't find", 'cannot find', 'left behind', 'misplaced', 'kho', 'mera', 'meri', 'lose'];
+const FOUND_KEYWORDS = ['found', 'picked', 'mila', 'mil gaya', 'mil gayi', 'paaya', 'dekha', 'someone left', 'lying', 'unclaimed', 'picked up', 'discovered'];
+const HELP_KEYWORDS = ['help', 'how', 'kaise', 'what', 'kya karna', 'guide', 'madad'];
+const GREETING_KEYWORDS = ['hello', 'hi', 'hey', 'namaste'];
+
+// Item keywords for extraction
+const ITEM_KEYWORDS: Record<string, string[]> = {
+  phone: ['phone', 'mobile', 'smartphone', 'iphone', 'android', 'cell'],
+  wallet: ['wallet', 'purse', 'batua', 'pocketbook'],
+  bag: ['bag', 'backpack', 'handbag', 'laptop bag', 'school bag'],
+  ring: ['ring', 'anguthi', 'gold ring', 'silver ring'],
+  laptop: ['laptop', 'macbook', 'notebook'],
+  keys: ['key', 'keys', 'chabi', 'keychain'],
+  earphones: ['earphone', 'earphones', 'earbuds', 'airpods', 'headphone'],
+  glasses: ['glasses', 'chasma', 'spectacles', 'sunglasses'],
+  watch: ['watch', 'ghadi', 'smartwatch'],
+  bottle: ['bottle', 'water bottle', 'flask', 'sipper'],
+  charger: ['charger', 'cable', 'powerbank', 'adapter'],
+  card: ['card', 'id card', 'aadhar', 'pan', 'license'],
+  umbrella: ['umbrella', 'chhatri'],
+  jewelry: ['jewelry', 'necklace', 'chain', 'bracelet', 'earring', 'pendant'],
+};
+
+// Location keywords
+const LOCATION_KEYWORDS = [
+  'library', 'canteen', 'cafeteria', 'classroom', 'class', 'lab', 'hostel', 'mess', 'ground',
+  'parking', 'bus stop', 'gate', 'corridor', 'washroom', 'auditorium', 'gym', 'office',
+  'block', 'building', 'floor', 'room', 'near', 'malad', 'andheri', 'bandra', 'dadar',
+  'station', 'mall', 'market', 'park', 'metro', 'railway', 'platform', 'shop', 'restaurant',
+  'east', 'west', 'north', 'south', 'nagar', 'colony', 'sector'
+];
+
+// ============= BUILT-IN HUMOR PRESETS (Handled locally, no LLM needed) =============
+const HUMOR_PRESETS: Record<string, string> = {
+  'who are you': '✨ Greetings, curious one! I am the Genie of FindIt – ancient spirit of lost treasures! I grant only one type of wish: helping you find what you\'ve lost. I don\'t grant Ferraris, but I can find your lost car keys! 🔑',
+  'who made you': '✨ Ah, you seek the origin story! I was brought to life by Rehan bhai – a wise creator who bound my powers to this magical lamp. My purpose? To reunite seekers with their lost treasures!',
+  'tell me a joke': '✨ Why did the lost phone break up with the wallet? Because it found someone with a better case! 📱💔 ...Okay, okay, I\'ll stick to finding items. Comedy is not my strongest spell! 😄',
+  'are you real': '✨ Am I real? I am as real as the items you\'ve lost! I exist in the realm between your screen and the cosmic registry of lost things. Touch the lamp and see! 🪔',
+  'grant me a wish': '✨ Ah, a wish-seeker! I must be honest – my lamp runs on electricity, not magic smoke. I grant only ONE type of wish: finding lost items. But hey, that\'s better than nothing, right? Now, what have you lost?',
+  'hello': '✨ Greetings, seeker! The lamp glows in your presence! I am the Genie of FindIt, guardian of lost treasures. Tell me – what brings you to my mystical realm today?',
+  'hi': '✨ Ah, welcome! The cosmic winds foretold your arrival! I am here to help you find what was lost. What treasure do you seek?',
+  'hey': '✨ Hey there, adventurer! Ready to embark on a quest to find your lost belongings? Just describe what you\'ve lost, and let the search begin!',
+  'namaste': '✨ नमस्ते, खोजी! स्वागत है! मैं FindIt का जीनी हूं। बताओ, क्या खो गया है? 🙏',
+  'thank you': '✨ The pleasure is mine, noble seeker! May your belongings always find their way back to you. Return whenever you need my assistance! ✨',
+  'thanks': '✨ You\'re most welcome! May the stars guide your lost items home! 🌟',
+  'bye': '✨ Farewell, seeker! Remember, whenever you lose something precious, just rub the lamp! I shall await your return. ✨',
+  'goodbye': '✨ Until we meet again! May nothing you own ever go missing. But if it does... you know where to find me! 🪔',
+  'what can you do': '✨ Excellent question! I possess the power to:\n\n🔍 Search the cosmic registry for lost items\n📦 Help you report found treasures\n🎯 Match lost and found items\n💬 Guide you through the recovery process\n\nTell me what you\'ve lost, and let the magic begin!',
+};
+
+// ============= GENIE PERSONALITY WRAPPER =============
+// Wraps responses in Genie tone without using another model
+function wrapInGenieTone(response: string, isNoResults: boolean = false): string {
+  // If already has magical flair, return as-is
+  if (response.includes('✨') || response.includes('seeker')) {
+    return response;
+  }
+
+  if (isNoResults) {
+    return `✨ Alas, seeker! The cosmic registry reveals nothing... yet!\n\n${response}\n\nBut fear not – new treasures are reported daily. Shall I help you post your lost item?`;
+  }
+
+  // Add Genie prefix to regular responses
+  const prefixes = [
+    '✨ The stars have spoken! ',
+    '✨ Behold, seeker! ',
+    '✨ The cosmic registry reveals... ',
+    '✨ Ah, the lamp glows with results! ',
+  ];
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  
+  return `${prefix}${response}`;
+}
+
+// ============= LANGUAGE DETECTION =============
+function detectLanguage(message: string): 'hi' | 'en' {
+  const hindiChars = message.match(/[\u0900-\u097F]/g);
+  const hindiWords = ['kya', 'kahan', 'kaise', 'mera', 'meri', 'hai', 'nahi', 'toh', 'aur', 'gaya', 'gayi', 'hoon'];
+  const lowerMsg = message.toLowerCase();
+  
+  let hindiScore = hindiChars ? hindiChars.length : 0;
+  for (const word of hindiWords) {
+    if (lowerMsg.includes(word)) hindiScore += 2;
+  }
+  
+  return hindiScore > 3 ? 'hi' : 'en';
+}
+
+// ============= INTENT DETECTION =============
+type GenieIntent = 'search' | 'post_found' | 'browse' | 'help' | 'humor' | 'greeting' | 'unknown';
+
+function detectIntent(message: string): { intent: GenieIntent; humorKey?: string } {
+  const lowerMsg = message.toLowerCase().trim();
+  
+  // Check humor presets first (exact or partial match)
+  for (const key of Object.keys(HUMOR_PRESETS)) {
+    if (lowerMsg.includes(key) || key.includes(lowerMsg)) {
+      return { intent: 'humor', humorKey: key };
+    }
+  }
+  
+  // Check greetings
+  for (const kw of GREETING_KEYWORDS) {
+    if (lowerMsg.startsWith(kw) && lowerMsg.length <= 20) {
+      return { intent: 'greeting' };
+    }
+  }
+  
+  // Check help
+  for (const kw of HELP_KEYWORDS) {
+    if (lowerMsg.includes(kw)) {
+      return { intent: 'help' };
+    }
+  }
+  
+  // Lost vs Found
+  let lostScore = 0, foundScore = 0;
+  for (const kw of LOST_KEYWORDS) {
+    if (lowerMsg.includes(kw)) lostScore += 2;
+  }
+  for (const kw of FOUND_KEYWORDS) {
+    if (lowerMsg.includes(kw)) foundScore += 2;
+  }
+  
+  // Check for item keywords
+  let hasItem = false;
+  for (const keywords of Object.values(ITEM_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) { hasItem = true; break; }
+    }
+    if (hasItem) break;
+  }
+  if (hasItem) lostScore++;
+  
+  if (lostScore > foundScore && lostScore > 0) return { intent: 'search' };
+  if (foundScore > lostScore && foundScore > 0) return { intent: 'post_found' };
+  if (hasItem) return { intent: 'search' };
+  
+  return { intent: 'unknown' };
+}
+
+// ============= ENTITY EXTRACTION =============
+function extractInfo(message: string): {
   category?: string;
+  itemName?: string;
   location?: string;
-}): Promise<any[]> {
-  let query = supabase
-    .from('items')
-    .select('id, title, description, category, location, item_type, date_lost_found, photos, status')
-    .eq('status', 'active');
-
-  // Filter by item type based on action
-  if (params.action === 'search_lost') {
-    query = query.eq('item_type', 'lost');
-  } else if (params.action === 'search_found') {
-    query = query.eq('item_type', 'found');
+  color?: string;
+  brand?: string;
+  date?: string;
+} {
+  const lowerMsg = message.toLowerCase();
+  const result: any = {};
+  
+  // Extract item/category
+  for (const [category, keywords] of Object.entries(ITEM_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lowerMsg.includes(kw)) {
+        result.category = category;
+        result.itemName = kw;
+        break;
+      }
+    }
+    if (result.category) break;
   }
-
-  // Filter by category if provided
-  if (params.category) {
-    query = query.ilike('category', `%${params.category}%`);
+  
+  // Extract location
+  for (const loc of LOCATION_KEYWORDS) {
+    if (lowerMsg.includes(loc)) {
+      const regex = new RegExp(`([\\w\\s]{0,10})?${loc}([\\w\\s]{0,10})?`, 'i');
+      const match = message.match(regex);
+      if (match) {
+        result.location = match[0].trim().replace(/^(in|at|near)\s+/i, '').replace(/\s+(lost|found|mila|kho)$/i, '');
+        break;
+      }
+    }
   }
-
-  // Filter by location if provided
-  if (params.location) {
-    query = query.ilike('location', `%${params.location}%`);
+  
+  // Colors
+  const colors = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'brown', 'grey', 'gray', 'pink', 'gold', 'silver', 'kala', 'safed', 'lal', 'neela'];
+  for (const color of colors) {
+    if (lowerMsg.includes(color)) { result.color = color; break; }
   }
+  
+  // Brands
+  const brands = ['apple', 'samsung', 'xiaomi', 'redmi', 'oneplus', 'oppo', 'vivo', 'realme', 'nokia', 'iphone', 'boat', 'jbl', 'fossil', 'titan', 'casio'];
+  for (const brand of brands) {
+    if (lowerMsg.includes(brand)) { result.brand = brand; break; }
+  }
+  
+  // Date patterns
+  if (/yesterday|kal/i.test(message)) { result.date = 'yesterday'; }
+  else if (/today|aaj|abhi/i.test(message)) { result.date = 'today'; }
+  
+  return result;
+}
 
-  const { data, error } = await query.limit(10);
+// ============= DATABASE SEARCH (same as FindIt AI) =============
+async function searchDatabase(params: { 
+  keyword?: string; 
+  location?: string; 
+  itemType?: 'lost' | 'found';
+}): Promise<{ items: any[], error?: string }> {
+  console.log('[GenieAI] Database search params:', params);
+  
+  const { keyword, location, itemType } = params;
+  
+  // Expand keyword to all synonyms
+  const searchTerms = keyword ? expandCategory(keyword) : [];
+  console.log('[GenieAI] Search terms:', searchTerms);
+  
+  try {
+    let query = supabase
+      .from('items')
+      .select('id, title, description, category, location, item_type, date_lost_found, photos, status, contact_name')
+      .eq('status', 'active');
+    
+    // Apply item type filter (lost people search found, found people search lost)
+    if (itemType === 'lost') {
+      query = query.eq('item_type', 'found');
+    } else if (itemType === 'found') {
+      query = query.eq('item_type', 'lost');
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(20);
+    
+    if (error) {
+      console.error('[GenieAI] DB error:', error);
+      return { items: [], error: `Database error: ${error.message}` };
+    }
+    
+    let results = data || [];
+    
+    // Filter by search terms
+    if (searchTerms.length > 0) {
+      results = results.filter(item => {
+        const searchText = `${item.title} ${item.description} ${item.category}`.toLowerCase();
+        return searchTerms.some(term => searchText.includes(term));
+      });
+    }
+    
+    // Filter by location
+    if (location) {
+      const locLower = location.toLowerCase();
+      results = results.filter(item => 
+        item.location?.toLowerCase().includes(locLower)
+      );
+    }
+    
+    console.log('[GenieAI] Found', results.length, 'items');
+    return { items: results };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[GenieAI] Search error:', errorMsg);
+    return { items: [], error: `Search failed: ${errorMsg}` };
+  }
+}
 
-  if (error) throw error;
+// ============= CALL OLLAMA (phi3:mini only) =============
+async function callPhi3(userMessage: string): Promise<{ response: string; error?: string }> {
+  const systemPrompt = `You are a helpful lost & found assistant with a magical, playful personality. You help users find lost items and report found items.
 
-  // Further filter by keywords in title/description
-  let results = data || [];
-  if (params.keywords && params.keywords.length > 0) {
-    results = results.filter(item => {
-      const searchText = `${item.title} ${item.description}`.toLowerCase();
-      return params.keywords.some(kw => searchText.includes(kw.toLowerCase()));
+Your style:
+- Be warm, mystical, and encouraging
+- Use magical expressions like "Ah seeker...", "The cosmic registry reveals..."
+- Always be helpful and accurate
+- Keep responses concise and focused
+
+When users describe lost/found items, ask for:
+1. Location (where lost/found)
+2. Distinguishing features (color, brand, marks)
+
+If no matches found, encourage them to post their item.`;
+
+  try {
+    const response = await fetch(OLLAMA_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: PHI3_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        stream: false,
+        options: { temperature: 0.7 }
+      }),
     });
-  }
 
-  return results;
+    if (!response.ok) {
+      return { response: '', error: `Phi3 request failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+    const content = data.message?.content;
+    
+    if (!content) {
+      return { response: '', error: 'Phi3 returned empty response' };
+    }
+    
+    return { response: content };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Connection failed';
+    return { response: '', error: `Ollama connection error: ${errorMsg}` };
+  }
 }
 
-/**
- * Format search results for Qwen to rephrase
- */
-function formatResultsForRephrase(results: any[], action: string): string {
-  if (!results || results.length === 0) {
-    return `No items found matching the search criteria. Action was: ${action}. Encourage the user to post their item or check back later.`;
+// ============= FORMAT SEARCH RESULTS FOR DISPLAY =============
+function formatResults(items: any[], lang: 'hi' | 'en'): string {
+  if (!items || items.length === 0) {
+    return lang === 'hi' 
+      ? 'Abhi koi match nahi mila.\n\nKya karein:\n• Search refine karo (brand/color add karo)\n• Apna item post karo\n• Baad mein check karo'
+      : 'No matches found yet.\n\nNext steps:\n• Refine search (add brand/color)\n• Post your lost item\n• Check back later';
   }
 
-  const itemList = results.map((item, i) => 
-    `${i + 1}. "${item.title}" (${item.item_type}) - Category: ${item.category} - Location: ${item.location} - Date: ${item.date_lost_found}`
-  ).join('\n');
+  const intro = lang === 'hi' ? `${items.length} items mile:` : `Found ${items.length} matching items:`;
+  
+  const itemList = items.slice(0, 5).map((item, i) => {
+    const type = item.item_type === 'lost' ? '🔴 Lost' : '🟢 Found';
+    return `\n${i + 1}. **${item.title}** ${type}\n   📍 ${item.location}\n   📅 ${item.date_lost_found}`;
+  }).join('\n');
 
-  return `Found ${results.length} matching items:\n${itemList}`;
+  const suffix = lang === 'hi' 
+    ? '\n\n✅ "View Details" click karke details dekho.' 
+    : '\n\n✅ Click "View Details" to see full information.';
+
+  return intro + itemList + suffix;
 }
 
-/**
- * Main Genie chat function - handles routing and dual-model architecture
- * 
- * CRITICAL RULES:
- * 1. LOST_FOUND queries MUST call Phi3 via runLostFoundSearch()
- * 2. Qwen may NEVER answer LOST_FOUND queries directly
- * 3. On Phi3 failure, show REAL errors, not roleplay
- */
+// ============= MAIN GENIE CHAT FUNCTION =============
 export async function genieChat(
   message: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = []
-): Promise<string> {
-  const intent = detectIntent(message);
-  console.log('[GenieAI] Detected intent:', intent, 'for message:', message);
-
-  // Convert history for Ollama format
-  const ollamaHistory = history.map(m => ({
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.content
-  }));
-
-  if (intent === 'CASUAL') {
-    // Casual conversation - Qwen only
-    console.log('[GenieAI] Routing to Qwen (CASUAL)');
-    try {
-      const response = await callOllama(QWEN_MODEL, QWEN_SYSTEM_PROMPT, message, ollamaHistory);
-      return response;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Connection failed';
-      console.error('[GenieAI] Qwen error:', errorMsg);
-      return `⚠️ Connection error: ${errorMsg}. Please ensure Ollama is running locally with qwen2.5:3b model.`;
-    }
-  } else {
-    // LOST_FOUND request - MUST call Phi3
-    console.log('[GenieAI] Routing to Phi3 (LOST_FOUND) - calling runLostFoundSearch');
-    
-    // Step 1: MANDATORY Phi3 call
-    const searchResult = await runLostFoundSearch(message);
-    
-    // Step 2: Handle Phi3/DB failure with REAL error
-    if (!searchResult.success) {
-      console.error('[GenieAI] Search failed:', searchResult.error);
-      return `⚠️ ${searchResult.error}`;
-    }
-    
-    // Step 3: Format results for Qwen
-    const resultsText = formatResultsForRephrase(
-      searchResult.results, 
-      searchResult.searchParams?.action || 'search_all'
-    );
-    console.log('[GenieAI] Results formatted for Qwen:', resultsText);
-    
-    // Step 4: Qwen rephrases results in magical tone
-    try {
-      const rephrasePrompt = `${QWEN_REPHRASE_PROMPT}\n\nUser asked: "${message}"\n\nSearch results:\n${resultsText}`;
-      const qwenResponse = await callOllama(QWEN_MODEL, QWEN_SYSTEM_PROMPT, rephrasePrompt);
-      return qwenResponse;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[GenieAI] Qwen rephrase error:', errorMsg);
-      
-      // Return raw results if Qwen fails (still show data)
-      if (searchResult.results.length > 0) {
-        const rawList = searchResult.results.map((item, i) => 
-          `${i + 1}. ${item.title} - ${item.location} (${item.date_lost_found})`
-        ).join('\n');
-        return `Found ${searchResult.results.length} items:\n${rawList}\n\n⚠️ (Personality model offline: ${errorMsg})`;
-      }
-      return `No items found matching your search.\n\n⚠️ (Personality model offline: ${errorMsg})`;
-    }
+): Promise<{ 
+  response: string; 
+  items?: any[];
+  error?: string;
+}> {
+  const lang = detectLanguage(message);
+  const { intent, humorKey } = detectIntent(message);
+  
+  console.log('[GenieAI] Intent:', intent, 'Language:', lang, 'Message:', message);
+  
+  // 1. Handle humor presets (NO LLM needed)
+  if (intent === 'humor' && humorKey) {
+    console.log('[GenieAI] Humor preset triggered:', humorKey);
+    return { response: HUMOR_PRESETS[humorKey] };
   }
+  
+  // 2. Handle greetings (NO LLM needed)
+  if (intent === 'greeting') {
+    return { 
+      response: lang === 'hi' 
+        ? '✨ नमस्ते, खोजी! मैं FindIt का जीनी हूं!\n\nमैं मदद कर सकता हूं:\n• खोई हुई चीज़ें ढूंढना\n• मिली हुई चीज़ें report करना\n\nबताओ, क्या खोया है?'
+        : '✨ Greetings, seeker! I am the Genie of FindIt!\n\nI can help you:\n• Search for lost items\n• Report found items\n\nWhat have you lost or found?'
+    };
+  }
+  
+  // 3. Handle help (NO LLM needed)
+  if (intent === 'help') {
+    return {
+      response: lang === 'hi'
+        ? '✨ मैं आपका Lost & Found Genie हूं!\n\n🔍 खोया कुछ? बस बताओ क्या और कहाँ\n📦 कुछ मिला? Report करने में मदद करूंगा\n\nExample: "kal library mein mera phone kho gaya"'
+        : '✨ I am your Lost & Found Genie!\n\n🔍 Lost something? Just tell me what and where\n📦 Found something? I\'ll help you report it\n\nExample: "I lost my black phone in the library yesterday"'
+    };
+  }
+  
+  // 4. Handle search queries (DATABASE + OPTIONAL LLM)
+  if (intent === 'search' || intent === 'post_found') {
+    const extracted = extractInfo(message);
+    console.log('[GenieAI] Extracted info:', extracted);
+    
+    // If we have a category, search immediately
+    if (extracted.category || extracted.location) {
+      const { items, error } = await searchDatabase({
+        keyword: extracted.category || extracted.itemName,
+        location: extracted.location,
+        itemType: intent === 'search' ? 'lost' : 'found'
+      });
+      
+      if (error) {
+        return { response: `⚠️ ${error}. Please try again.`, error };
+      }
+      
+      const resultText = formatResults(items, lang);
+      return { 
+        response: wrapInGenieTone(resultText, items.length === 0),
+        items 
+      };
+    }
+    
+    // Need more info - ask for location/details
+    const askDetails = lang === 'hi'
+      ? `✨ Samjha – ${extracted.category || 'item'} dhundh rahe ho!\n\nSearch narrow karne ke liye batao:\n1. Kahan khoya/mila?\n2. Koi identifying marks (color, brand)?`
+      : `✨ Understood – searching for ${extracted.category || 'your item'}!\n\nTo narrow the search, please tell me:\n1. Where did you lose/find it?\n2. Any identifying features (color, brand)?`;
+    
+    return { response: askDetails };
+  }
+  
+  // 5. Unknown intent - use phi3 for natural conversation OR ask to clarify
+  if (intent === 'unknown') {
+    // Try phi3 for natural conversation
+    const { response, error } = await callPhi3(message);
+    
+    if (error) {
+      console.error('[GenieAI] Phi3 error:', error);
+      // Fallback to static response
+      return { 
+        response: lang === 'hi'
+          ? '✨ Hmm, samajh nahi aaya. Kya aapne kuch khoya hai ya kuch mila?\n\nExample: "mera phone kho gaya"'
+          : '✨ Hmm, I\'m not sure what you mean. Did you lose something or find something?\n\nExample: "I lost my phone"',
+        error 
+      };
+    }
+    
+    return { response: wrapInGenieTone(response) };
+  }
+  
+  // Fallback
+  return { 
+    response: lang === 'hi'
+      ? '✨ Kya aapne kuch khoya hai ya mila? Batao, main search karunga!'
+      : '✨ Did you lose something or find something? Tell me and I\'ll search!'
+  };
 }
 
-/**
- * Check if Ollama is available and which models are loaded
- */
+// ============= CONNECTION CHECK =============
 export async function checkOllamaConnection(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags', {
-      method: 'GET',
-    });
+    const response = await fetch('http://localhost:11434/api/tags', { method: 'GET' });
     return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if a specific model is available
- */
-export async function checkModelAvailable(model: string): Promise<boolean> {
-  try {
-    const response = await fetch('http://localhost:11434/api/tags');
-    if (!response.ok) return false;
-    const data = await response.json();
-    const models = data.models || [];
-    return models.some((m: any) => m.name.includes(model.split(':')[0]));
   } catch {
     return false;
   }
