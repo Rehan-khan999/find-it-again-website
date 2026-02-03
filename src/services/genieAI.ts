@@ -201,14 +201,24 @@ export async function genieChat(
 // Check if the edge function is reachable
 export async function checkOllamaConnection(): Promise<boolean> {
   try {
-    // Just do a simple ping to the edge function
+    // Send a minimal request - even if action is unknown, getting a response means function is up
     const response = await fetch(AI_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'ping' }),
+      body: JSON.stringify({ action: 'health' }),
     });
-    // If we get any response, the function is available
-    return response.ok || response.status === 400; // 400 means function works but action invalid
+    
+    // Any response (even 400/500 with "Unknown action") means the function is reachable
+    // Only network failures should return false
+    if (response.ok) return true;
+    
+    // Check if it's an "Unknown action" error - that means function is working
+    const data = await response.json().catch(() => null);
+    if (data?.error?.includes('Unknown action')) {
+      return true; // Function is up, just doesn't have this action
+    }
+    
+    return response.status < 500; // 4xx errors still mean function is reachable
   } catch {
     return false;
   }
