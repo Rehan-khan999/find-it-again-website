@@ -69,9 +69,11 @@ export const ThreeCanvas = () => {
       z: genie.position.z,
     };
 
-    // 1. Move genie slightly left (local x: -0.25)
+    // 1. Move genie: left (-0.25), UP (+0.6) so head peeks above chat, and forward (+0.3)
     gsap.to(genie.position, {
       x: genie.position.x - 0.25,
+      y: genie.position.y + 0.6,  // Raise genie so head/neck visible above chat
+      z: genie.position.z + 0.3,   // Bring forward slightly
       duration: 0.6,
       ease: 'power2.out',
     });
@@ -479,7 +481,7 @@ export const ThreeCanvas = () => {
         width: '420px',
         height: '420px',
         pointerEvents: 'none',
-        zIndex: 10,
+        zIndex: 60, // Higher than chat panel (z-50) so genie head peeks above
       }}
     />
   );
