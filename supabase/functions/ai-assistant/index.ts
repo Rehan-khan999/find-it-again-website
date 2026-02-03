@@ -803,6 +803,11 @@ serve(async (req) => {
         result = { success: true, processed: webhookItem.id };
         break;
 
+      case 'health':
+        // Simple health check endpoint for connection testing
+        result = { ok: true, timestamp: new Date().toISOString() };
+        break;
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
