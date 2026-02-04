@@ -2,8 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Shield, Sparkles, Zap, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { ThreeCanvas } from "@/components/ThreeCanvas";
-import { GenieChatPanel } from "@/components/GenieChatPanel";
+import { GenieWrapper } from "@/components/GenieWrapper";
 import { useTranslation } from 'react-i18next';
 import { HomepageBackground } from "@/components/HomepageBackground";
 
@@ -17,11 +16,8 @@ export default function Index() {
       {/* Homepage Background - fixed, behind everything */}
       <HomepageBackground />
       
-      {/* Three.js Canvas - fixed bottom-right, only lamp is clickable */}
-      <ThreeCanvas />
-      
-      {/* Cosmic Chat Panel - appears when genie emerges */}
-      <GenieChatPanel />
+      {/* Genie + Chat wrapper - contains both 3D canvas and chat panel */}
+      <GenieWrapper />
       
       {/* Hero Section */}
       <section className="relative min-h-[95vh] flex items-center justify-center overflow-hidden page-enter" style={{ zIndex: 1, pointerEvents: 'none' }}>

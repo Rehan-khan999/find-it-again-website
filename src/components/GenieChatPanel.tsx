@@ -257,29 +257,20 @@ export const GenieChatPanel = () => {
 
   const panelWidth = 340;
   const panelHeight = 420;
-  
-  let panelRight = 20;
-  let panelBottom = 60;
-  
-  if (geniePos && geniePos.canvasRect) {
-    panelRight = window.innerWidth - geniePos.x - panelWidth - 40;
-    panelBottom = window.innerHeight - geniePos.y - panelHeight / 2;
-    panelRight = Math.max(10, Math.min(panelRight, 180));
-    panelBottom = Math.max(10, Math.min(panelBottom, window.innerHeight - panelHeight - 10));
-  }
 
   return (
     <>
       <div 
         className={cn(
-          "fixed z-50 transition-all duration-500 ease-out",
+          "fixed transition-all duration-500 ease-out pointer-events-auto",
           isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
         )}
         style={{
-          right: `${panelRight}px`,
-          bottom: `${panelBottom}px`,
+          right: '180px',
+          bottom: '60px',
           width: `${panelWidth}px`,
           maxHeight: `${panelHeight}px`,
+          zIndex: 50, // Below genie canvas (z-60) so genie peeks above
         }}
       >
         {/* Connecting line */}

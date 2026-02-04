@@ -69,11 +69,9 @@ export const ThreeCanvas = () => {
       z: genie.position.z,
     };
 
-    // 1. Move genie: left (-0.25), UP (+0.6) so head peeks above chat, and forward (+0.3)
+    // 1. Move genie slightly left (local x: -0.25) - NO vertical/z changes
     gsap.to(genie.position, {
       x: genie.position.x - 0.25,
-      y: genie.position.y + 0.6,  // Raise genie so head/neck visible above chat
-      z: genie.position.z + 0.3,   // Bring forward slightly
       duration: 0.6,
       ease: 'power2.out',
     });
