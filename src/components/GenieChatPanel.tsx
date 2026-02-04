@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, X, Sparkles, Wifi, WifiOff, MapPin, Tag, Eye, RotateCcw } from 'lucide-react';
+import { Loader2, Send, X, Sparkles, Wifi, WifiOff, MapPin, Tag, Eye, RotateCcw, GripHorizontal } from 'lucide-react';
 import { GENIE_EVENTS, triggerGenieReaction, triggerPresentChat } from './ThreeCanvas';
 import { cn } from '@/lib/utils';
 import { genieChat, checkOllamaConnection, ChatMessage, MatchResult, ConversationContext, SessionContext } from '@/services/genieAI';
@@ -60,6 +60,12 @@ export const GenieChatPanel = () => {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+  
   const memory = getGenieMemory();
   
   const [sessionContext, setSessionContext] = useState<SessionContext | undefined>(() => memory.sessionContext);
@@ -77,8 +83,65 @@ export const GenieChatPanel = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [geniePos, setGeniePos] = useState<{ x: number; y: number; canvasRect?: DOMRect } | null>(null);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const panelWidth = 340;
+  const panelHeight = 420;
+
+  // Initialize panel position - far right to avoid genie overlap
+  useEffect(() => {
+    const initPosition = () => {
+      const initialX = window.innerWidth - panelWidth - 20; // 20px from right edge
+      const initialY = window.innerHeight - panelHeight - 60; // 60px from bottom
+      setPosition({ x: initialX, y: initialY });
+    };
+    initPosition();
+    window.addEventListener('resize', initPosition);
+    return () => window.removeEventListener('resize', initPosition);
+  }, []);
+
+  // Drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!panelRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = panelRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    let newX = e.clientX - dragOffset.x;
+    let newY = e.clientY - dragOffset.y;
+    
+    // Keep within viewport bounds
+    newX = Math.max(0, Math.min(newX, window.innerWidth - panelWidth));
+    newY = Math.max(0, Math.min(newY, window.innerHeight - panelHeight));
+    
+    setPosition({ x: newX, y: newY });
+  }, [isDragging, dragOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Handle viewing item details
   const handleViewItem = (item: any) => {
@@ -150,12 +213,15 @@ export const GenieChatPanel = () => {
     };
   }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Clear conversation
   const handleClearConversation = () => {
@@ -255,35 +321,24 @@ export const GenieChatPanel = () => {
 
   if (!isVisible) return null;
 
-  const panelWidth = 340;
-  const panelHeight = 420;
-
   return (
     <>
       <div 
+        ref={panelRef}
         className={cn(
-          "fixed transition-all duration-500 ease-out pointer-events-auto",
-          isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"
+          "fixed transition-opacity duration-500 ease-out pointer-events-auto",
+          isVisible ? "opacity-100" : "opacity-0",
+          isDragging ? "cursor-grabbing" : ""
         )}
         style={{
-          right: '180px',
-          bottom: '60px',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
           width: `${panelWidth}px`,
           maxHeight: `${panelHeight}px`,
-          zIndex: 50, // Below genie canvas (z-60) so genie peeks above
+          zIndex: 50,
+          transform: 'none', // Use left/top for positioning
         }}
       >
-        {/* Connecting line */}
-        <div 
-          className="absolute w-8 h-1 pointer-events-none hidden md:block"
-          style={{
-            top: '35%',
-            left: '-32px',
-            background: 'linear-gradient(to left, rgba(34, 211, 238, 0.7), transparent)',
-            borderRadius: '2px',
-          }}
-        />
-
         {/* Glassmorphism panel */}
         <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-400/30 bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/95 backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.6),0_0_60px_rgba(34,211,238,0.25)]">
           {/* Decorative edges */}
@@ -297,9 +352,17 @@ export const GenieChatPanel = () => {
             <div className="absolute w-1 h-1 bg-purple-200 rounded-full animate-pulse" style={{ bottom: '30%', left: '10%', animationDelay: '0.9s' }} />
           </div>
 
-          {/* Header */}
-          <div className="flex items-center justify-between p-2.5 border-b border-white/10">
+          {/* Draggable Header */}
+          <div 
+            className={cn(
+              "flex items-center justify-between p-2.5 border-b border-white/10",
+              isDragging ? "cursor-grabbing" : "cursor-grab"
+            )}
+            onMouseDown={handleMouseDown}
+          >
             <div className="flex items-center gap-2">
+              {/* Drag indicator */}
+              <GripHorizontal className="h-3 w-3 text-white/40" />
               <div className="relative">
                 <Sparkles className="h-4 w-4 text-cyan-400" />
                 <div className="absolute inset-0 animate-ping">
@@ -322,7 +385,7 @@ export const GenieChatPanel = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
               <Button 
                 variant="ghost" 
                 size="icon"
@@ -344,7 +407,7 @@ export const GenieChatPanel = () => {
           </div>
 
           {/* Messages */}
-          <ScrollArea className="h-[280px] p-2.5" ref={scrollRef}>
+          <ScrollArea className="h-[280px] p-2.5" ref={scrollAreaRef}>
             <div className="space-y-2.5">
               {messages.map((message, index) => (
                 <div

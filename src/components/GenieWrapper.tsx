@@ -2,18 +2,18 @@ import { ThreeCanvas } from './ThreeCanvas';
 import { GenieChatPanel } from './GenieChatPanel';
 
 /**
- * GenieWrapper - Contains both the 3D genie canvas and the chat panel.
- * The genie canvas overlays the chat panel with higher z-index so only the 
- * genie's head/neck peeks above the chat window.
+ * GenieWrapper - Renders both the 3D genie canvas and the chat panel independently.
+ * They are NOT wrapped in the same container - each is positioned independently.
+ * The genie/lamp stay fixed; only the chat panel is draggable.
  */
 export const GenieWrapper = () => {
   return (
     <>
-      {/* Chat panel - positioned fixed, lower z-index */}
-      <GenieChatPanel />
-      
-      {/* Genie canvas - positioned fixed, higher z-index to peek above chat */}
+      {/* Three.js Canvas - fixed bottom-right, genie and lamp stay in place */}
       <ThreeCanvas />
+      
+      {/* Chat panel - independently positioned and draggable */}
+      <GenieChatPanel />
     </>
   );
 };
