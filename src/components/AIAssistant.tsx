@@ -147,11 +147,15 @@ export const AIAssistant = () => {
     setIsItemDialogOpen(true);
   };
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   useEffect(() => {
     const fetchAutocomplete = async () => {
