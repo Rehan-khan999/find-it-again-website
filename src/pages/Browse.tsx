@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAITabListener } from "@/hooks/useAITabControl";
+import { StorageImage } from "@/components/StorageImage";
 
 interface Item {
   id: string;
@@ -99,8 +100,9 @@ const Browse = () => {
     queryKey: ['items', searchTerm, selectedCategory, activeTab, selectedStatus],
     queryFn: async () => {
       // Base items - filter by active tab (lost/found)
+      // Signed-out visitors read the public view, which omits contact details.
       let itemsQuery = (supabase as any)
-        .from('items')
+        .from(user ? 'items' : 'items_public')
         .select('*')
         .eq('status', selectedStatus)
         .eq('item_type', activeTab)
@@ -155,7 +157,7 @@ const Browse = () => {
       if (userIds.length === 0) return;
 
       const { data: profiles } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, is_verified')
         .in('id', userIds);
 
@@ -228,8 +230,8 @@ const Browse = () => {
         {/* Thumbnail Image */}
         {thumbnailUrl && (
           <div className="w-full h-48 overflow-hidden">
-            <img 
-              src={thumbnailUrl} 
+            <StorageImage
+              src={thumbnailUrl}
               alt={item.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />

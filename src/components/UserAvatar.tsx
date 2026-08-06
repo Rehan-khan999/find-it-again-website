@@ -55,7 +55,7 @@ export const UserAvatar = ({
     const fetchProfile = async () => {
       try {
         const { data, error } = await supabase
-          .from('profiles')
+          .from('public_profiles')
           .select('avatar_url, full_name')
           .eq('id', userId)
           .single();
