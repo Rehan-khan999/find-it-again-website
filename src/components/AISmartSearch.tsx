@@ -53,7 +53,7 @@ export const AISmartSearch = ({
     try {
       // Fetch all active items
       const { data: items } = await supabase
-        .from("items")
+        .from("items_public")
         .select("*")
         .eq("status", "active")
         .limit(100);

@@ -46,7 +46,7 @@ const UserProfile = () => {
 
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, full_name, avatar_url, created_at, is_verified')
         .eq('id', userId)
         .single();

@@ -8,6 +8,7 @@ import { GENIE_EVENTS, triggerGenieReaction, triggerPresentChat } from './ThreeC
 import { cn } from '@/lib/utils';
 import { genieChat, checkOllamaConnection, ChatMessage, MatchResult, ConversationContext, SessionContext } from '@/services/genieAI';
 import { ItemDetailsDialog } from './ItemDetailsDialog';
+import { StorageImage } from "@/components/StorageImage";
 
 interface Message {
   role: 'user' | 'assistant';
@@ -443,7 +444,7 @@ export const GenieChatPanel = () => {
                                 #{match.rank}
                               </div>
                               {match.item.photos && match.item.photos[0] && (
-                                <img
+                                <StorageImage
                                   src={match.item.photos[0]}
                                   alt={match.item.title}
                                   className="w-10 h-10 rounded object-cover"

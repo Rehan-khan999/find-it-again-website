@@ -11,6 +11,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { useAITabController, setLastIntent } from "@/hooks/useAITabControl";
+import { StorageImage } from "@/components/StorageImage";
 
 // Session memory keys
 const MEMORY_KEYS = {
@@ -460,7 +461,7 @@ export const AIAssistant = () => {
                             #{match.rank}
                           </div>
                           {match.item.photos && match.item.photos[0] && (
-                            <img
+                            <StorageImage
                               src={match.item.photos[0]}
                               alt={match.item.title}
                               className="w-12 h-12 rounded object-cover"

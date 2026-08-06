@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { QRCodeTag } from "@/components/QRCodeTag";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { UserAvatar } from "./UserAvatar";
+import { StorageImage } from "@/components/StorageImage";
 
 interface Item {
   id: string;
@@ -61,7 +62,7 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
       }
 
       const { data } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('is_verified')
         .eq('id', item.user_id)
         .maybeSingle();
@@ -165,7 +166,7 @@ export const ItemDetailsDialog = ({ item, isOpen, onClose }: ItemDetailsDialogPr
               <h3 className="font-semibold text-gray-900">Photos</h3>
               <div className="grid grid-cols-2 gap-2">
                 {item.photos.map((photo, index) => (
-                  <img
+                  <StorageImage
                     key={index}
                     src={photo}
                     alt={`${item.title} photo ${index + 1}`}
