@@ -104,7 +104,6 @@ serve(async (req) => {
       .update({
         is_verified: true,
         verified_at: new Date().toISOString(),
-        verification_payment_id: razorpay_payment_id,
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id);
@@ -112,6 +111,19 @@ serve(async (req) => {
     if (updateProfileError) {
       console.error('Failed to update profile:', updateProfileError);
       throw new Error('Failed to update verification status');
+    }
+
+    const { error: updatePrivateError } = await supabaseClient
+      .from('profiles_private')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        verification_payment_id: razorpay_payment_id,
+        updated_at: new Date().toISOString()
+      });
+
+    if (updatePrivateError) {
+      console.error('Failed to record verification payment id:', updatePrivateError);
     }
 
     console.log('User verified successfully:', user.id);

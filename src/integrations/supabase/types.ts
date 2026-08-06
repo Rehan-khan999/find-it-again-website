@@ -661,40 +661,73 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
-          email: string | null
           full_name: string | null
           id: string
           is_verified: boolean | null
-          phone: string | null
           updated_at: string
-          verification_payment_id: string | null
           verified_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id: string
           is_verified?: boolean | null
-          phone?: string | null
           updated_at?: string
-          verification_payment_id?: string | null
           verified_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id?: string
           is_verified?: boolean | null
-          phone?: string | null
           updated_at?: string
-          verification_payment_id?: string | null
           verified_at?: string | null
         }
         Relationships: []
+      }
+      profiles_private: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+          verification_payment_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+          verification_payment_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          verification_payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_private_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_private_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {

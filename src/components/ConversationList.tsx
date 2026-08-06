@@ -96,7 +96,7 @@ export const ConversationList = ({ selectedUserId, onSelectConversation }: Conve
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium text-sm truncate">
-                    {conversation.user_name || conversation.user_email}
+                    {conversation.user_name || 'User'}
                   </h4>
                   {conversation.unread_count > 0 && (
                     <Badge variant="secondary" className="ml-2 px-2 py-1 text-xs">

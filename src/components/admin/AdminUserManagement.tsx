@@ -47,10 +47,15 @@ export const AdminUserManagement = () => {
 
       if (rolesError) throw rolesError;
 
+      // Admins/moderators may read contact details from the private table
+      const { data: privateProfiles } = await supabase
+        .from('profiles_private')
+        .select('id, email');
+
       // Combine users with their roles
       const usersWithRoles = profiles?.map(profile => ({
         id: profile.id,
-        email: profile.email || '',
+        email: privateProfiles?.find(p => p.id === profile.id)?.email || '',
         full_name: profile.full_name || '',
         created_at: profile.created_at,
         roles: userRoles?.filter(role => role.user_id === profile.id).map(role => role.role) || ['user']
