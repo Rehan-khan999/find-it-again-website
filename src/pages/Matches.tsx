@@ -9,6 +9,7 @@ import { ItemDetailsDialog } from "@/components/ItemDetailsDialog";
 import { useMemo, useState } from "react";
 import { Handshake, Eye, Clock, Sparkles } from "lucide-react";
 import { computeImageSimilarity } from "@/services/imageSimilarity";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 
 interface Match {
   id: string;
