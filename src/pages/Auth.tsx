@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -8,12 +8,15 @@ const Auth = () => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = params.get('next');
+  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
 
   useEffect(() => {
     if (user && !loading) {
-      navigate('/');
+      navigate(safeNext, { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, safeNext]);
 
   const toggleMode = () => {
     setMode(mode === 'login' ? 'signup' : 'login');
