@@ -59,11 +59,17 @@ const Profile = () => {
 
       if (error) throw error;
 
+      const { data: privateData } = await supabase
+        .from('profiles_private')
+        .select('email, phone')
+        .eq('id', user?.id)
+        .maybeSingle();
+
       if (data) {
         setProfile({
           full_name: data.full_name || '',
-          email: data.email || user?.email || '',
-          phone: data.phone || '',
+          email: privateData?.email || user?.email || '',
+          phone: privateData?.phone || '',
           avatar_url: data.avatar_url || '',
           created_at: data.created_at,
           is_verified: data.is_verified || false
@@ -88,12 +94,22 @@ const Profile = () => {
         .from('profiles')
         .update({
           full_name: profile.full_name,
-          phone: profile.phone,
           updated_at: new Date().toISOString()
         })
         .eq('id', user?.id);
 
       if (error) throw error;
+
+      const { error: privateError } = await supabase
+        .from('profiles_private')
+        .upsert({
+          id: user?.id,
+          email: profile.email || user?.email || null,
+          phone: profile.phone,
+          updated_at: new Date().toISOString()
+        });
+
+      if (privateError) throw privateError;
 
       toast({
         title: t('toast.success'),
