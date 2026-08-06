@@ -63,10 +63,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_match_suggestions_found_item_id_fkey"
+            columns: ["found_item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ai_match_suggestions_lost_item_id_fkey"
             columns: ["lost_item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_match_suggestions_lost_item_id_fkey"
+            columns: ["lost_item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
             referencedColumns: ["id"]
           },
         ]
@@ -113,6 +127,13 @@ export type Database = {
             referencedRelation: "items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_notifications_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_tags: {
@@ -155,6 +176,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_tags_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
             referencedColumns: ["id"]
           },
         ]
@@ -223,6 +251,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
             referencedColumns: ["id"]
           },
         ]
@@ -371,6 +406,13 @@ export type Database = {
             referencedRelation: "items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "item_closures_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       items: {
@@ -476,10 +518,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "matches_found_item_id_fkey"
+            columns: ["found_item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "matches_lost_item_id_fkey"
             columns: ["lost_item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_lost_item_id_fkey"
+            columns: ["lost_item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
             referencedColumns: ["id"]
           },
         ]
@@ -548,6 +604,13 @@ export type Database = {
             columns: ["related_item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "items_public"
             referencedColumns: ["id"]
           },
         ]
@@ -788,7 +851,93 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      items_public: {
+        Row: {
+          additional_info: string | null
+          category: string | null
+          created_at: string | null
+          date_lost_found: string | null
+          description: string | null
+          id: string | null
+          item_type: string | null
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          photos: Json | null
+          reward: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+          verification_questions: Json | null
+        }
+        Insert: {
+          additional_info?: string | null
+          category?: string | null
+          created_at?: string | null
+          date_lost_found?: string | null
+          description?: string | null
+          id?: string | null
+          item_type?: string | null
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
+          photos?: Json | null
+          reward?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verification_questions?: Json | null
+        }
+        Update: {
+          additional_info?: string | null
+          category?: string | null
+          created_at?: string | null
+          date_lost_found?: string | null
+          description?: string | null
+          id?: string | null
+          item_type?: string | null
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
+          photos?: Json | null
+          reward?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verification_questions?: Json | null
+        }
+        Relationships: []
+      }
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string | null
+          is_verified: boolean | null
+          verified_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string | null
+          is_verified?: boolean | null
+          verified_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string | null
+          is_verified?: boolean | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_conversations: {
