@@ -128,7 +128,7 @@ export const AIMatchSuggestions = () => {
                     <div className="space-y-2">
                       <Badge variant="destructive" className="text-xs">LOST</Badge>
                       {suggestion.lost_item?.photos?.[0] && (
-                        <img
+                        <StorageImage
                           src={suggestion.lost_item.photos[0]}
                           alt={suggestion.lost_item.title}
                           className="w-full h-20 object-cover rounded"
@@ -150,7 +150,7 @@ export const AIMatchSuggestions = () => {
                     <div className="space-y-2">
                       <Badge className="text-xs bg-green-500">FOUND</Badge>
                       {suggestion.found_item?.photos?.[0] && (
-                        <img
+                        <StorageImage
                           src={suggestion.found_item.photos[0]}
                           alt={suggestion.found_item.title}
                           className="w-full h-20 object-cover rounded"

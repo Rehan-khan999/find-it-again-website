@@ -83,7 +83,7 @@ const SuccessStories = () => {
                     {s.photos?.length > 0 && (
                       <div className="grid grid-cols-2 gap-2 mb-4">
                         {s.photos.map((src, i) => (
-                          <img
+                          <StorageImage
                             key={i}
                             src={src}
                             loading="lazy"

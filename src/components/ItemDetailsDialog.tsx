@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { QRCodeTag } from "@/components/QRCodeTag";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { UserAvatar } from "./UserAvatar";
+import { StorageImage } from "@/components/StorageImage";
 
 interface Item {
   id: string;

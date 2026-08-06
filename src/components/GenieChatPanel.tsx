@@ -443,7 +443,7 @@ export const GenieChatPanel = () => {
                                 #{match.rank}
                               </div>
                               {match.item.photos && match.item.photos[0] && (
-                                <img
+                                <StorageImage
                                   src={match.item.photos[0]}
                                   alt={match.item.title}
                                   className="w-10 h-10 rounded object-cover"
