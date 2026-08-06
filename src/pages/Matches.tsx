@@ -137,8 +137,8 @@ const Matches = () => {
                   for (const match of matches) {
                     const userOwnedItem = match.lost_item?.user_id === user?.id ? match.lost_item : match.found_item;
                     const matchedItem = match.lost_item?.user_id === user?.id ? match.found_item : match.lost_item;
-                    const a = userOwnedItem?.photos?.[0];
-                    const b = matchedItem?.photos?.[0];
+                    const a = await resolveStorageUrl(userOwnedItem?.photos?.[0]);
+                    const b = await resolveStorageUrl(matchedItem?.photos?.[0]);
                     if (a && b) {
                       const score = await computeImageSimilarity(a, b);
                       scores[match.id] = score;
