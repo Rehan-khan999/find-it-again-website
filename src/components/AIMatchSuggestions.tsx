@@ -9,6 +9,7 @@ import { fetchAIMatchSuggestions } from "@/services/aiAssistant";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { StorageImage } from "@/components/StorageImage";
 
 interface MatchSuggestion {
   id: string;

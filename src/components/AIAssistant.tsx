@@ -11,6 +11,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { useAITabController, setLastIntent } from "@/hooks/useAITabControl";
+import { StorageImage } from "@/components/StorageImage";
 
 // Session memory keys
 const MEMORY_KEYS = {
